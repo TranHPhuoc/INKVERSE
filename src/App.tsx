@@ -21,11 +21,17 @@ import AccountAddressPage from "./pages/AccountAddressPage";
 
 import ScrollToTop from "./components/ScrollToTop.tsx";
 import ProtectedRoute from "./routes/ProtectedRoute";
+
 import Dashboard from "./pages/admin/Dashboard";
 import BooksPage from "./pages/admin/BooksPage";
 import UserPage from "./pages/admin/UserPage";
 import CategoriesPage from "./pages/admin/CategoriesPage";
 import MasterPage from "./pages/admin/MasterPage";
+
+import SaleLayout from "./layouts/sale/SaleLayout";
+import SaleOrdersPage from "./pages/sale/SaleOrderPage";
+import SaleOrderDetailPage from "./pages/sale/SaleOrderDetailPage";
+
 
 function LoginGuard({ children }: { children: ReactNode }) {
     try {
@@ -33,9 +39,16 @@ function LoginGuard({ children }: { children: ReactNode }) {
         if (raw) {
             const u = JSON.parse(raw) as { role?: string; roles?: string[] };
             const roles = new Set([u.role, ...(u.roles ?? [])].filter(Boolean) as string[]);
-            if (roles.has("ROLE_ADMIN") || roles.has("ADMIN")) return <Navigate to="/admin" replace />;
+            if (roles.has("ROLE_ADMIN") || roles.has("ADMIN")) {
+                return <Navigate to="/admin" replace />;
+            }
+            if (roles.has("ROLE_SALE") || roles.has("SALE")) {
+                return <Navigate to="/sale/orders" replace />;
+            }
         }
-    } catch {/**/}
+    } catch {
+        /* ignore */
+    }
     return <>{children}</>;
 }
 
@@ -66,18 +79,19 @@ export default function App() {
                     <Route path="/search" element={<SearchPage />} />
 
                     <Route path="/gio-hang" element={<CartPage />} />
-                    <Route path="/checkout" element={<CheckoutPage />} />                 {/* 👈 thêm */}
-                    <Route path="/tai-khoan/dia-chi" element={<AccountAddressPage />} />  {/* 👈 thêm */}
+                    <Route path="/checkout" element={<CheckoutPage />} />
+                    <Route path="/tai-khoan/dia-chi" element={<AccountAddressPage />} />
                     <Route path="/tai-khoan" element={<Navigate to="/tai-khoan/dia-chi" replace />} />
 
                     <Route path="/orders/:code" element={<OrderDetailPage />} />
                     <Route path="/don-hang" element={<OrderListPage />} />
                 </Route>
 
+                {/* ADMIN */}
                 <Route
                     path="/admin"
                     element={
-                        <ProtectedRoute>
+                        <ProtectedRoute roles={["ADMIN", "ROLE_ADMIN"]}>
                             <AdminLayout />
                         </ProtectedRoute>
                     }
@@ -89,8 +103,24 @@ export default function App() {
                     <Route path="masters" element={<MasterPage />} />
                 </Route>
 
-                <Route path="*" element={<div style={{padding:24}}>404 – Không khớp route</div>} />
+                {/* SALE */}
+                <Route
+                    path="/sale"
+                    element={
+                        <ProtectedRoute roles={["SALE", "ROLE_SALE", "ADMIN", "ROLE_ADMIN"]}>
+                            <SaleLayout />
+                        </ProtectedRoute>
+                    }
+                >
+                    <Route index element={<Navigate to="orders" replace />} />
+                    <Route path="orders" element={<SaleOrdersPage />} />
+                    <Route path="orders/:id" element={<SaleOrderDetailPage />} />
+                </Route>
 
+                <Route
+                    path="*"
+                    element={<div style={{ padding: 24 }}>404 – Không khớp route</div>}
+                />
             </Routes>
         </>
     );

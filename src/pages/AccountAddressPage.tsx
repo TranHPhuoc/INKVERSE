@@ -5,15 +5,19 @@ import {
     createMyAddress,
     deleteMyAddress,
     setDefaultAddress,
+    updateMyAddress,
     type Address,
     type AddressCreate,
 } from "../services/account-address";
+import {motion} from "framer-motion";
 
 export default function AccountAddressPage() {
     const [list, setList] = useState<Address[]>([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
+
+    const [editId, setEditId] = useState<number | null>(null);
 
     const [form, setForm] = useState<AddressCreate>({
         fullName: "",
@@ -30,10 +34,11 @@ export default function AccountAddressPage() {
 
     const returnTo = (() => {
         const raw = search.get("return");
+        if (!raw) return null;
         try {
-            return raw ? decodeURIComponent(raw) : "/checkout";
+            return decodeURIComponent(raw);
         } catch {
-            return "/checkout";
+            return raw;
         }
     })();
 
@@ -42,10 +47,8 @@ export default function AccountAddressPage() {
             setErr(null);
             const data = await listMyAddresses();
             setList(Array.isArray(data) ? data : []);
-        } catch (e) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const er = e as any;
-            setErr(er?.response?.data?.message ?? "Không tải được địa chỉ");
+        } catch (e: any) {
+            setErr(e?.response?.data?.message ?? "Không tải được địa chỉ");
             setList([]);
         } finally {
             setLoading(false);
@@ -56,6 +59,19 @@ export default function AccountAddressPage() {
         void refresh();
     }, []);
 
+    function resetForm() {
+        setEditId(null);
+        setForm({
+            fullName: "",
+            phone: "",
+            line1: "",
+            ward: "",
+            district: "",
+            province: "",
+            makeDefault: true,
+        });
+    }
+
     async function onSubmit(e: React.FormEvent<HTMLFormElement>): Promise<void> {
         e.preventDefault();
         if (pending) return;
@@ -63,13 +79,20 @@ export default function AccountAddressPage() {
         try {
             setPending(true);
             setErr(null);
-            await createMyAddress(form);
+
+            if (editId != null) {
+                // UPDATE
+                await updateMyAddress(editId, form);
+            } else {
+                await createMyAddress(form);
+            }
+
             await refresh();
+            resetForm();
+
             if (returnTo) nav(returnTo, { replace: true });
-        } catch (e) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const er = e as any;
-            setErr(er?.response?.data?.message ?? "Lưu địa chỉ thất bại");
+        } catch (e: any) {
+            setErr(e?.response?.data?.message ?? "Lưu địa chỉ thất bại");
         } finally {
             setPending(false);
         }
@@ -93,7 +116,7 @@ export default function AccountAddressPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-indigo-50 py-10">
-            <div className="max-w-4xl mx-auto px-4 space-y-6">
+            <div className="max-w-5xl mx-auto px-4 space-y-6">
                 <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-indigo-600/10 text-indigo-700 grid place-items-center">
                         <svg viewBox="0 0 24 24" className="w-6 h-6"><path fill="currentColor" d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5m0 2c-4.67 0-8 2.33-8 5v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-2.67-3.33-5-8-5"/></svg>
@@ -159,16 +182,31 @@ export default function AccountAddressPage() {
                         <span className="text-sm text-gray-700 cursor-pointer">Đặt làm địa chỉ mặc định</span>
                     </label>
 
-                    <div className="flex justify-end">
-                        <button
+                    <div className="flex justify-between">
+                        {editId != null ? (
+                            <button
+                                type="button"
+                                onClick={resetForm}
+                                className="h-11 px-4 rounded-xl border bg-white hover:bg-gray-50 text-gray-700 font-medium cursor-pointer"
+                            >
+                                Hủy
+                            </button>
+                        ) : <span />}
+
+                        <motion.button
                             type="submit"
                             disabled={pending}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-rose-600 text-white font-medium shadow-sm hover:opacity-95 disabled:opacity-60 cursor-pointer"
                         >
                             <svg viewBox="0 0 24 24" className="w-5 h-5"><path fill="currentColor" d="M19 21H5a2 2 0 0 1-2-2V7a1 1 0 0 1 1-1h3l1-2h8l1 2h3a1 1 0 0 1 1 1v12a2 2 0 0 1-2 2M6 9v10h12V9z"/></svg>
-                            {pending ? "Đang lưu..." : "Lưu địa chỉ"}
-                        </button>
+                            {pending ? "Đang lưu..." : editId != null ? "Cập nhật địa chỉ" : "Thêm địa chỉ"}
+                        </motion.button>
                     </div>
+                    <button>
+
+                    </button>
                 </form>
 
                 {/* Danh sách */}
@@ -183,7 +221,7 @@ export default function AccountAddressPage() {
                         )}
 
                         {list.map((a) => (
-                            <div key={a.id} className="px-5 py-4 grid grid-cols-1 md:grid-cols-[1fr_140px_1fr_120px_160px] gap-3 md:items-center">
+                            <div key={a.id} className="px-5 py-4 grid grid-cols-1 md:grid-cols-[1fr_140px_1fr_120px_210px] gap-3 md:items-center">
                                 <div className="font-medium text-gray-900">{a.fullName}</div>
                                 <div className="text-sm text-gray-600">{a.phone}</div>
                                 <div className="text-sm text-gray-700">{a.line1}, {a.ward}, {a.district}, {a.province}</div>
@@ -191,30 +229,55 @@ export default function AccountAddressPage() {
                                 <div>
                                     {a.isDefault ? (
                                         <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium px-2.5 py-1">
-                    ✓ Mặc định
-                  </span>
+                      ✓ Mặc định
+                    </span>
                                     ) : (
                                         <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-600 text-xs font-medium px-2.5 py-1">
-                    Khác
-                  </span>
+                      Khác
+                    </span>
                                     )}
                                 </div>
 
                                 <div className="flex gap-2 justify-start md:justify-end">
                                     {!a.isDefault && (
-                                        <button
+                                        <motion.button
                                             onClick={async () => { await setDefaultAddress(a.id); await refresh(); }}
-                                            className="h-9 px-3 rounded-lg border bg-white hover:bg-gray-50 text-gray-700 text-sm cursor-pointer"
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            className="h-9 px-4 min-w-[110px] rounded-lg border bg-white hover:bg-gray-50
+             text-gray-700 text-sm cursor-pointer whitespace-nowrap"
                                         >
                                             Đặt mặc định
-                                        </button>
+                                        </motion.button>
                                     )}
-                                    <button
+                                    <motion.button
+                                        onClick={() => {
+                                            setEditId(a.id);
+                                            setForm({
+                                                fullName: a.fullName,
+                                                phone: a.phone,
+                                                line1: a.line1,
+                                                ward: a.ward,
+                                                district: a.district,
+                                                province: a.province,
+                                                makeDefault: a.isDefault ?? false,
+                                            });
+                                            window.scrollTo({ top: 0, behavior: "smooth" });
+                                        }}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        className="h-9 px-3 rounded-lg border bg-white hover:bg-gray-50 text-gray-700 text-sm cursor-pointer"
+                                    >
+                                        Sửa
+                                    </motion.button>
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
                                         onClick={async () => { await deleteMyAddress(a.id); await refresh(); }}
                                         className="h-9 px-3 rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 text-sm cursor-pointer"
                                     >
                                         Xóa
-                                    </button>
+                                    </motion.button>
                                 </div>
                             </div>
                         ))}
@@ -224,5 +287,4 @@ export default function AccountAddressPage() {
             </div>
         </div>
     );
-
 }

@@ -8,33 +8,53 @@ import SearchBox from "./SearchBox";
 import logo from "../assets/logoweb.png";
 import { getCart } from "../services/cart";
 
+/* ===== Small badge cache to avoid flicker ===== */
+const BADGE_KEY = "CART_BADGE_COUNT";
+let lastBadgeSetAt = 0;
+const getBadgeCache = () => {
+    const n = Number(localStorage.getItem(BADGE_KEY) || "0");
+    return Number.isFinite(n) ? n : 0;
+};
+const setBadgeCache = (n: number) => {
+    lastBadgeSetAt = Date.now();
+    localStorage.setItem(BADGE_KEY, String(Math.max(0, n | 0)));
+};
+const recentlySet = (ms = 900) => Date.now() - lastBadgeSetAt < ms;
+
+/** LẤY SỐ UNIQUE ITEMS (không phải tổng quantity) */
+function extractUniqueCount(res: any): number {
+    if (!res) return 0;
+    if (typeof res.uniqueItems === "number") return res.uniqueItems;
+    if (typeof res.distinctItems === "number") return res.distinctItems;
+    if (Array.isArray(res.items)) return res.items.length;
+    return 0;
+}
+
 const Header: React.FC = () => {
     const { isAuthenticated, logout } = useAuth();
     const [open, setOpen] = useState(false);
     const closeTimer = useRef<number | null>(null);
     const navigate = useNavigate();
 
-    const [cartCount, setCartCount] = useState<number>(0);
+    const [cartCount, setCartCount] = useState<number>(() => getBadgeCache());
 
-    // Hàm refresh badge
+    // Hàm refresh badge (dựa trên UNIQUE ITEMS)
     async function refreshBadge() {
         try {
             if (!isAuthenticated) {
                 setCartCount(0);
+                setBadgeCache(0);
                 return;
             }
+            // Tránh gọi API ngay sau khi event đã set số
+            if (recentlySet()) return;
+
             const res = await getCart();
-            // Nếu BE trả tổng quantity
-            if (typeof (res as any).totalItems === "number") {
-                setCartCount((res as any).totalItems);
-            } else if (Array.isArray((res as any).items)) {
-                // Nếu BE trả danh sách items thì lấy length làm số sản phẩm khác nhau
-                setCartCount((res as any).items.length);
-            } else {
-                setCartCount(0);
-            }
+            const n = extractUniqueCount(res);
+            setCartCount(n);
+            setBadgeCache(n);
         } catch {
-            setCartCount(0);
+            // giữ nguyên số hiện có
         }
     }
 
@@ -43,20 +63,20 @@ const Header: React.FC = () => {
         void refreshBadge();
     }, [isAuthenticated]);
 
-    // Nghe event cart:changed để update
+    // Nghe event cart:changed để update (ưu tiên uniqueItems từ event)
     useEffect(() => {
         const handler = (e: Event) => {
             const detail = (e as CustomEvent<{ totalItems?: number; uniqueItems?: number }>).detail;
-            if (detail && (typeof detail.totalItems === "number" || typeof detail.uniqueItems === "number")) {
-                setCartCount(detail.totalItems ?? detail.uniqueItems ?? 0);
+            if (typeof detail?.uniqueItems === "number") {
+                setCartCount(detail.uniqueItems);
+                setBadgeCache(detail.uniqueItems);
             } else {
-                void refreshBadge(); // fallback nếu event không có detail
+                void refreshBadge();
             }
         };
         window.addEventListener("cart:changed", handler as EventListener);
         return () => window.removeEventListener("cart:changed", handler as EventListener);
     }, []);
-
 
     const armClose = () => {
         if (closeTimer.current) window.clearTimeout(closeTimer.current);
@@ -72,47 +92,26 @@ const Header: React.FC = () => {
         <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b">
             <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 grid grid-cols-[auto_1fr_auto] items-center gap-4">
                 {/* Logo */}
-                <motion.div
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35 }}
-                    className="shrink-0"
-                >
+                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="shrink-0">
                     <Link to="/" className="flex items-center gap-2 cursor-pointer">
                         <img src={logo} alt="INKVERSE" className="h-10 md:h-12" />
                     </Link>
                 </motion.div>
 
                 {/* Search (desktop) */}
-                <motion.div
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.05 }}
-                    className="hidden md:block"
-                >
+                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.05 }} className="hidden md:block">
                     <div className="relative">
                         <SearchBox className="w-full pl-10" />
                     </div>
                 </motion.div>
 
                 {/* Right actions */}
-                <motion.nav
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.1 }}
-                    className="flex items-center gap-2 md:gap-3"
-                >
-                    <Link
-                        to="/"
-                        className="hidden sm:inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-                    >
+                <motion.nav initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }} className="flex items-center gap-2 md:gap-3">
+                    <Link to="/" className="hidden sm:inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
                         <Home className="h-4 w-4" />
                         <span>Trang chủ</span>
                     </Link>
-                    <Link
-                        to="/lien-he"
-                        className="hidden sm:inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-                    >
+                    <Link to="/lien-he" className="hidden sm:inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
                         <Phone className="h-4 w-4" />
                         <span>Liên hệ</span>
                     </Link>
@@ -139,8 +138,8 @@ const Header: React.FC = () => {
                                     className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-600 text-white text-[11px] leading-[18px] px-1 text-center shadow"
                                 >
                   {cartCount > 99 ? "99+" : cartCount}
-                </span>
-                            )}
+                                </span>
+                                )}
                         </motion.button>
                     </form>
 
@@ -171,27 +170,15 @@ const Header: React.FC = () => {
                                 initial={false}
                                 animate={open ? { opacity: 1, y: 0 } : { opacity: 0, y: -6 }}
                                 transition={{ duration: 0.16 }}
-                                className={`absolute right-0 mt-3 w-56 rounded-xl border bg-white shadow-lg z-50 ${
-                                    open ? "visible" : "invisible"
-                                }`}
+                                className={`absolute right-0 mt-3 w-56 rounded-xl border bg-white shadow-lg z-50 ${open ? "visible" : "invisible"}`}
                                 role="menu"
                                 onMouseDown={(e) => e.preventDefault()}
                             >
                                 <div className="absolute -top-3 right-0 h-3 w-full" aria-hidden />
-                                <Link
-                                    to="/tai-khoan/dia-chi"
-                                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-sm cursor-pointer"
-                                    role="menuitem"
-                                    onClick={() => setOpen(false)}
-                                >
+                                <Link to="/tai-khoan/dia-chi" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-sm cursor-pointer" role="menuitem" onClick={() => setOpen(false)}>
                                     <UserIcon className="h-4 w-4" /> Quản lý tài khoản
                                 </Link>
-                                <Link
-                                    to="/don-hang"
-                                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-sm cursor-pointer"
-                                    role="menuitem"
-                                    onClick={() => setOpen(false)}
-                                >
+                                <Link to="/don-hang" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-sm cursor-pointer" role="menuitem" onClick={() => setOpen(false)}>
                                     <ShoppingCart className="h-4 w-4" /> Đơn hàng của tôi
                                 </Link>
                                 <button

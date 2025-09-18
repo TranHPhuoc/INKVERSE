@@ -30,6 +30,7 @@ export default function SaleTopbar() {
         navigate("/dang-nhap", { replace: true });
     };
 
+    // --- hover controls (open on hover, close with small delay to avoid flicker)
     const openNow = () => { if (!open) setOpen(true); };
     const closeSoon = () => {
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
@@ -42,18 +43,19 @@ export default function SaleTopbar() {
     const userLabel = useMemo(() => {
         try {
             const raw = localStorage.getItem("auth.user");
-            if (!raw) return "Admin";
+            if (!raw) return "Sale";
             const u = JSON.parse(raw) as { email?: string; username?: string };
-            return u.username || u.email || "Admin";
+            return u.username || u.email || "Sale";
         } catch {
-            return "Admin";
+            return "Sale";
         }
     }, []);
     return (
         <header className="h-14 sticky top-0 z-10 flex items-center bg-white/70 backdrop-blur border-b">
             <div className="flex-1 px-4">
+                {/* breadcrumb đơn giản /sale/... */}
                 <nav className="text-sm text-gray-500">
-                    <Link to="/sale" className="hover:underline">admin</Link>
+                    <Link to="/sale" className="hover:underline">sale</Link>
                     {crumbs.slice(1).map((c, i, arr) => (
                         <span key={c.to}>
                         <span className="mx-2">/</span>

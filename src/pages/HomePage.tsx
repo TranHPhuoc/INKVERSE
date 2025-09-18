@@ -40,7 +40,6 @@ const toSlug = (s: string) =>
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
 
-/* ───────────────────────── animation ───────────────────────── */
 const easeOutBezier = [0.22, 1, 0.36, 1] as const;
 
 const fadeUp: Variants = {
@@ -204,10 +203,10 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000 }) =>
 
             {images.length > 1 && (
                 <>
-                    <button onClick={prev} className="absolute left-3 top-1/2 -translate-y-1/2 text-white p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/60 hover:text-gray-900 transition" aria-label="Ảnh trước">
+                    <button onClick={prev} className="absolute left-3 top-1/2 -translate-y-1/2 text-white p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/60 hover:text-gray-900 transition cursor-pointer" aria-label="Ảnh trước">
                         <ChevronLeft className="h-5 w-5" />
                     </button>
-                    <button onClick={next} className="absolute right-3 top-1/2 -translate-y-1/2 text-white p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/60 hover:text-gray-900 transition" aria-label="Ảnh sau">
+                    <button onClick={next} className="absolute right-3 top-1/2 -translate-y-1/2 text-white p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/60 hover:text-gray-900 transition cursor-pointer" aria-label="Ảnh sau">
                         <ChevronRight className="h-5 w-5" />
                     </button>
 

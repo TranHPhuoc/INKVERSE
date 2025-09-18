@@ -98,7 +98,6 @@ export default function CartPage() {
         }
     }
 
-    /** NEW: đi tới checkout qua guard (bắt login + có địa chỉ) */
     async function handleCheckout() {
         if (!anySelected || !data) return;
         const ok = await guard.ensureReady();
@@ -129,7 +128,6 @@ export default function CartPage() {
                     </Link>
                 </div>
 
-                {/* modal guard (không hiển thị nếu không cần) */}
                 {guard.modal}
             </div>
         );
@@ -142,9 +140,9 @@ export default function CartPage() {
                 <button
                     onClick={handleToggleAll}
                     disabled={working}
-                    className="flex items-center gap-2 rounded-xl border px-4 py-2 hover:bg-gray-50 transition"
+                    className="flex items-center gap-2 rounded-xl border px-4 py-2 hover:bg-gray-50 transition cursor-pointer"
                 >
-                    {allSelected ? <CheckSquare className="h-5 w-5" /> : <Square className="h-5 w-5" />}
+                    {allSelected ? <CheckSquare className="h-5 w-5" /> : <Square className="h-5 w-5 " />}
                     {allSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
                 </button>
 
@@ -152,7 +150,7 @@ export default function CartPage() {
                     <button
                         onClick={() => handleClear(false)}
                         disabled={working}
-                        className="rounded-xl border px-4 py-2 hover:bg-gray-50 transition"
+                        className="rounded-xl border px-4 py-2 hover:bg-gray-50 transition cursor-pointer "
                         title="Xoá các sản phẩm chưa chọn"
                     >
                         Xoá chưa chọn
@@ -160,7 +158,7 @@ export default function CartPage() {
                     <button
                         onClick={() => handleClear(true)}
                         disabled={working}
-                        className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-white hover:bg-rose-500 transition"
+                        className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-white hover:bg-rose-500 transition cursor-pointer "
                         title="Xoá toàn bộ giỏ"
                     >
                         <Trash2 className="h-5 w-5" />
@@ -249,15 +247,14 @@ export default function CartPage() {
                     <button
                         onClick={handleCheckout}
                         disabled={!anySelected || working}
-                        className="mt-5 w-full rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition"
+                        className="mt-5 w-full rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition cursor-pointer "
                     >
                         Tiến hành đặt hàng
                     </button>
-                    <p className="mt-2 text-xs text-gray-400">* Đơn chỉ tạo từ những sản phẩm đang được chọn.</p>
+                    <p className="mt-2 text-xs text-gray-400 ">* Đơn chỉ tạo từ những sản phẩm đang được chọn.</p>
                 </div>
             </div>
 
-            {/* Modal nhắc thêm địa chỉ khi cần */}
             {guard.modal}
         </div>
     );

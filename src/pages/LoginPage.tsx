@@ -30,7 +30,13 @@ export default function LoginPage() {
         const raw = localStorage.getItem("auth.user");
         const u = raw ? (JSON.parse(raw) as { role?: string; roles?: string[] }) : null;
         const roles = new Set([u?.role, ...((u?.roles ?? []) as string[])].filter(Boolean) as string[]);
-        target = roles.has("ROLE_ADMIN") || roles.has("ADMIN") ? "/admin" : "/";
+        if (roles.has("ROLE_ADMIN") || roles.has("ADMIN")) {
+          target = "/admin";
+        } else if (roles.has("ROLE_SALE") || roles.has("SALE")) {
+          target = "/sale/orders";
+        } else {
+          target = "/";
+        }
       }
 
       navigate(target, { replace: true });

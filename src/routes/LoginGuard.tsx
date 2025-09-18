@@ -6,12 +6,25 @@ type Props = { children: ReactNode };
 function resolveTarget(roles: Set<string>, nextRaw: string | null) {
     const next = nextRaw && decodeURIComponent(nextRaw);
     const isAdmin = roles.has("ROLE_ADMIN") || roles.has("ADMIN");
+    const isSale  = roles.has("ROLE_SALE")  || roles.has("SALE");
 
+    // ADMIN ưu tiên /admin (và chỉ cho next vào /admin)
     if (isAdmin) {
         if (next && next.startsWith("/admin")) return next;
         return "/admin";
     }
-    if (next && !next.startsWith("/admin")) return next;
+
+    // SALE: chặn /admin; còn lại cho đi theo next, mặc định /sale/orders
+    if (isSale) {
+        if (next && !next.startsWith("/admin")) {
+            // nếu next là public/user hoặc /sale thì giữ nguyên
+            return next;
+        }
+        return "/sale/orders";
+    }
+
+    // User thường: chỉ cho next không thuộc /admin hoặc /sale
+    if (next && !next.startsWith("/admin") && !next.startsWith("/sale")) return next;
     return "/";
 }
 
@@ -29,7 +42,7 @@ export default function LoginGuard({ children }: Props) {
             return <Navigate to={target} replace />;
         }
     } catch {
-        // ignore
+        // ignore parse errors
     }
 
     return <>{children}</>;

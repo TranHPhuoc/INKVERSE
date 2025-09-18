@@ -1,16 +1,14 @@
-// src/pages/ProductDetailPage.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { BookDetail } from "../types/books";
 import { getBookDetailBySlug } from "../types/books";
 import { langVi, ageVi, coverVi } from "../types/labels";
 import { PLACEHOLDER } from "../types/img";
-import { addCartItem, addAndSelectOne} from "../services/cart";
+import { addCartItem, addAndSelectOne } from "../services/cart";
 import { useAuth } from "../context/AuthContext";
 import useCheckoutGuard from "../hooks/useCheckoutGuard.tsx";
 import BookGallery from "../components/BookGallery";
 
-/* ================= Helpers ================= */
 function formatVND(n?: number | null): string {
     if (n == null) return "";
     try {
@@ -49,11 +47,10 @@ function SpecRow({ label, children }: { label: string; children: React.ReactNode
     );
 }
 
-/** Hiệu ứng “bay vào giỏ” */
 function animateFlyToCart(sourceEl: HTMLElement): Promise<void> {
     return new Promise<void>((resolve) => {
         try {
-            const cartBtn = document.querySelector('[aria-label="Giỏ hàng"]') as HTMLElement | null;
+            const cartBtn = document.getElementById("header-cart-icon") as HTMLElement | null;
             if (!cartBtn) return resolve();
 
             const imgRect = sourceEl.getBoundingClientRect();
@@ -81,6 +78,11 @@ function animateFlyToCart(sourceEl: HTMLElement): Promise<void> {
 
             window.setTimeout(() => {
                 ghost.remove();
+                // rung icon nhẹ
+                cartBtn.animate(
+                    [{ transform: "scale(1)" }, { transform: "scale(1.12)" }, { transform: "scale(1)" }],
+                    { duration: 260, easing: "cubic-bezier(.2,.7,.2,1)" }
+                );
                 resolve();
             }, 650);
         } catch {
@@ -101,8 +103,10 @@ export default function ProductDetailsPage() {
     const { isAuthenticated } = useAuth();
     const guard = useCheckoutGuard("/checkout");
 
-    // lấy thẻ <img> chính trong BookGallery cho hiệu ứng bay
     const galleryWrapRef = useRef<HTMLDivElement | null>(null);
+
+    const [toastOpen, setToastOpen] = useState(false);
+    const [toastMsg, setToastMsg] = useState<string>("");
 
     useEffect(() => {
         let mounted = true;
@@ -147,7 +151,6 @@ export default function ProductDetailsPage() {
     const inc = () => setQty((q) => Math.min(99, q + 1));
 
     function getCurrentMainImageEl(): HTMLImageElement | null {
-        // ưu tiên class .main-image, fallback alt
         const wrap = galleryWrapRef.current;
         return (
             (wrap?.querySelector(".main-image") as HTMLImageElement | null) ||
@@ -164,7 +167,10 @@ export default function ProductDetailsPage() {
         const mainEl = getCurrentMainImageEl();
         if (mainEl) await animateFlyToCart(mainEl);
 
-        window.dispatchEvent(new Event("cart:changed"));
+        // popup
+        setToastMsg("Sản phẩm đã được thêm vào giỏ hàng!");
+        setToastOpen(true);
+        window.setTimeout(() => setToastOpen(false), 1400);
     }
 
     async function handleBuyNow() {
@@ -182,7 +188,10 @@ export default function ProductDetailsPage() {
 
             const mainEl = getCurrentMainImageEl();
             if (mainEl) await animateFlyToCart(mainEl);
-            window.dispatchEvent(new Event("cart:changed"));
+
+            setToastMsg("Đã thêm vào giỏ. Chuyển tới thanh toán…");
+            setToastOpen(true);
+            window.setTimeout(() => setToastOpen(false), 1000);
 
             const ok = await guard.ensureReady();
             if (ok) navigate("/checkout");
@@ -234,14 +243,16 @@ export default function ProductDetailsPage() {
                                 <button
                                     type="button"
                                     onClick={handleAddToCart}
-                                    className="flex-1 h-11 rounded-xl border-2 border-rose-600 text-rose-600 font-medium hover:bg-rose-50 cursor-pointer"
+                                    className="flex-1 h-11 rounded-xl border-2 border-rose-600 text-rose-600 font-medium hover:bg-rose-50 cursor-pointer
+                             transform-gpu transition-transform duration-150 hover:scale-105 active:scale-95"
                                 >
                                     Thêm vào giỏ hàng
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleBuyNow}
-                                    className="flex-1 h-11 rounded-xl bg-rose-600 text-white font-medium hover:opacity-90 cursor-pointer"
+                                    className="flex-1 h-11 rounded-xl bg-rose-600 text-white font-medium hover:opacity-90 cursor-pointer
+                             transform-gpu transition-transform duration-150 hover:scale-105 active:scale-95"
                                 >
                                     Mua ngay
                                 </button>
@@ -327,7 +338,21 @@ export default function ProductDetailsPage() {
                 </div>
             </main>
 
-            {/* Modal nhắc thêm địa chỉ khi cần */}
+            {/* Toast mini */}
+            {toastOpen && (
+                <div className="fixed inset-0 z-[1000] grid place-items-center pointer-events-none">
+                    <div className="absolute inset-0 bg-black/10" />
+                    <div className="pointer-events-auto mx-4 rounded-2xl bg-neutral-800 text-white px-6 py-5 shadow-2xl ring-1 ring-white/10 flex items-center gap-3 animate-[fadeIn_.2s]">
+                        <div className="grid place-items-center w-10 h-10 rounded-full bg-emerald-500/20 ring-1 ring-emerald-400/40">
+                            <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-400">
+                                <path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/>
+                            </svg>
+                        </div>
+                        <div className="text-base font-medium">{toastMsg}</div>
+                    </div>
+                </div>
+            )}
+
             {guard.modal}
         </div>
     );

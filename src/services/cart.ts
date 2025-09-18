@@ -15,19 +15,22 @@ function unwrap<T>(payload: any): T {
     return payload as T;
 }
 
-// ---- NEW: emit kèm detail để Header cập nhật tức thì ----
 type CartChangedDetail = {
-    totalItems?: number;      // tổng quantity (nếu BE trả)
-    uniqueItems?: number;     // số dòng khác nhau trong giỏ
+    totalItems?: number;   // vẫn gửi nếu muốn dùng chỗ khác
+    uniqueItems?: number;  // HEADER dùng cái này
 };
 
 function emitCartChanged(detail?: CartChangedDetail) {
     try {
         const ev = new CustomEvent<CartChangedDetail>("cart:changed", { detail: detail ?? {} });
         window.dispatchEvent(ev);
-    } catch {
-        // noop
-    }
+    } catch {}
+}
+
+// đồng bộ cache nho nhỏ với Header
+const BADGE_KEY = "CART_BADGE_COUNT";
+function setBadgeCache(n: number) {
+    localStorage.setItem(BADGE_KEY, String(Math.max(0, n | 0)));
 }
 
 function parseError(e: any): never {
@@ -41,18 +44,32 @@ function parseError(e: any): never {
     throw new Error(msg);
 }
 
-
 export async function getCart() {
     const res = await api.get(`/api/v1/cart`);
     return unwrap<ResCartSummary>(res.data);
 }
 
-// tiện: tạo helper phát event từ summary
+/** Tính số unique items & total quantity (nếu cần) */
+function calcTotals(summary: any) {
+    const items = Array.isArray(summary?.items) ? summary.items : [];
+    const unique = typeof summary?.uniqueItems === "number" ? summary.uniqueItems : items.length || 0;
+    const total =
+        summary?.totalItems ??
+        summary?.totalQuantity ??
+        (items.length ? items.reduce((s: number, it: any) => s + (it?.quantity ?? it?.qty ?? 0), 0) : 0);
+    return { uniqueItems: unique, totalItems: total };
+}
+
+/** Phát event + cập nhật cache từ summary trả về */
 function notifyFromSummary(summary: ResCartSummary | undefined) {
-    if (!summary) return emitCartChanged();
-    const unique = Array.isArray((summary as any).items) ? (summary as any).items.length : undefined;
-    const total = (summary as any).totalItems as number | undefined;
-    emitCartChanged({ uniqueItems: unique, totalItems: total });
+    if (!summary) {
+        emitCartChanged();
+        return;
+    }
+    const { uniqueItems, totalItems } = calcTotals(summary as any);
+    // HEADER chỉ hiển thị unique
+    setBadgeCache(uniqueItems);
+    emitCartChanged({ uniqueItems, totalItems });
 }
 
 export async function addCartItem(payload: ReqAddItem) {
@@ -110,7 +127,7 @@ export async function selectAllCart(payload?: ReqSelectAll) {
     }
 }
 
-// Giữ nguyên flow “mua ngay”
+// “Mua ngay”
 export async function addAndSelectOne(payload: ReqAddItem) {
     const res = await addCartItem(payload);
     const after = await updateCartItem(payload.bookId, { selected: true });
