@@ -55,115 +55,104 @@ export default function RegisterPage() {
   };
 
   return (
-      <div className="min-h-screen flex flex-col">
-        <main className="relative flex-1 flex items-center justify-center px-4 py-10 text-white">
-          <div className="absolute inset-0 -z-10">
-            <img
-                src={bgPoster}
-                alt="Books poster background"
-                className="w-full h-full object-cover brightness-50"
+    <div className="flex min-h-screen flex-col">
+      <main className="relative flex flex-1 items-center justify-center px-4 py-10 text-white">
+        <div className="absolute inset-0 -z-10">
+          <img
+            src={bgPoster}
+            alt="Books poster background"
+            className="h-full w-full object-cover brightness-50"
+          />
+          <div className="absolute inset-0 bg-black/40" />
+        </div>
+
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/70 p-6 shadow-xl md:p-8">
+          <h2 className="mb-6 text-center text-2xl font-bold md:text-3xl">Tạo Tài Khoản</h2>
+
+          <form className="space-y-4" onSubmit={onSubmit}>
+            {!!err && (
+              <div className="rounded-md border border-red-400/40 bg-red-500/20 p-2 text-sm text-red-200">
+                {err}
+              </div>
+            )}
+
+            <input
+              name="email"
+              type="email"
+              placeholder="Email"
+              autoComplete="email"
+              required
+              value={form.email}
+              onChange={onChange}
+              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:font-medium focus:text-gray-900 focus:text-white focus:opacity-100 focus:ring-0 focus:outline-none md:px-4 md:py-3 md:text-base"
             />
-            <div className="absolute inset-0 bg-black/40" />
-          </div>
 
-          <div className="w-full max-w-md rounded-2xl bg-black/70 shadow-xl p-6 md:p-8 border border-white/10">
-            <h2 className="text-2xl md:text-3xl font-bold mb-6 text-center">
-              Tạo Tài Khoản
-            </h2>
+            <input
+              name="password"
+              type="password"
+              placeholder="Mật khẩu"
+              autoComplete="new-password"
+              required
+              value={form.password}
+              onChange={onChange}
+              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:font-medium focus:text-gray-900 focus:text-white focus:opacity-100 focus:ring-0 focus:outline-none md:px-4 md:py-3 md:text-base"
+            />
 
-            <form className="space-y-4" onSubmit={onSubmit}>
-              {!!err && (
-                  <div className="text-red-200 text-sm bg-red-500/20 border border-red-400/40 rounded-md p-2">
-                    {err}
-                  </div>
-              )}
+            <input
+              name="username"
+              type="text"
+              placeholder="Tên người dùng"
+              autoComplete="username"
+              value={form.username}
+              onChange={onChange}
+              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:font-medium focus:text-gray-900 focus:text-white focus:opacity-100 focus:ring-0 focus:outline-none md:px-4 md:py-3 md:text-base"
+            />
 
-              <input
-                  name="email"
-                  type="email"
-                  placeholder="Email"
-                  autoComplete="email"
-                  required
-                  value={form.email}
-                  onChange={onChange}
-                  className="w-full border-b px-3 py-2 md:px-4 md:py-3 text-sm md:text-base
-                opacity-60 focus:opacity-100 focus:text-gray-900 focus:font-medium
-                focus:outline-none focus:ring-0 focus:border-b-2 focus:border-blue-500 transition focus:text-white"
-              />
+            <input
+              name="fullName"
+              type="text"
+              placeholder="Họ và Tên"
+              autoComplete="name"
+              value={form.fullName}
+              onChange={onChange}
+              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:font-medium focus:text-gray-900 focus:text-white focus:opacity-100 focus:ring-0 focus:outline-none md:px-4 md:py-3 md:text-base"
+            />
 
-              <input
-                  name="password"
-                  type="password"
-                  placeholder="Mật khẩu"
-                  autoComplete="new-password"
-                  required
-                  value={form.password}
-                  onChange={onChange}
-                  className="w-full border-b px-3 py-2 md:px-4 md:py-3 text-sm md:text-base
-                opacity-60 focus:opacity-100 focus:text-gray-900 focus:font-medium
-                focus:outline-none focus:ring-0 focus:border-b-2 focus:border-blue-500 transition focus:text-white"              />
+            <input
+              name="phone"
+              type="tel"
+              placeholder="Số điện thoại"
+              autoComplete="tel"
+              value={form.phone}
+              onChange={onChange}
+              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:font-medium focus:text-gray-900 focus:text-white focus:opacity-100 focus:ring-0 focus:outline-none md:px-4 md:py-3 md:text-base"
+            />
 
-              <input
-                  name="username"
-                  type="text"
-                  placeholder="Tên người dùng"
-                  autoComplete="username"
-                  value={form.username}
-                  onChange={onChange}
-                  className="w-full border-b px-3 py-2 md:px-4 md:py-3 text-sm md:text-base
-                opacity-60 focus:opacity-100 focus:text-gray-900 focus:font-medium
-                focus:outline-none focus:ring-0 focus:border-b-2 focus:border-blue-500 transition focus:text-white"              />
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-1 w-full rounded-lg bg-red-600 py-3 font-semibold text-white transition hover:bg-red-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Đang gửi OTP..." : "Đăng ký"}
+            </button>
 
-              <input
-                  name="fullName"
-                  type="text"
-                  placeholder="Họ và Tên"
-                  autoComplete="name"
-                  value={form.fullName}
-                  onChange={onChange}
-                  className="w-full border-b px-3 py-2 md:px-4 md:py-3 text-sm md:text-base
-                opacity-60 focus:opacity-100 focus:text-gray-900 focus:font-medium
-                focus:outline-none focus:ring-0 focus:border-b-2 focus:border-blue-500 transition focus:text-white"              />
+            <button
+              type="button"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 py-3 transition hover:bg-white/10 active:scale-[0.99]"
+            >
+              <FcGoogle size={22} />
+              <span className="text-sm font-medium md:text-base">Đăng ký với Google</span>
+            </button>
 
-              <input
-                  name="phone"
-                  type="tel"
-                  placeholder="Số điện thoại"
-                  autoComplete="tel"
-                  value={form.phone}
-                  onChange={onChange}
-                  className="w-full border-b px-3 py-2 md:px-4 md:py-3 text-sm md:text-base
-                opacity-60 focus:opacity-100 focus:text-gray-900 focus:font-medium
-                focus:outline-none focus:ring-0 focus:border-b-2 focus:border-blue-500 transition focus:text-white"              />
-
-              <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full mt-1 bg-red-600 hover:bg-red-700 active:scale-[0.99] py-3 rounded-lg text-white font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {loading ? "Đang gửi OTP..." : "Đăng ký"}
-              </button>
-
-              <button
-                  type="button"
-                  className="w-full border border-white/20 rounded-lg py-3 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 active:scale-[0.99] transition"
-              >
-                <FcGoogle size={22} />
-                <span className="text-sm md:text-base font-medium">
-                Đăng ký với Google
-              </span>
-              </button>
-
-              <p className="text-center text-sm md:text-base text-white/80">
-                Đã có tài khoản?{" "}
-                <Link to="/dang-nhap" className="text-blue-400 hover:underline font-medium">
-                  Đăng nhập
-                </Link>
-              </p>
-            </form>
-          </div>
-        </main>
-
-      </div>
+            <p className="text-center text-sm text-white/80 md:text-base">
+              Đã có tài khoản?{" "}
+              <Link to="/dang-nhap" className="font-medium text-blue-400 hover:underline">
+                Đăng nhập
+              </Link>
+            </p>
+          </form>
+        </div>
+      </main>
+    </div>
   );
 }

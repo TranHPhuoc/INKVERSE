@@ -21,15 +21,15 @@ export default function LoginPage() {
     try {
       await login({ username, password });
 
-      // nếu có query next thì ưu tiên
       let target = "/";
       if (next) {
         target = decodeURIComponent(next);
       } else {
-        // fallback theo role
         const raw = localStorage.getItem("auth.user");
         const u = raw ? (JSON.parse(raw) as { role?: string; roles?: string[] }) : null;
-        const roles = new Set([u?.role, ...((u?.roles ?? []) as string[])].filter(Boolean) as string[]);
+        const roles = new Set(
+          [u?.role, ...((u?.roles ?? []) as string[])].filter(Boolean) as string[],
+        );
         if (roles.has("ROLE_ADMIN") || roles.has("ADMIN")) {
           target = "/admin";
         } else if (roles.has("ROLE_SALE") || roles.has("SALE")) {
@@ -46,72 +46,65 @@ export default function LoginPage() {
     }
   };
 
-
   return (
-      <div className="min-h-screen flex flex-col">
-        <main className="relative flex-1 flex items-center justify-center px-4 py-10 text-white">
-          <div className="absolute inset-0 -z-10">
-            <img
-                src={bgPoster}
-                alt="Books poster background"
-                className="w-full h-full object-cover brightness-50"
+    <div className="flex min-h-screen flex-col">
+      <main className="relative flex flex-1 items-center justify-center px-4 py-10 text-white">
+        <div className="absolute inset-0 -z-10">
+          <img
+            src={bgPoster}
+            alt="Books poster background"
+            className="h-full w-full object-cover brightness-50"
+          />
+        </div>
+
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/70 p-6 shadow-xl md:p-8">
+          <h2 className="mb-6 text-center text-2xl font-bold md:text-3xl">Đăng nhập</h2>
+
+          <form className="space-y-4" onSubmit={onSubmit}>
+            <input
+              type="text"
+              placeholder="Tên đăng nhập"
+              autoComplete="username"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full border-b px-3 py-2 text-sm text-white opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:opacity-100 focus:outline-none md:px-4 md:py-3 md:text-base"
             />
-          </div>
 
-          <div className="w-full max-w-md rounded-2xl bg-black/70 shadow-xl p-6 md:p-8 border border-white/10">
-            <h2 className="text-2xl md:text-3xl font-bold mb-6 text-center">Đăng nhập</h2>
+            <input
+              type="password"
+              placeholder="Mật khẩu"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border-b px-3 py-2 text-sm text-white opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:opacity-100 focus:outline-none md:px-4 md:py-3 md:text-base"
+            />
 
-            <form className="space-y-4" onSubmit={onSubmit}>
-              <input
-                  type="text"
-                  placeholder="Tên đăng nhập"
-                  autoComplete="username"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full border-b px-3 py-2 md:px-4 md:py-3 text-sm md:text-base
-                         opacity-60 focus:opacity-100 focus:outline-none focus:border-b-2
-                         focus:border-blue-500 transition text-white"
-              />
+            {err && <p className="text-sm text-red-400 md:text-base">{err}</p>}
 
-              <input
-                  type="password"
-                  placeholder="Mật khẩu"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border-b px-3 py-2 md:px-4 md:py-3 text-sm md:text-base
-                         opacity-60 focus:opacity-100 focus:outline-none focus:border-b-2
-                         focus:border-blue-500 transition text-white"
-              />
+            <p className="text-end md:text-base">
+              <Link to="/quen-mat-khau" className="font-medium text-red-400 hover:underline">
+                Quên mật khẩu
+              </Link>
+            </p>
 
-              {err && <p className="text-red-400 text-sm md:text-base">{err}</p>}
+            <button
+              type="submit"
+              className="mt-1 w-full rounded-lg bg-red-500 py-3 text-base font-semibold text-white transition hover:bg-red-600 active:scale-[0.99] md:mt-2 md:py-3.5 md:text-lg"
+            >
+              Đăng nhập
+            </button>
 
-              <p className="text-end md:text-base">
-                <Link to="/quen-mat-khau" className="text-red-400 hover:underline font-medium">
-                  Quên mật khẩu
-                </Link>
-              </p>
-
-              <button
-                  type="submit"
-                  className="w-full mt-1 md:mt-2 bg-red-500 text-white py-3 md:py-3.5 rounded-lg
-                         text-base md:text-lg font-semibold hover:bg-red-600 active:scale-[0.99] transition"
-              >
-                Đăng nhập
-              </button>
-
-              <p className="text-center text-sm md:text-base">
-                Chưa có tài khoản{" "}
-                <Link to="/dang-ky" className="text-blue-300 hover:underline font-medium">
-                  Đăng ký
-                </Link>
-              </p>
-            </form>
-          </div>
-        </main>
-
-      </div>
+            <p className="text-center text-sm md:text-base">
+              Chưa có tài khoản{" "}
+              <Link to="/dang-ky" className="font-medium text-blue-300 hover:underline">
+                Đăng ký
+              </Link>
+            </p>
+          </form>
+        </div>
+      </main>
+    </div>
   );
 }

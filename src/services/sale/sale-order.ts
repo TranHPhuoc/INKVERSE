@@ -1,6 +1,7 @@
 import axios from "axios";
 import api from "../api";
 import type {
+    Page,
     ResOrderAdmin,
     ReqUpdateOrderStatus,
     ReqUpdatePayment,
@@ -20,27 +21,15 @@ type ApiResp<T> = {
     data: T;
 };
 
-type Page<T> = {
-    content: T[];
-    totalElements: number;
-    totalPages: number;
-    size: number;
-    number: number;
-    sort?: unknown;
-    numberOfElements: number;
-    first: boolean;
-    last: boolean;
-};
-
 export type SearchParams = {
     q?: string;
     status?: OrderStatus;
     paymentStatus?: PaymentStatus;
-    from?: string;
-    to?: string;
-    page?: number;
-    size?: number;
-    sort?: string;
+    from?: string; // ISO Instant
+    to?: string;   // ISO Instant
+    page?: number; // 0-based
+    size?: number; // <= 100
+    sort?: string; // "createdAt,desc"
 };
 
 const client = api ?? axios.create({
@@ -48,15 +37,19 @@ const client = api ?? axios.create({
     withCredentials: true,
 });
 
+// attach bearer token nếu có
 client.interceptors.request.use((config) => {
     const token = localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken");
     if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
 });
 
+// unwrap payload dạng { statusCode, data }
 function unwrap<T>(resp: { data: ApiResp<T> }): T {
     return resp.data?.data as T;
 }
+
+// ================= Calls =================
 
 export async function saleSearchOrders(params: SearchParams) {
     const query: Record<string, any> = {

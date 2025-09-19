@@ -1,247 +1,303 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { saleSearchOrders } from "../../services/sale/sale-order";
-import {
-    ORDER_STATUS,
-    PAYMENT_STATUS,
-    type OrderStatus,
-    type PaymentStatus,
-    type ResOrderAdmin,
-} from "../../types/sale-order";
-import { OrderStatusBadge, PaymentStatusBadge } from "../../components/sale/StatusBadge";
+import { motion } from "framer-motion";
+import { Clock, ClipboardCheck, Box, Truck, CheckCircle2, BadgeCheck, XCircle } from "lucide-react";
+
+import { ORDER_STATUS, type OrderStatus, type ResOrderAdmin } from "../../types/sale-order";
+import { saleSearchOrders, saleUpdateStatus } from "../../services/sale/sale-order";
+import { PaymentStatusBadge } from "../../components/sale/StatusBadge";
 
 const nf = new Intl.NumberFormat("vi-VN");
 
+/** Màu trạng thái */
+const statusColor: Record<OrderStatus, string> = {
+  PENDING: "bg-yellow-100 text-yellow-800 border-yellow-300",
+  CONFIRMED: "bg-blue-100 text-blue-800 border-blue-300",
+  PROCESSING: "bg-indigo-100 text-indigo-800 border-indigo-300",
+  SHIPPED: "bg-cyan-100 text-cyan-800 border-cyan-300",
+  DELIVERED: "bg-green-100 text-green-800 border-green-300",
+  COMPLETED: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  CANCELED: "bg-rose-100 text-rose-800 border-rose-300",
+  CANCEL_REQUESTED: "bg-orange-100 text-orange-800 border-orange-300",
+};
+
+/** Label tiếng Việt */
+const statusLabel: Record<OrderStatus, string> = {
+  PENDING: "Chờ xử lý",
+  CONFIRMED: "Đã xác nhận",
+  PROCESSING: "Đang xử lý",
+  SHIPPED: "Đang giao",
+  DELIVERED: "Đã giao",
+  COMPLETED: "Hoàn tất",
+  CANCELED: "Đã huỷ",
+  CANCEL_REQUESTED: "Yêu cầu huỷ",
+};
+
+type TabId =
+  | "pending"
+  | "confirmed"
+  | "processing"
+  | "shipping"
+  | "delivered"
+  | "completed"
+  | "canceled";
+
+type Tab = {
+  id: TabId;
+  label: string;
+  statuses: OrderStatus[];
+  icon: React.ReactNode;
+  color: string;
+};
+
+const TABS: Tab[] = [
+  {
+    id: "pending",
+    label: "Chờ xử lý",
+    statuses: ["PENDING"],
+    icon: <Clock className="h-4 w-4" />,
+    color: "text-yellow-600 border-yellow-300 bg-yellow-50",
+  },
+  {
+    id: "confirmed",
+    label: "Đã xác nhận",
+    statuses: ["CONFIRMED"],
+    icon: <ClipboardCheck className="h-4 w-4" />,
+    color: "text-blue-600 border-blue-300 bg-blue-50",
+  },
+  {
+    id: "processing",
+    label: "Đang xử lý",
+    statuses: ["PROCESSING"],
+    icon: <Box className="h-4 w-4" />,
+    color: "text-indigo-600 border-indigo-300 bg-indigo-50",
+  },
+  {
+    id: "shipping",
+    label: "Đang giao",
+    statuses: ["SHIPPED"],
+    icon: <Truck className="h-4 w-4" />,
+    color: "text-cyan-600 border-cyan-300 bg-cyan-50",
+  },
+  {
+    id: "delivered",
+    label: "Đã giao",
+    statuses: ["DELIVERED"],
+    icon: <CheckCircle2 className="h-4 w-4" />,
+    color: "text-green-600 border-green-300 bg-green-50",
+  },
+  {
+    id: "completed",
+    label: "Hoàn tất",
+    statuses: ["COMPLETED"],
+    icon: <BadgeCheck className="h-4 w-4" />,
+    color: "text-emerald-600 border-emerald-300 bg-emerald-50",
+  },
+  {
+    id: "canceled",
+    label: "Đã huỷ",
+    statuses: ["CANCELED", "CANCEL_REQUESTED"],
+    icon: <XCircle className="h-4 w-4" />,
+    color: "text-rose-600 border-rose-300 bg-rose-50",
+  },
+];
+
+function tabIdFromStatus(s: OrderStatus): TabId {
+  if (s === "PENDING") return "pending";
+  if (s === "CONFIRMED") return "confirmed";
+  if (s === "PROCESSING") return "processing";
+  if (s === "SHIPPED") return "shipping";
+  if (s === "DELIVERED") return "delivered";
+  if (s === "COMPLETED") return "completed";
+  return "canceled";
+}
+
 export default function SaleOrdersPage() {
-    const [params, setParams] = useSearchParams();
-    const [data, setData] = useState<ResOrderAdmin[]>([]);
-    const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(Number(params.get("page") ?? 0));
-    const [size, setSize] = useState(Number(params.get("size") ?? 10));
-    const [loading, setLoading] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const [data, setData] = useState<ResOrderAdmin[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(Number(params.get("page") ?? 0));
+  const [size, setSize] = useState(Number(params.get("size") ?? 10));
+  const [loading, setLoading] = useState(false);
 
-    const q = params.get("q") ?? "";
+  const activeTabId = (params.get("tab") as TabId) || "pending";
+  const activeTab = TABS.find((t) => t.id === activeTabId) || TABS[0];
 
-    // --- VALIDATE status / paymentStatus từ query (tránh TS lỗi & tránh runtime sai) ---
-    const statusParam = params.get("status");
-    const status: OrderStatus | "" =
-        statusParam && Object.values(ORDER_STATUS).includes(statusParam as OrderStatus)
-            ? (statusParam as OrderStatus)
-            : "";
+  const q = params.get("q") ?? "";
+  const from = params.get("from") ?? "";
+  const to = params.get("to") ?? "";
+  const sort = params.get("sort") ?? "createdAt,desc";
 
-    const paymentStatusParam = params.get("paymentStatus");
-    const paymentStatus: PaymentStatus | "" =
-        paymentStatusParam && Object.values(PAYMENT_STATUS).includes(paymentStatusParam as PaymentStatus)
-            ? (paymentStatusParam as PaymentStatus)
-            : "";
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
 
-    const from = params.get("from") ?? "";
-    const to = params.get("to") ?? "";
-    const sort = params.get("sort") ?? "createdAt,desc";
+    (async () => {
+      const res = await saleSearchOrders({ q, from, to, page, size, sort });
+      const wanted = new Set(activeTab.statuses);
+      const content = (res?.content ?? []).filter((o) => wanted.has(o.status));
+      if (mounted) {
+        setData(content);
+        setTotal(content.length);
+      }
+    })().finally(() => mounted && setLoading(false));
 
-    useEffect(() => {
-        let mounted = true;
-        setLoading(true);
+    return () => {
+      mounted = false;
+    };
+  }, [q, from, to, page, size, sort, activeTabId]);
 
-        saleSearchOrders({
-            q,
-            status: status || undefined,
-            paymentStatus: paymentStatus || undefined,
-            from,
-            to,
-            page,
-            size,
-            sort,
-        })
-            .then((res) => {
-                if (!mounted) return;
-                setData(res?.content ?? []);
-                setTotal(res?.totalElements ?? 0);
-            })
-            .finally(() => mounted && setLoading(false));
+  function switchTab(id: TabId) {
+    const p = new URLSearchParams(params);
+    p.set("tab", id);
+    p.set("page", "0");
+    setParams(p, { replace: true });
+    setPage(0);
+  }
 
-        return () => {
-            mounted = false;
-        };
-    }, [q, status, paymentStatus, from, to, page, size, sort]);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(Math.max(total, 0) / Math.max(size, 1))),
+    [total, size],
+  );
 
+  async function handleChangeStatus(orderId: number, current: OrderStatus, next: OrderStatus) {
+    if (current === next) return;
+    await saleUpdateStatus(orderId, { status: next });
+    switchTab(tabIdFromStatus(next));
+  }
 
-    function updateParam(key: string, value: string) {
-        const p = new URLSearchParams(params);
-        if (!value) p.delete(key);
-        else p.set(key, value);
-        p.set("page", "0");
-        setParams(p, { replace: true });
-        setPage(0);
-    }
-
-    const totalPages = useMemo(() => Math.ceil(total / size), [total, size]);
-
-    return (
-        <div className="space-y-4">
-            {/* Filters */}
-            <div className="flex items-end gap-3">
-                <div className="flex-1">
-                    <label className="text-sm text-gray-500">Tìm kiếm (code, tên, sđt, email)</label>
-                    <input
-                        className="w-full rounded-xl border px-3 py-2"
-                        placeholder="VD: PKB-2025-0001"
-                        defaultValue={q}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") updateParam("q", (e.target as HTMLInputElement).value.trim());
-                        }}
-                    />
-                </div>
-
-                <div>
-                    <label className="text-sm text-gray-500">Status</label>
-                    <select
-                        className="block rounded-xl border px-3 py-2 cursor-pointer"
-                        value={status}
-                        onChange={(e) => updateParam("status", e.target.value)}
-                    >
-                        <option value="">Tất cả</option>
-                        {Object.values(ORDER_STATUS).map((s) => (
-                            <option key={s} value={s}>
-                                {s}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div>
-                    <label className="text-sm text-gray-500">Payment</label>
-                    <select
-                        className="block rounded-xl border px-3 py-2 cursor-pointer"
-                        value={paymentStatus}
-                        onChange={(e) => updateParam("paymentStatus", e.target.value)}
-                    >
-                        <option value="">Tất cả</option>
-                        {Object.values(PAYMENT_STATUS).map((s) => (
-                            <option key={s} value={s}>
-                                {s}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div>
-                    <label className="text-sm text-gray-500">From (ISO)</label>
-                    <input
-                        className="block rounded-xl border px-3 py-2"
-                        placeholder="2025-09-01T00:00:00Z"
-                        defaultValue={from}
-                        onBlur={(e) => updateParam("from", e.target.value.trim())}
-                    />
-                </div>
-                <div>
-                    <label className="text-sm text-gray-500">To (ISO)</label>
-                    <input
-                        className="block rounded-xl border px-3 py-2"
-                        placeholder="2025-09-30T23:59:59Z"
-                        defaultValue={to}
-                        onBlur={(e) => updateParam("to", e.target.value.trim())}
-                    />
-                </div>
-            </div>
-
-            {/* Table */}
-            <div className="rounded-2xl border bg-white/70 backdrop-blur p-3">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-600">
-                        <tr>
-                            <th className="px-3 py-2 text-left">Mã</th>
-                            <th className="px-3 py-2 text-center">Trạng thái</th>
-                            <th className="px-3 py-2 text-center">Thanh toán</th>
-                            <th className="px-3 py-2 text-right">Tổng</th>
-                            <th className="px-3 py-2 text-center">Ngày tạo</th>
-                            <th className="px-3 py-2 text-center">Phụ trách</th>
-                            <th className="px-3 py-2"></th>
-                        </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                        {loading ? (
-                            <tr>
-                                <td colSpan={7} className="px-3 py-6 text-center">
-                                    Đang tải...
-                                </td>
-                            </tr>
-                        ) : data.length === 0 ? (
-                            <tr>
-                                <td colSpan={7} className="px-3 py-6 text-center">
-                                    Không có đơn
-                                </td>
-                            </tr>
-                        ) : (
-                            data.map((o, idx) => (
-                                <tr
-                                    key={o.id}
-                                    className={`transition ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"} hover:bg-gray-100/60`}
-                                >
-                                    <td className="px-3 py-2 font-medium">{o.code}</td>
-                                    <td className="px-3 py-2 text-center">
-                                        <OrderStatusBadge value={o.status} />
-                                    </td>
-                                    <td className="px-3 py-2 text-center">
-                                        <PaymentStatusBadge value={o.paymentStatus} />
-                                    </td>
-                                    <td className="px-3 py-2 text-right">{nf.format(Number(o.total))}</td>
-                                    <td className="px-3 py-2 text-center">{new Date(o.createdAt).toLocaleString()}</td>
-                                    <td className="px-3 py-2 text-center">
-                                        {o.assigneeName ?? (o.assigneeId ? `#${o.assigneeId}` : "-")}
-                                    </td>
-                                    <td className="px-3 py-2 text-right">
-                                        <Link
-                                            to={`/sale/orders/${o.id}`}
-                                            className="rounded-lg border px-3 py-1 hover:bg-gray-100 cursor-pointer"
-                                        >
-                                            Chi tiết
-                                        </Link>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination */}
-                <div className="mt-3 flex items-center justify-between">
-                    <div className="text-sm text-gray-500">
-                        Tổng {total} bản ghi — Trang {page + 1}/{Math.max(totalPages, 1)}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            className="rounded-lg border px-3 py-1 disabled:opacity-50 cursor-pointer"
-                            disabled={page <= 0}
-                            onClick={() => setPage((p) => Math.max(0, p - 1))}
-                        >
-                            Prev
-                        </button>
-                        <button
-                            type="button"
-                            className="rounded-lg border px-3 py-1 disabled:opacity-50 cursor-pointer"
-                            disabled={page + 1 >= totalPages}
-                            onClick={() => setPage((p) => p + 1)}
-                        >
-                            Next
-                        </button>
-                        <select
-                            className="rounded-lg border px-2 py-1 cursor-pointer"
-                            value={size}
-                            onChange={(e) => setSize(Number(e.target.value))}
-                        >
-                            {[10, 20, 50, 100].map((n) => (
-                                <option key={n} value={n}>
-                                    {n}/trang
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-            </div>
+  return (
+    <div className="space-y-4">
+      {/* Tabs */}
+      <div className="rounded-2xl border bg-white/70 p-2 backdrop-blur">
+        <div className="flex flex-wrap gap-2">
+          {TABS.map((t) => {
+            const active = t.id === activeTabId;
+            return (
+              <motion.button
+                key={t.id}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => switchTab(t.id)}
+                className={`flex items-center gap-2 rounded-xl border px-4 py-2 ${
+                  active
+                    ? `${t.color} font-semibold ring-2 ring-gray-300`
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {t.icon}
+                <span>{t.label}</span>
+              </motion.button>
+            );
+          })}
         </div>
-    );
+      </div>
+
+      {/* Table */}
+      <div className="rounded-2xl border bg-white/70 p-3 backdrop-blur">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-[#1a2954]">
+              <tr>
+                <th className="px-3 py-2 text-left text-white">Mã</th>
+                <th className="px-3 py-2 text-center text-white">Trạng thái</th>
+                <th className="px-3 py-2 text-center text-white">Thanh toán</th>
+                <th className="px-3 py-2 text-right text-white">Tổng</th>
+                <th className="px-3 py-2 text-center text-white">Ngày tạo</th>
+                <th className="px-3 py-2 text-center text-white">Phụ trách</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center">
+                    Đang tải...
+                  </td>
+                </tr>
+              ) : data.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center">
+                    Không có đơn
+                  </td>
+                </tr>
+              ) : (
+                data.map((o) => (
+                  <tr key={o.id} className="transition hover:bg-gray-50">
+                    <td className="px-3 py-2 font-medium">{o.code}</td>
+                    <td className="px-3 py-2 text-center">
+                      <select
+                        className={`rounded-xl border px-2 py-1 text-xs ${statusColor[o.status] || ""}`}
+                        value={o.status}
+                        onChange={(e) =>
+                          handleChangeStatus(o.id, o.status, e.target.value as OrderStatus)
+                        }
+                      >
+                        {(Object.values(ORDER_STATUS) as OrderStatus[]).map((s) => (
+                          <option key={s} value={s}>
+                            {statusLabel[s] ?? s}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <PaymentStatusBadge value={o.paymentStatus} />
+                    </td>
+                    <td className="px-3 py-2 text-right">{nf.format(Number(o.total))}</td>
+                    <td className="px-3 py-2 text-center">
+                      {new Date(o.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {o.assigneeName ?? (o.assigneeId ? `#${o.assigneeId}` : "-")}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <Link
+                        to={`/sale/orders/${o.id}`}
+                        className="rounded-lg border px-3 py-1 hover:bg-gray-100"
+                      >
+                        Chi tiết
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        <div className="mt-3 flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            Tổng {total} — Trang {page + 1}/{totalPages}
+          </div>
+          <div className="flex gap-2">
+            <button
+              disabled={page <= 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              className="rounded-lg border px-3 py-1"
+            >
+              Prev
+            </button>
+            <button
+              disabled={page + 1 >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded-lg border px-3 py-1"
+            >
+              Next
+            </button>
+            <select
+              value={size}
+              onChange={(e) => setSize(Number(e.target.value))}
+              className="rounded-lg border px-2 py-1"
+            >
+              {[10, 20, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}/trang
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

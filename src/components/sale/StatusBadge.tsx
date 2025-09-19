@@ -1,31 +1,47 @@
+// src/components/sale/StatusBadge.tsx
 import type { OrderStatus, PaymentStatus } from "../../types/sale-order";
+import { viStatusLabel, viPaymentLabel } from "../../types/labels";
+
+const ORDER_COLOR: Record<OrderStatus, string> = {
+  PENDING: "bg-yellow-100 text-yellow-800",
+  CONFIRMED: "bg-blue-100 text-blue-800",
+  PROCESSING: "bg-violet-100 text-violet-800",
+  SHIPPED: "bg-sky-100 text-sky-800",
+  DELIVERED: "bg-green-100 text-green-800",
+  COMPLETED: "bg-emerald-100 text-emerald-800",
+  CANCELED: "bg-rose-100 text-rose-800",
+  CANCEL_REQUESTED: "bg-orange-100 text-orange-800",
+};
 
 export function OrderStatusBadge({ value }: { value: OrderStatus }) {
-    const map: Record<OrderStatus, string> = {
-        PENDING: "bg-yellow-100 text-yellow-800",
-        CONFIRMED: "bg-blue-100 text-blue-800",
-        PROCESSING: "bg-indigo-100 text-indigo-800",
-        SHIPPED: "bg-cyan-100 text-cyan-800",
-        DELIVERED: "bg-green-100 text-green-800",
-        CANCELED: "bg-red-100 text-red-800",
-    };
-    return (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[value]}`}>
-      {value}
+  const cls = ORDER_COLOR[value] ?? "bg-gray-100 text-gray-800";
+  const label = viStatusLabel[value] ?? value;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-black/5 ${cls}`}
+      title={value}
+    >
+      {label}
     </span>
-    );
+  );
 }
 
+const PAYMENT_COLOR: Record<PaymentStatus, string> = {
+  UNPAID: "bg-gray-100 text-gray-800",
+  PAID: "bg-emerald-100 text-emerald-800",
+  REFUND_PENDING: "bg-orange-100 text-orange-800",
+  REFUNDED: "bg-lime-100 text-lime-800",
+};
+
 export function PaymentStatusBadge({ value }: { value: PaymentStatus }) {
-    const map: Record<PaymentStatus, string> = {
-        UNPAID: "bg-gray-100 text-gray-800",
-        PAID: "bg-emerald-100 text-emerald-800",
-        REFUND_PENDING: "bg-orange-100 text-orange-800",
-        REFUNDED: "bg-lime-100 text-lime-800",
-    };
-    return (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[value]}`}>
-      {value}
+  const cls = PAYMENT_COLOR[value] ?? "bg-gray-100 text-gray-800";
+  const label = viPaymentLabel[value] ?? value;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-black/5 ${cls}`}
+      title={value}
+    >
+      {label}
     </span>
-    );
+  );
 }
