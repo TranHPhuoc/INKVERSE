@@ -1,22 +1,18 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import type { ReactNode } from "react";
-import { useLocation } from "react-router-dom";
+
+const ease: [number, number, number, number] = [0.22, 0.61, 0.36, 1];
 
 export default function PageTransition({ children }: { children: ReactNode }) {
-  const loc = useLocation();
-
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={loc.pathname}
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -12 }}
-        transition={{ duration: 0.25 }}
-        className="min-h-[60vh]"
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.32, ease }}
+      className="min-h-[60vh]"
+    >
+      {children}
+    </motion.div>
   );
 }

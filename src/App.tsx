@@ -1,8 +1,18 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
+import { AnimatePresence } from "framer-motion";
+
+// Layouts
 import MainLayout from "./layouts/MainLayout";
 import AdminLayout from "./layouts/AdminLayout";
+import SaleLayout from "./layouts/sale/SaleLayout";
 
+// Components
+import ScrollToTop from "./components/ScrollToTop";
+import PageTransition from "./components/Animation/PageTransition";
+import ProtectedRoute from "./routes/ProtectedRoute";
+
+// Pages – Public
 import HomePage from "./pages/HomePage";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
@@ -14,26 +24,26 @@ import ProductDetailsPage from "./pages/ProductDetailsPage";
 import CategoryPage from "./pages/CategoryPage";
 import SearchPage from "./pages/SearchPage";
 import CartPage from "./pages/CartPage";
+import CheckoutPage from "./pages/CheckoutPage";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import OrderListPage from "./pages/OrderListPage";
-import CheckoutPage from "./pages/CheckoutPage";
 
-import ScrollToTop from "./components/ScrollToTop.tsx";
-import ProtectedRoute from "./routes/ProtectedRoute";
-//ADMIN//
+// Pages – User
+import AccountLayout from "./pages/user/AccountLayout";
+import AccountAddressPage from "./pages/user/AccountAddressPage";
+
+// Pages – Admin
 import Dashboard from "./pages/admin/Dashboard";
 import BooksPage from "./pages/admin/BooksPage";
 import UserPage from "./pages/admin/UserPage";
 import CategoriesPage from "./pages/admin/CategoriesPage";
 import MasterPage from "./pages/admin/MasterPage";
-//SALE//
-import SaleLayout from "./layouts/sale/SaleLayout";
+
+// Pages – Sale
 import SaleOrdersPage from "./pages/sale/SaleOrderPage";
 import SaleOrderDetailPage from "./pages/sale/SaleOrderDetailPage";
-//USER//
-import AccountLayout from "./pages/user/AccountLayout.tsx";
-import AccountAddressPage from "./pages/user/AccountAddressPage.tsx";
 
+/* ───────────────────────── Guards ───────────────────────── */
 function LoginGuard({ children }: { children: ReactNode }) {
   try {
     const raw = localStorage.getItem("auth.user");
@@ -53,76 +63,254 @@ function LoginGuard({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/* ───────────────────────── Main App ───────────────────────── */
 export default function App() {
+  const location = useLocation();
+
   return (
     <>
       <ScrollToTop />
-      <Routes>
-        <Route element={<MainLayout />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/dang-ky" element={<RegisterPage />} />
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          {/* PUBLIC */}
+          <Route element={<MainLayout />}>
+            <Route
+              path="/"
+              element={
+                <PageTransition>
+                  <HomePage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/dang-ky"
+              element={
+                <PageTransition>
+                  <RegisterPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/dang-nhap"
+              element={
+                <LoginGuard>
+                  <PageTransition>
+                    <LoginPage />
+                  </PageTransition>
+                </LoginGuard>
+              }
+            />
+            <Route
+              path="/verify-email"
+              element={
+                <PageTransition>
+                  <VerifyEmailPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/quen-mat-khau"
+              element={
+                <PageTransition>
+                  <ForgotStartPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/dat-lai-mat-khau"
+              element={
+                <PageTransition>
+                  <ForgotVerifyPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/doi-mat-khau"
+              element={
+                <PageTransition>
+                  <ChangePasswordPage />
+                </PageTransition>
+              }
+            />
+
+            {/* Products */}
+            <Route
+              path="/books/:bookSlug"
+              element={
+                <PageTransition>
+                  <ProductDetailsPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/danh-muc/:catSlug/:bookSlug"
+              element={
+                <PageTransition>
+                  <ProductDetailsPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/danh-muc/:catSlug"
+              element={
+                <PageTransition>
+                  <CategoryPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/search"
+              element={
+                <PageTransition>
+                  <SearchPage />
+                </PageTransition>
+              }
+            />
+
+            {/* Cart / Orders */}
+            <Route
+              path="/gio-hang"
+              element={
+                <PageTransition>
+                  <CartPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/checkout"
+              element={
+                <PageTransition>
+                  <CheckoutPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/orders/:code"
+              element={
+                <PageTransition>
+                  <OrderDetailPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/don-hang"
+              element={
+                <PageTransition>
+                  <OrderListPage />
+                </PageTransition>
+              }
+            />
+
+            {/* USER */}
+            <Route
+              path="/tai-khoan"
+              element={
+                <PageTransition>
+                  <AccountLayout />
+                </PageTransition>
+              }
+            >
+              <Route
+                path="dia-chi"
+                element={
+                  <PageTransition>
+                    <AccountAddressPage />
+                  </PageTransition>
+                }
+              />
+            </Route>
+          </Route>
+
+          {/* ADMIN */}
           <Route
-            path="/dang-nhap"
+            path="/admin"
             element={
-              <LoginGuard>
-                <LoginPage />
-              </LoginGuard>
+              <ProtectedRoute roles={["ADMIN", "ROLE_ADMIN"]}>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route
+              index
+              element={
+                <PageTransition>
+                  <Dashboard />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="books"
+              element={
+                <PageTransition>
+                  <BooksPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="users"
+              element={
+                <PageTransition>
+                  <UserPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="categories"
+              element={
+                <PageTransition>
+                  <CategoriesPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="masters"
+              element={
+                <PageTransition>
+                  <MasterPage />
+                </PageTransition>
+              }
+            />
+          </Route>
+
+          {/* SALE */}
+          <Route
+            path="/sale"
+            element={
+              <ProtectedRoute roles={["SALE", "ROLE_SALE", "ADMIN", "ROLE_ADMIN"]}>
+                <SaleLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="orders" replace />} />
+            <Route
+              path="orders"
+              element={
+                <PageTransition>
+                  <SaleOrdersPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="orders/:id"
+              element={
+                <PageTransition>
+                  <SaleOrderDetailPage />
+                </PageTransition>
+              }
+            />
+          </Route>
+
+          {/* 404 fallback */}
+          <Route
+            path="*"
+            element={
+              <PageTransition>
+                <div className="p-10 text-center text-gray-600">404 – Không tìm thấy trang</div>
+              </PageTransition>
             }
           />
-          <Route path="/verify-email" element={<VerifyEmailPage />} />
-          <Route path="/quen-mat-khau" element={<ForgotStartPage />} />
-          <Route path="/dat-lai-mat-khau" element={<ForgotVerifyPage />} />
-          <Route path="/doi-mat-khau" element={<ChangePasswordPage />} />
-
-          <Route path="/books/:bookSlug" element={<ProductDetailsPage />} />
-          <Route path="/danh-muc/:catSlug/:bookSlug" element={<ProductDetailsPage />} />
-          <Route path="/danh-muc/:catSlug" element={<CategoryPage />} />
-          <Route path="/search" element={<SearchPage />} />
-
-          <Route path="/gio-hang" element={<CartPage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
-
-          <Route path="/orders/:code" element={<OrderDetailPage />} />
-          <Route path="/don-hang" element={<OrderListPage />} />
-
-          {/* USER */}
-          <Route path="/tai-khoan" element={<AccountLayout />}>
-            <Route path="dia-chi" element={<AccountAddressPage />} />
-          </Route>
-        </Route>
-
-        {/* ADMIN */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute roles={["ADMIN", "ROLE_ADMIN"]}>
-              <AdminLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Dashboard />} />
-          <Route path="books" element={<BooksPage />} />
-          <Route path="users" element={<UserPage />} />
-          <Route path="categories" element={<CategoriesPage />} />
-          <Route path="masters" element={<MasterPage />} />
-        </Route>
-
-        {/* SALE */}
-        <Route
-          path="/sale"
-          element={
-            <ProtectedRoute roles={["SALE", "ROLE_SALE", "ADMIN", "ROLE_ADMIN"]}>
-              <SaleLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Navigate to="orders" replace />} />
-          <Route path="orders" element={<SaleOrdersPage />} />
-          <Route path="orders/:id" element={<SaleOrderDetailPage />} />
-        </Route>
-
-        <Route path="*" element={<div style={{ padding: 24 }}>404 – Không khớp route</div>} />
-      </Routes>
+        </Routes>
+      </AnimatePresence>
     </>
   );
 }

@@ -75,14 +75,14 @@ export default function SearchPage() {
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <main className="flex-1 bg-gray-50">
-        <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
+        <div className="mx-auto max-w-[1990px] px-4 py-6 md:px-6">
           <div className="mb-4 text-sm text-gray-600">
             Kết quả cho <span className="font-medium">"{q}"</span>
             {pageData && <span> — {pageData.totalElements} sản phẩm</span>}
           </div>
 
           {/* thanh filter */}
-          <div className="mb-4 flex flex-wrap gap-2 text-xs">
+          <div className="mb-4 flex flex-wrap gap-2 text-xl">
             <Link
               to={`/search?${new URLSearchParams({ q, sort: "createdAt", direction: "DESC" }).toString()}`}
               className={`rounded border px-3 py-1.5 ${sort === "createdAt" ? "bg-gray-900 text-white" : "bg-white"}`}

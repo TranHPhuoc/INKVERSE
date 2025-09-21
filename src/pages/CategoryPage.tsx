@@ -15,7 +15,6 @@ import ProductCard from "../components/ProductCard";
 import { ChevronDown } from "lucide-react";
 import Pagination from "../components/Pagination";
 
-/* helpers */
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 const fmtVND = (n: number) => {
   try {
@@ -353,7 +352,7 @@ export default function CategoryPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 md:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="mx-auto grid max-w-[1990px] grid-cols-1 gap-6 px-4 py-6 md:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         {/* LEFT */}
         <aside className="hidden w-64 shrink-0 space-y-4 lg:block">
           <CategoryNavCard />

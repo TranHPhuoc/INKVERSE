@@ -1,4 +1,3 @@
-// src/pages/HomePage.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
@@ -12,6 +11,7 @@ import { motion, type Variants, useInView, useAnimationControls } from "framer-m
 
 import ProductCard from "../components/ProductCard";
 import Pagination from "../components/Pagination";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 import type { BookListItem, HomeFeed, SpringPage } from "../types/books";
 import { getHomeFeed, listBooks } from "../types/books";
@@ -134,7 +134,7 @@ function Reveal({
 
 /* ───────────────────────── helpers ───────────────────────── */
 const isSaleActive = (b: BookListItem) => {
-  if (!b.salePrice) return false;
+  if (!b?.salePrice) return false;
   const now = Date.now();
   const startOK = !b.saleStartAt || new Date(b.saleStartAt).getTime() <= now;
   const endOK = !b.saleEndAt || new Date(b.saleEndAt).getTime() >= now;
@@ -148,21 +148,20 @@ const CategorySidebar: React.FC = () => {
     if (hasChildren) setOpen((o) => ({ ...o, [id]: !o[id] }));
   };
   return (
-    <aside className="hidden w-64 shrink-0 border-r pr-4 lg:block">
+    <aside className="hidden w-[440px] shrink-0 border-r pr-4 lg:block">
       <div className="overflow-hidden rounded-xl border bg-white shadow-[0_10px_30px_rgba(2,6,23,.06)]">
-        <h3 className="bg-rose-50 px-4 py-3 text-sm font-semibold text-gray-900">
+        <h3 className="bg-rose-50 px-4 py-3 text-base font-semibold text-gray-900">
           DANH MỤC SẢN PHẨM
         </h3>
         <nav className="divide-y">
           {CATEGORIES.map((c) => {
             const opened = !!open[c.id];
             const hasChildren = !!c.children?.length;
-            const parentSlug = c.id;
             return (
               <div key={c.id}>
                 <a
-                  href={`/danh-muc/${parentSlug}`}
-                  className="flex w-full items-center justify-between px-4 py-3 text-sm hover:bg-gray-50"
+                  href={`/danh-muc/${c.id}`}
+                  className="flex w-full items-center justify-between px-5 py-3 text-[15px] font-medium hover:bg-gray-50"
                 >
                   <span className="text-gray-800">{c.name}</span>
                   {hasChildren ? (
@@ -188,7 +187,7 @@ const CategorySidebar: React.FC = () => {
                         <li key={child}>
                           <a
                             href={`/danh-muc/${toSlug(child)}`}
-                            className="block py-2 pr-4 pl-10 text-[13px] text-gray-700 hover:bg-indigo-50 hover:text-indigo-600"
+                            className="block py-2 pr-4 pl-12 text-[14px] text-gray-700 hover:bg-indigo-50 hover:text-indigo-600"
                           >
                             {child}
                           </a>
@@ -207,7 +206,11 @@ const CategorySidebar: React.FC = () => {
 };
 
 type HeroBannerProps = { images: string[]; intervalMs?: number };
-const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000 }) => {
+const HeroBanner: React.FC<HeroBannerProps & { className?: string }> = ({
+  images,
+  intervalMs = 3000,
+  className,
+}) => {
   const [index, setIndex] = useState(1);
   const [withTransition, setWithTransition] = useState(true);
   const timerRef = useRef<number | null>(null);
@@ -248,7 +251,7 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000 }) =>
 
   return (
     <div
-      className="relative h-[260px] flex-1 overflow-hidden rounded-xl border bg-gray-100 md:h-[360px] lg:h-[420px]"
+      className={`relative aspect-[2240/1109] max-h-[650px] w-full overflow-hidden rounded-xl border bg-gray-100 ${className}`}
       onMouseEnter={() => (isHoverRef.current = true)}
       onMouseLeave={() => (isHoverRef.current = false)}
       tabIndex={0}
@@ -315,17 +318,14 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000 }) =>
 export default function HomePage() {
   const skeletonCount = 10;
 
-  // ref cho auto-scroll từng block
   const flashRef = useRef<HTMLDivElement | null>(null);
   const newestRef = useRef<HTMLDivElement | null>(null);
   const bestRef = useRef<HTMLDivElement | null>(null);
 
-  // Home feed (flash sale + best sellers + shelves từ BE)
   const [feed, setFeed] = useState<HomeFeed | null>(null);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // Newest pagination state
   const [newPage, setNewPage] = useState(1);
   const [newSize] = useState(15);
   const [newest, setNewest] = useState<BookListItem[]>([]);
@@ -336,8 +336,8 @@ export default function HomePage() {
     (async () => {
       try {
         setLoadingFeed(true);
-        const res = await getHomeFeed(); // mặc định: featured 8, new 12/15, best 12/15 tùy BE
-        if (mounted) setFeed(res);
+        const res = await getHomeFeed();
+        if (mounted) setFeed(res ?? null);
       } catch (e: any) {
         if (mounted) setErr(e?.response?.data?.message || e?.message || "Không tải được trang chủ");
       } finally {
@@ -349,7 +349,6 @@ export default function HomePage() {
     };
   }, []);
 
-  // tải “Sản phẩm mới” theo trang
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -362,8 +361,8 @@ export default function HomePage() {
           status: "ACTIVE",
         });
         if (!mounted) return;
-        setNewest(pageRes.content ?? []);
-        setNewTotalPages(Math.max(1, pageRes.totalPages ?? 1));
+        setNewest(pageRes?.content ?? []);
+        setNewTotalPages(Math.max(1, pageRes?.totalPages ?? 1));
       } catch {
         if (mounted) {
           setNewest([]);
@@ -376,15 +375,16 @@ export default function HomePage() {
     };
   }, [newPage, newSize]);
 
+  // Grid tự fill cột
   const renderGrid = (items: BookListItem[], loading: boolean) => (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4 md:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
       {loading && (!items || items.length === 0) ? (
         Array.from({ length: skeletonCount }).map((_, i) => (
           <div key={i} className="h-64 rounded bg-gray-100" />
         ))
       ) : items && items.length > 0 ? (
         items.map((b, i) => (
-          <Reveal key={b.id} index={i}>
+          <Reveal key={b.id ?? `${i}`} index={i}>
             <ProductCard item={b} />
           </Reveal>
         ))
@@ -398,109 +398,138 @@ export default function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
-      <main className="flex-1 bg-gray-50">
-        <div className="mx-auto max-w-7xl px-4 py-4 md:px-6 md:py-6">
-          <div className="flex gap-4">
-            <CategorySidebar />
-            <HeroBanner images={BANNERS} intervalMs={3000} />
-          </div>
-        </div>
-
-        {err && <div className="mx-auto max-w-7xl px-4 pb-0 text-rose-600 md:px-6">{err}</div>}
-
-        {/* Flash sale */}
-        <Reveal>
-          <div ref={flashRef} className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-            <div className="overflow-hidden rounded-2xl border bg-white/80 shadow">
-              <SectionHeader
-                label="Flash Sales"
-                badge={`${flashSale.length} sản phẩm`}
-                tone="rose"
-              />
-              <div className="p-4">{renderGrid(flashSale, loadingFeed)}</div>
-              {/* TODO: Muốn phân trang chuẩn cho Flash sale → cần BE expose endpoint /books/on-sale (page/size) */}
+      <ErrorBoundary fallback={<div className="p-6 text-rose-600">Có lỗi khi tải trang chủ</div>}>
+        <main className="flex-1 bg-gray-50">
+          {/* Banner (khung 1990px) */}
+          <div className="w-full px-4 py-4 md:px-6 xl:px-10 2xl:px-14">
+            <div className="mx-auto flex max-w-[1990px] gap-4">
+              <CategorySidebar />
+              <HeroBanner images={BANNERS} intervalMs={3000} className="w-[1550px]" />
             </div>
           </div>
-        </Reveal>
 
-        {/* Newest */}
-        <Reveal>
-          <div ref={newestRef} className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-            <div className="overflow-hidden rounded-2xl border bg-white/80 shadow">
-              <SectionHeader label="Sản phẩm mới" badge={`${newSize} / trang`} tone="indigo" />
-              <div className="p-4">
-                {renderGrid(newest, false)}
-                <Pagination
-                  page={newPage}
-                  totalPages={newTotalPages}
-                  onChange={setNewPage}
-                  scrollTarget={newestRef}
-                  autoScrollTop
-                  siblingCount={1}
-                  boundaryCount={1}
-                />
+          {err && (
+            <div className="w-full px-4 md:px-6 xl:px-10 2xl:px-14">
+              <div className="mx-auto max-w-[1990px] text-rose-600">{err}</div>
+            </div>
+          )}
+
+          {/* Flash sale */}
+          <Reveal>
+            <div className="w-full px-4 py-6 md:px-6 xl:px-10 2xl:px-14" ref={flashRef}>
+              <div className="mx-auto max-w-[1990px]">
+                <ErrorBoundary
+                  fallback={<div className="p-4 text-rose-600">Không tải được Flash sale</div>}
+                >
+                  <div className="overflow-hidden rounded-2xl border bg-white/80 shadow">
+                    <SectionHeader
+                      label="Flash Sales"
+                      badge={`${flashSale.length} sản phẩm`}
+                      tone="rose"
+                    />
+                    <div className="p-4">{renderGrid(flashSale, loadingFeed)}</div>
+                  </div>
+                </ErrorBoundary>
+              </div>
+            </div>
+          </Reveal>
+
+          {/* Newest */}
+          <Reveal>
+            <div className="w-full px-4 py-6 md:px-6 xl:px-10 2xl:px-14" ref={newestRef}>
+              <div className="mx-auto max-w-[1990px]">
+                <ErrorBoundary
+                  fallback={<div className="p-4 text-rose-600">Không tải được Sản phẩm mới</div>}
+                >
+                  <div className="overflow-hidden rounded-2xl border bg-white/80 shadow">
+                    <SectionHeader
+                      label="Sản phẩm mới"
+                      badge={`${newSize} / trang`}
+                      tone="indigo"
+                    />
+                    <div className="p-4">
+                      {renderGrid(newest, false)}
+                      <Pagination
+                        page={newPage}
+                        totalPages={newTotalPages}
+                        onChange={setNewPage}
+                        scrollTarget={newestRef}
+                        autoScrollTop
+                      />
+                    </div>
+                  </div>
+                </ErrorBoundary>
+              </div>
+            </div>
+          </Reveal>
+
+          {/* Bestseller */}
+          <Reveal>
+            <div className="w-full px-4 py-6 md:px-6 xl:px-10 2xl:px-14" ref={bestRef}>
+              <div className="mx-auto max-w-[1990px]">
+                <ErrorBoundary
+                  fallback={<div className="p-4 text-rose-600">Không tải được Bán chạy</div>}
+                >
+                  <div className="overflow-hidden rounded-2xl border bg-white/80 shadow">
+                    <SectionHeader
+                      label="Sản phẩm bán chạy"
+                      badge={`${feed?.bestSellers?.length ?? 0} sản phẩm`}
+                      tone="rose"
+                    />
+                    <div className="p-4">{renderGrid(feed?.bestSellers ?? [], loadingFeed)}</div>
+                  </div>
+                </ErrorBoundary>
+              </div>
+            </div>
+          </Reveal>
+
+          {/* Services */}
+          <div className="border-t bg-white">
+            <div className="w-full px-4 py-8 md:px-6 xl:px-10 2xl:px-14">
+              <div className="mx-auto max-w-[1990px]">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {[
+                    {
+                      Icon: Truck,
+                      title: "GIAO HÀNG MIỄN PHÍ VÀ NHANH CHÓNG",
+                      sub: "Miễn phí cho đơn hàng trên 500.000đ",
+                      tone: "rose" as const,
+                    },
+                    {
+                      Icon: Headphones,
+                      title: "Dịch vụ chăm sóc khách hàng 24/7",
+                      sub: "Hỗ trợ thân thiện mọi lúc",
+                      tone: "indigo" as const,
+                    },
+                    {
+                      Icon: ShieldCheck,
+                      title: "Thanh toán an toàn",
+                      sub: "Bảo mật thông tin & hoàn tiền",
+                      tone: "rose" as const,
+                    },
+                  ].map(({ Icon, title, sub, tone }, i) => (
+                    <Reveal
+                      key={i}
+                      index={i}
+                      className="flex items-center gap-4 rounded-2xl border bg-white p-5 shadow"
+                    >
+                      <div
+                        className={`${tone === "rose" ? "bg-rose-50 text-rose-600 ring-rose-100" : "bg-indigo-50 text-indigo-600 ring-indigo-100"} rounded-xl p-3 ring-1`}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">{title}</p>
+                        <p className="text-xs text-gray-500">{sub}</p>
+                      </div>
+                    </Reveal>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </Reveal>
-
-        {/* Bestseller (từ home feed) */}
-        <Reveal>
-          <div ref={bestRef} className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-            <div className="overflow-hidden rounded-2xl border bg-white/80 shadow">
-              <SectionHeader
-                label="Sản phẩm bán chạy"
-                badge={`${feed?.bestSellers?.length ?? 0} sản phẩm`}
-                tone="rose"
-              />
-              <div className="p-4">{renderGrid(feed?.bestSellers ?? [], loadingFeed)}</div>
-              {/* TODO: Muốn phân trang chuẩn → BE nên có /books/best-sellers (page/size) */}
-            </div>
-          </div>
-        </Reveal>
-
-        {/* Services */}
-        <div className="border-t bg-white">
-          <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 py-8 md:grid-cols-3 md:px-6">
-            {[
-              {
-                Icon: Truck,
-                title: "GIAO HÀNG MIỄN PHÍ VÀ NHANH CHÓNG",
-                sub: "Miễn phí cho đơn hàng trên 500.000đ",
-                tone: "rose",
-              },
-              {
-                Icon: Headphones,
-                title: "Dịch vụ chăm sóc khách hàng 24/7",
-                sub: "Hỗ trợ thân thiện mọi lúc",
-                tone: "indigo",
-              },
-              {
-                Icon: ShieldCheck,
-                title: "Thanh toán an toàn",
-                sub: "Bảo mật thông tin & hoàn tiền",
-                tone: "rose",
-              },
-            ].map(({ Icon, title, sub, tone }, i) => (
-              <Reveal
-                key={i}
-                index={i}
-                className="flex items-center gap-4 rounded-2xl border bg-white p-5 shadow"
-              >
-                <div
-                  className={`${tone === "rose" ? "bg-rose-50 text-rose-600 ring-rose-100" : "bg-indigo-50 text-indigo-600 ring-indigo-100"} rounded-xl p-3 ring-1`}
-                >
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">{title}</p>
-                  <p className="text-xs text-gray-500">{sub}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </main>
+        </main>
+      </ErrorBoundary>
     </div>
   );
 }

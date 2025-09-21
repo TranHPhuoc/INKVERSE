@@ -49,7 +49,7 @@ const Header: React.FC = () => {
       setCartCount(n);
       setBadgeCache(n);
     } catch {
-      //
+      /* ignore */
     }
   }
 
@@ -82,8 +82,9 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur">
-      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-4 px-4 md:px-6">
+    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur">
+      {/* row chính */}
+      <div className="mx-auto grid h-25 max-w-[1990px] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 md:px-6">
         {/* Logo */}
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -92,7 +93,7 @@ const Header: React.FC = () => {
           className="shrink-0"
         >
           <Link to="/" className="flex cursor-pointer items-center gap-2">
-            <img src={logo} alt="INKVERSE" className="h-10 md:h-12" />
+            <img src={logo} alt="INKVERSE" className="h-20 md:h-22" />
           </Link>
         </motion.div>
 
@@ -117,16 +118,16 @@ const Header: React.FC = () => {
         >
           <Link
             to="/"
-            className="hidden cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-2 text-sm text-gray-700 hover:bg-gray-50 sm:inline-flex"
+            className="hidden cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-2 text-xl text-gray-700 hover:bg-gray-50 sm:inline-flex"
           >
-            <Home className="h-4 w-4" />
+            <Home className="h-7 w-7" />
             <span>Trang chủ</span>
           </Link>
           <Link
             to="/lien-he"
-            className="hidden cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-2 text-sm text-gray-700 hover:bg-gray-50 sm:inline-flex"
+            className="hidden cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-2 text-xl text-gray-700 hover:bg-gray-50 sm:inline-flex"
           >
-            <Phone className="h-4 w-4" />
+            <Phone className="h-7 w-7" />
             <span>Liên hệ</span>
           </Link>
 
@@ -141,11 +142,11 @@ const Header: React.FC = () => {
               id="header-cart-icon"
               type="submit"
               whileTap={{ scale: 0.96 }}
-              className="relative inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border hover:bg-gray-50"
+              className="relative inline-flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border hover:bg-gray-50"
               aria-label="Giỏ hàng"
               title="Giỏ hàng"
             >
-              <ShoppingCart className="h-5 w-5" />
+              <ShoppingCart className="h-6 w-6" />
               {cartCount > 0 && (
                 <span
                   aria-label={`${cartCount} sản phẩm trong giỏ`}
@@ -164,7 +165,7 @@ const Header: React.FC = () => {
               onClick={() => navigate("/dang-ky")}
               className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-500"
             >
-              <UserIcon className="h-4 w-4" />
+              <UserIcon className="h-6 w-6" />
               Tài khoản
             </motion.button>
           ) : (
@@ -174,9 +175,9 @@ const Header: React.FC = () => {
                 onClick={() => setOpen((v) => !v)}
                 aria-haspopup="menu"
                 aria-expanded={open}
-                className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border bg-white hover:bg-gray-50"
+                className="inline-flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border bg-white hover:bg-gray-50"
               >
-                <UserIcon className="h-5 w-5" />
+                <UserIcon className="h-6 w-6" />
               </motion.button>
 
               {/* Dropdown */}
@@ -233,7 +234,7 @@ const Header: React.FC = () => {
 
       {/* Search (mobile) */}
       <div className="border-t bg-white md:hidden">
-        <div className="mx-auto max-w-7xl px-4 py-2.5 md:px-6">
+        <div className="mx-auto max-w-[1990px] px-4 py-2.5 md:px-6">
           <div className="relative">
             <SearchBox className="w-full pl-10" />
             <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
