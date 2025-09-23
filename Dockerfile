@@ -9,8 +9,8 @@ RUN npm ci
 # copy source & build
 COPY . .
 
-ARG VITE_API_BASE=https://api.inkverse.site
-ENV VITE_API_BASE=$VITE_API_BASE
+ARG VITE_API_BASE_URL=https://api.inkverse.site
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
 # ---- Runtime stage ----

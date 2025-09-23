@@ -38,7 +38,7 @@ jobs:
           file: ./Dockerfile
           push: true
           build-args: |
-            VITE_API_BASE=https://api.inkverse.site
+            VITE_API_BASE_URL=https://api.inkverse.site
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64
