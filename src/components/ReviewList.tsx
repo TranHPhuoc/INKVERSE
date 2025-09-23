@@ -21,7 +21,7 @@ export default function ReviewList({
   onSaved,
   onDeleted,
 }: Props) {
-  const { user } = useAuth(); // cần user?.id
+  const { user } = useAuth();
   const [items, setItems] = useState<ResRating[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -40,12 +40,11 @@ export default function ReviewList({
   };
 
   useEffect(() => {
-    fetchData(); /* eslint-disable-next-line */
+    fetchData();
   }, [bookId]);
 
   const canEdit = (r: ResRating) => user?.id === r.userId;
 
-  // inline editor cho card đang sửa
   const Editor = ({ r }: { r: ResRating }) => {
     const [score, setScore] = useState(r.score);
     const [content, setContent] = useState(r.content ?? "");
@@ -83,7 +82,7 @@ export default function ReviewList({
               </button>
             ))}
           </div>
-          <span className="text-sm text-gray-500">({score} sao)</span>
+          <span className="cursor-pointer text-sm text-gray-500">({score} sao)</span>
         </div>
         <textarea
           value={content}
@@ -102,7 +101,7 @@ export default function ReviewList({
           <button
             onClick={onCancelEdit}
             disabled={submitting}
-            className="rounded-lg bg-gray-100 px-3 py-1.5 hover:bg-gray-200 disabled:opacity-60"
+            className="cursor-pointer rounded-lg bg-gray-100 px-3 py-1.5 hover:bg-gray-200 disabled:opacity-60"
           >
             Hủy
           </button>
@@ -116,7 +115,7 @@ export default function ReviewList({
     return (
       <div className="relative">
         <button
-          className="rounded px-2 py-1 text-gray-500 hover:bg-gray-100"
+          className="cursor-pointer rounded px-2 py-1 text-black hover:bg-gray-100"
           aria-label="Thao tác"
           onClick={() => setOpen((v) => !v)}
         >
@@ -157,7 +156,7 @@ export default function ReviewList({
       onDeleted?.();
       fetchData();
     } catch {
-      // có thể show toast
+      //
     }
   };
 
@@ -170,7 +169,7 @@ export default function ReviewList({
         const mine = canEdit(r);
         const isEditing = editingId === r.id && mine;
         return (
-          <div key={r.id} className="rounded-lg border bg-white p-3">
+          <div key={r.id} className="rounded-lg bg-white p-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-sm">

@@ -1,5 +1,3 @@
-// ================= Enums (match BE) =================
-
 export const ORDER_STATUS = {
   PENDING: "PENDING",
   CONFIRMED: "CONFIRMED",
@@ -10,6 +8,7 @@ export const ORDER_STATUS = {
   CANCELED: "CANCELED",
   CANCEL_REQUESTED: "CANCEL_REQUESTED",
 } as const;
+
 export type OrderStatus = (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS];
 
 export const PAYMENT_STATUS = {

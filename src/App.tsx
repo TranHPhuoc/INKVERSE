@@ -11,6 +11,7 @@ import SaleLayout from "./layouts/sale/SaleLayout";
 import ScrollToTop from "./components/ScrollToTop";
 import PageTransition from "./components/Animation/PageTransition";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import Intro from "./components/Animation/Intro";
 
 // Pages – Public
 import HomePage from "./pages/HomePage";
@@ -66,10 +67,19 @@ function LoginGuard({ children }: { children: ReactNode }) {
 /* ───────────────────────── Main App ───────────────────────── */
 export default function App() {
   const location = useLocation();
+  const hideIntro = location.pathname.startsWith("/sale") || location.pathname.startsWith("/admin");
 
   return (
     <>
       <ScrollToTop />
+      {!hideIntro && (
+        <Intro
+          title="Chào mừng bạn đến với INKVERSE"
+          ctaLabel="Khám phá ngay"
+          to="/"
+          onlyOnce={false}
+        />
+      )}
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           {/* PUBLIC */}

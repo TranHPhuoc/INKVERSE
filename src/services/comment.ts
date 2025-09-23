@@ -1,4 +1,3 @@
-// src/services/comment.ts
 import axios from "./api";
 import type { ApiEnvelope } from "../types/http";
 
@@ -11,8 +10,10 @@ export type ResComment = {
   createdAt: string;
   updatedAt?: string | null;
   parentId?: number | null;
-  status: "ACTIVE" | "HIDDEN";
-  children: ResComment[];
+  status: string;
+  likeCount: number;
+  likedByMe?: boolean | null;
+  children?: ResComment[];
 };
 
 export type CommentPage = {
@@ -44,9 +45,17 @@ export async function createComment(bookId: number, body: { content: string; par
 
 export async function updateComment(id: number, body: { content: string }) {
   const { data } = await axios.put<ApiEnvelope<ResComment>>(`/api/v1/comments/${id}`, body);
-  return data.data; // <- trả về ResComment thuần
+  return data.data;
 }
 
 export async function deleteComment(id: number) {
   await axios.delete<ApiEnvelope<null>>(`/api/v1/comments/${id}`);
+}
+
+export async function likeComment(id: number): Promise<void> {
+  await axios.put(`/api/v1/comment/${id}/like`);
+}
+
+export async function unlikeComment(id: number): Promise<void> {
+  await axios.delete(`/api/v1/comment/${id}/like`);
 }

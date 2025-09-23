@@ -285,14 +285,14 @@ export default function ProductDetailsPage() {
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  className="h-11 rounded-xl border-2 border-rose-600/90 bg-white font-medium text-rose-600 transition-all hover:-translate-y-0.5 hover:bg-rose-50 active:translate-y-0"
+                  className="h-11 cursor-pointer rounded-xl border-2 border-rose-600/90 bg-white font-medium text-rose-600 transition-all hover:-translate-y-0.5 hover:bg-rose-50 active:translate-y-0"
                 >
                   Thêm vào giỏ hàng
                 </button>
                 <button
                   type="button"
                   onClick={handleBuyNow}
-                  className="h-11 rounded-xl bg-rose-600 font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0"
+                  className="h-11 cursor-pointer rounded-xl bg-rose-600 font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0"
                 >
                   Mua ngay
                 </button>

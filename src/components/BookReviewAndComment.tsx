@@ -5,61 +5,112 @@ import ReviewComposer from "./ReviewComposer";
 import CommentThread from "./CommentThread";
 import ErrorBoundary from "./ErrorBoundary";
 
+type TabId = "comments" | "reviews";
+
 export default function BookReviewAndComment({ bookId }: { bookId: number }) {
   const [reloadKey, setReloadKey] = useState(0);
   const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>("reviews");
 
   const refresh = useCallback(() => setReloadKey((v) => v + 1), []);
 
   return (
     <section className="mt-8 space-y-6">
-      <ErrorBoundary
-        fallback={<div className="text-sm text-rose-600">Không tải được tóm tắt đánh giá.</div>}
-      >
-        <RatingSummaryPanel key={`sum-${reloadKey}`} bookId={bookId} />
-      </ErrorBoundary>
+      {/* Tabs */}
+      <div className="flex gap-6 border-b">
+        {[
+          { id: "reviews", label: "Đánh giá" },
+          { id: "comments", label: "Bình luận" },
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id as TabId)}
+            className={`relative cursor-pointer px-3 pb-2 text-xl font-semibold transition-colors ${
+              activeTab === t.id ? "text-rose-600" : "text-gray-600 hover:text-gray-800"
+            }`}
+          >
+            {t.label}
+            {activeTab === t.id && (
+              <span className="absolute right-0 bottom-0 left-0 h-0.5 rounded-full bg-rose-600" />
+            )}
+          </button>
+        ))}
+      </div>
 
-      {/* Ẩn composer nếu user đã có đánh giá; khi bấm “Sửa” từ list thì composer vẫn ẩn,
-          việc chỉnh sửa diễn ra inline ngay trên card đánh giá. */}
-      <ErrorBoundary
-        fallback={<div className="text-sm text-rose-600">Không tải được khung viết đánh giá.</div>}
-      >
-        <ReviewComposer
-          key={`composer-${reloadKey}`}
-          bookId={bookId}
-          hiddenWhenRated
-          onSubmitted={() => {
-            refresh();
-            // bảo đảm composer ẩn, list reload để hiện card mới/đã cập nhật
-          }}
-        />
-      </ErrorBoundary>
+      {/* Nội dung tab */}
+      {activeTab === "reviews" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-2">
+            {/* LEFT: Tổng quan đánh giá */}
+            <div className="h-full rounded-2xl border border-gray-200 bg-white/90 shadow-sm ring-1 ring-white/50">
+              <div className="border-b px-4 py-3 text-xl font-semibold text-gray-800">
+                Tổng quan đánh giá
+              </div>
+              <div className="p-4">
+                <ErrorBoundary
+                  fallback={
+                    <div className="text-sm text-rose-600">Không tải được tóm tắt đánh giá.</div>
+                  }
+                >
+                  <RatingSummaryPanel key={`sum-${reloadKey}`} bookId={bookId} />
+                </ErrorBoundary>
+              </div>
+            </div>
 
-      <ErrorBoundary
-        fallback={<div className="text-sm text-rose-600">Không tải được danh sách đánh giá.</div>}
-      >
-        <ReviewList
-          key={`list-${reloadKey}`}
-          bookId={bookId}
-          editingId={editingReviewId}
-          onRequestEdit={(id) => setEditingReviewId(id)}
-          onCancelEdit={() => setEditingReviewId(null)}
-          onSaved={() => {
-            setEditingReviewId(null);
-            refresh();
-          }}
-          onDeleted={() => {
-            setEditingReviewId(null);
-            refresh();
-          }}
-        />
-      </ErrorBoundary>
+            {/* RIGHT: Viết đánh giá */}
+            <div className="h-full rounded-2xl border border-gray-200 bg-white/90 shadow-sm ring-1 ring-white/50">
+              <div className="border-b px-4 py-3 text-xl font-semibold text-gray-800">
+                Đánh giá của bạn
+              </div>
+              <div className="p-4">
+                <ErrorBoundary
+                  fallback={
+                    <div className="text-sm text-rose-600">Không tải được khung viết đánh giá.</div>
+                  }
+                >
+                  <ReviewComposer
+                    key={`composer-${reloadKey}`}
+                    bookId={bookId}
+                    hiddenWhenRated
+                    onSubmitted={refresh}
+                  />
+                </ErrorBoundary>
+              </div>
+            </div>
+          </div>
 
-      <ErrorBoundary
-        fallback={<div className="text-sm text-rose-600">Không tải được bình luận.</div>}
-      >
-        <CommentThread bookId={bookId} />
-      </ErrorBoundary>
+          {/* Hàng dưới: danh sách đánh giá full width */}
+          <ErrorBoundary
+            fallback={
+              <div className="text-sm text-rose-600">Không tải được danh sách đánh giá.</div>
+            }
+          >
+            <ReviewList
+              key={`list-${reloadKey}`}
+              bookId={bookId}
+              editingId={editingReviewId}
+              onRequestEdit={(id) => setEditingReviewId(id)}
+              onCancelEdit={() => setEditingReviewId(null)}
+              onSaved={() => {
+                setEditingReviewId(null);
+                refresh();
+              }}
+              onDeleted={() => {
+                setEditingReviewId(null);
+                refresh();
+              }}
+            />
+          </ErrorBoundary>
+        </div>
+      )}
+
+      {activeTab === "comments" && (
+        <ErrorBoundary
+          fallback={<div className="text-sm text-rose-600">Không tải được bình luận.</div>}
+        >
+          <CommentThread key={`cmt-${reloadKey}`} bookId={bookId} />
+        </ErrorBoundary>
+      )}
     </section>
   );
 }

@@ -1,15 +1,16 @@
+// pages/sale/SaleOrderPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Clock, ClipboardCheck, Box, Truck, CheckCircle2, BadgeCheck, XCircle } from "lucide-react";
 
-import { ORDER_STATUS, type OrderStatus, type ResOrderAdmin } from "../../types/sale-order";
+import type { OrderStatus, ResOrderAdmin } from "../../types/sale-order";
 import { saleSearchOrders, saleUpdateStatus } from "../../services/sale/sale-order";
 import { PaymentStatusBadge } from "../../components/sale/StatusBadge";
 
 const nf = new Intl.NumberFormat("vi-VN");
 
-/** Màu trạng thái */
+/** màu theo trạng thái */
 const statusColor: Record<OrderStatus, string> = {
   PENDING: "bg-yellow-100 text-yellow-800 border-yellow-300",
   CONFIRMED: "bg-blue-100 text-blue-800 border-blue-300",
@@ -21,7 +22,7 @@ const statusColor: Record<OrderStatus, string> = {
   CANCEL_REQUESTED: "bg-orange-100 text-orange-800 border-orange-300",
 };
 
-/** Label tiếng Việt */
+/** nhãn tiếng Việt */
 const statusLabel: Record<OrderStatus, string> = {
   PENDING: "Chờ xử lý",
   CONFIRMED: "Đã xác nhận",
@@ -112,6 +113,21 @@ function tabIdFromStatus(s: OrderStatus): TabId {
   return "canceled";
 }
 
+const NEXT_ALLOWED: Record<OrderStatus, OrderStatus[]> = {
+  PENDING: ["CONFIRMED", "CANCEL_REQUESTED", "CANCELED"],
+  CONFIRMED: ["PROCESSING", "CANCELED"],
+  PROCESSING: ["SHIPPED", "CANCELED"],
+  SHIPPED: ["DELIVERED"],
+  DELIVERED: ["COMPLETED"],
+  COMPLETED: [],
+  CANCEL_REQUESTED: ["CANCELED"],
+  CANCELED: [],
+};
+
+const getSelectableStatuses = (cur: OrderStatus) => [cur, ...NEXT_ALLOWED[cur]];
+const isTransitionAllowed = (cur: OrderStatus, next: OrderStatus) =>
+  cur === next || NEXT_ALLOWED[cur]?.includes(next) === true;
+
 export default function SaleOrdersPage() {
   const [params, setParams] = useSearchParams();
   const [data, setData] = useState<ResOrderAdmin[]>([]);
@@ -133,12 +149,30 @@ export default function SaleOrdersPage() {
     setLoading(true);
 
     (async () => {
-      const res = await saleSearchOrders({ q, from, to, page, size, sort });
-      const wanted = new Set(activeTab.statuses);
-      const content = (res?.content ?? []).filter((o) => wanted.has(o.status));
+      const statusParam = activeTab.statuses.length === 1 ? activeTab.statuses[0] : undefined;
+
+      const res = await saleSearchOrders({
+        q,
+        from,
+        to,
+        page,
+        size,
+        sort,
+        status: statusParam,
+      });
+
+      let content = res?.content ?? [];
+      let totalEl = res?.totalElements ?? content.length;
+
+      if (!statusParam && activeTab.statuses.length > 1) {
+        const wanted = new Set(activeTab.statuses);
+        content = content.filter((o) => wanted.has(o.status));
+        totalEl = content.length;
+      }
+
       if (mounted) {
         setData(content);
-        setTotal(content.length);
+        setTotal(totalEl);
       }
     })().finally(() => mounted && setLoading(false));
 
@@ -161,10 +195,21 @@ export default function SaleOrdersPage() {
   );
 
   async function handleChangeStatus(orderId: number, current: OrderStatus, next: OrderStatus) {
+    if (!isTransitionAllowed(current, next)) {
+      alert("Không thể chuyển trạng thái này do không đúng quy trình.");
+      return;
+    }
     if (current === next) return;
-    await saleUpdateStatus(orderId, { status: next });
-    switchTab(tabIdFromStatus(next));
+    try {
+      await saleUpdateStatus(orderId, { status: next });
+      switchTab(tabIdFromStatus(next));
+    } catch (e: any) {
+      alert(e?.message || "Đổi trạng thái thất bại.");
+    }
   }
+
+  const handleConfirm = (o: ResOrderAdmin) => handleChangeStatus(o.id, o.status, "CONFIRMED");
+  const handleCancel = (o: ResOrderAdmin) => handleChangeStatus(o.id, o.status, "CANCELED");
 
   return (
     <div className="space-y-4">
@@ -178,7 +223,7 @@ export default function SaleOrdersPage() {
                 key={t.id}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => switchTab(t.id)}
-                className={`flex items-center gap-2 rounded-xl border px-4 py-2 ${
+                className={`flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2 ${
                   active
                     ? `${t.color} font-semibold ring-2 ring-gray-300`
                     : "bg-white text-gray-600 hover:bg-gray-50"
@@ -221,44 +266,80 @@ export default function SaleOrdersPage() {
                   </td>
                 </tr>
               ) : (
-                data.map((o) => (
-                  <tr key={o.id} className="transition hover:bg-gray-50">
-                    <td className="px-3 py-2 font-medium">{o.code}</td>
-                    <td className="px-3 py-2 text-center">
-                      <select
-                        className={`rounded-xl border px-2 py-1 text-xs ${statusColor[o.status] || ""}`}
-                        value={o.status}
-                        onChange={(e) =>
-                          handleChangeStatus(o.id, o.status, e.target.value as OrderStatus)
-                        }
-                      >
-                        {(Object.values(ORDER_STATUS) as OrderStatus[]).map((s) => (
-                          <option key={s} value={s}>
-                            {statusLabel[s] ?? s}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <PaymentStatusBadge value={o.paymentStatus} />
-                    </td>
-                    <td className="px-3 py-2 text-right">{nf.format(Number(o.total))}</td>
-                    <td className="px-3 py-2 text-center">
-                      {new Date(o.createdAt).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      {o.assigneeName ?? (o.assigneeId ? `#${o.assigneeId}` : "-")}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <Link
-                        to={`/sale/orders/${o.id}`}
-                        className="rounded-lg border px-3 py-1 hover:bg-gray-100"
-                      >
-                        Chi tiết
-                      </Link>
-                    </td>
-                  </tr>
-                ))
+                data.map((o) => {
+                  const isPending = o.status === "PENDING";
+                  const options = getSelectableStatuses(o.status);
+                  const isLocked = options.length <= 1;
+
+                  return (
+                    <tr key={o.id} className="transition hover:bg-gray-50">
+                      <td className="px-3 py-2 font-medium">{o.code}</td>
+
+                      {/* STATUS CELL */}
+                      <td className="px-3 py-2 text-center">
+                        {isPending ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <span
+                              className={`inline-flex items-center rounded-xl border px-2 py-1 text-xs ${statusColor[o.status]}`}
+                            >
+                              {statusLabel[o.status]}
+                            </span>
+                            <motion.button
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => handleConfirm(o)}
+                              className="cursor-pointer rounded-lg border bg-white px-2 py-1 text-xs hover:border-blue-300 hover:bg-blue-100"
+                              title="Xác nhận đơn"
+                            >
+                              Xác nhận
+                            </motion.button>
+                            <motion.button
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => handleCancel(o)}
+                              className="cursor-pointer rounded-lg border border-rose-200 bg-white px-2 py-1 text-xs text-rose-600 hover:border-rose-300 hover:bg-rose-100"
+                              title="Huỷ đơn"
+                            >
+                              Huỷ
+                            </motion.button>
+                          </div>
+                        ) : (
+                          <select
+                            disabled={isLocked}
+                            className={`rounded-xl border px-2 py-1 text-xs ${statusColor[o.status]} ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
+                            value={o.status}
+                            onChange={(e) =>
+                              handleChangeStatus(o.id, o.status, e.target.value as OrderStatus)
+                            }
+                          >
+                            {options.map((s) => (
+                              <option key={s} value={s}>
+                                {statusLabel[s] ?? s}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+
+                      <td className="px-3 py-2 text-center">
+                        <PaymentStatusBadge value={o.paymentStatus} />
+                      </td>
+                      <td className="px-3 py-2 text-right">{nf.format(Number(o.total))}</td>
+                      <td className="px-3 py-2 text-center">
+                        {new Date(o.createdAt).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {o.assigneeName ?? (o.assigneeId ? `#${o.assigneeId}` : "-")}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <Link
+                          to={`/sale/orders/${o.id}`}
+                          className="rounded-lg border px-3 py-1 hover:bg-gray-100"
+                        >
+                          Chi tiết
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

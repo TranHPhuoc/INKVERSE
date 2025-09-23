@@ -10,7 +10,25 @@ import {
   type AddressCreate,
 } from "../../services/account-address.ts";
 import { motion } from "framer-motion";
+import useVnLocations from "../../hooks/useVNLocation";
+import type { Province, District, Ward } from "../../hooks/useVNLocation";
 
+/* ==================== helpers ==================== */
+function normalizeVN(s?: string): string {
+  if (!s) return "";
+  return s.trim().toLowerCase();
+}
+
+function findByName<T extends { name: string }>(arr: readonly T[], name?: string): T | undefined {
+  if (!name) return undefined;
+  const target = normalizeVN(name);
+  return (
+    arr.find((x) => normalizeVN(x.name) === target) ??
+    arr.find((x) => normalizeVN(x.name).includes(target))
+  );
+}
+
+/* ==================== component ==================== */
 export default function AccountAddressPage() {
   const [list, setList] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +46,57 @@ export default function AccountAddressPage() {
     province: "",
     makeDefault: true,
   });
+
+  /* ----- location hook ----- */
+  const { provinces, districts, wards, loadDistricts, loadWards } = useVnLocations();
+  const [provinceCode, setProvinceCode] = useState<number | "">("");
+  const [districtCode, setDistrictCode] = useState<number | "">("");
+  const [wardCode, setWardCode] = useState<number | "">("");
+
+  // load districts when province changes
+  useEffect(() => {
+    if (provinceCode !== "") void loadDistricts(Number(provinceCode));
+    // chỉ phụ thuộc provinceCode để tránh loop
+  }, [provinceCode]);
+
+  // load wards when district changes
+  useEffect(() => {
+    if (districtCode !== "") void loadWards(Number(districtCode));
+  }, [districtCode]);
+
+  // sync display names into form
+  useEffect(() => {
+    const p = provinces.find((x) => x.code === provinceCode);
+    const d = districts.find((x) => x.code === districtCode);
+    const w = wards.find((x) => x.code === wardCode);
+    setForm((s) => ({
+      ...s,
+      province: p?.name || "",
+      district: d?.name || "",
+      ward: w?.name || "",
+    }));
+  }, [provinceCode, districtCode, wardCode, provinces, districts, wards]);
+
+  useEffect(() => {
+    if (!provinceCode && provinces.length && form.province) {
+      const p = findByName<Province>(provinces, form.province);
+      if (p) setProvinceCode(p.code);
+    }
+  }, [provinces, form.province]);
+
+  useEffect(() => {
+    if (!districtCode && districts.length && form.district) {
+      const d = findByName<District>(districts, form.district);
+      if (d) setDistrictCode(d.code);
+    }
+  }, [districts, form.district]);
+
+  useEffect(() => {
+    if (!wardCode && wards.length && form.ward) {
+      const w = findByName<Ward>(wards, form.ward);
+      if (w) setWardCode(w.code);
+    }
+  }, [wards, form.ward]);
 
   const [search] = useSearchParams();
   const nav = useNavigate();
@@ -59,6 +128,7 @@ export default function AccountAddressPage() {
     void refresh();
   }, []);
 
+  /* ----- form logic ----- */
   function resetForm() {
     setEditId(null);
     setForm({
@@ -70,6 +140,9 @@ export default function AccountAddressPage() {
       province: "",
       makeDefault: true,
     });
+    setProvinceCode("");
+    setDistrictCode("");
+    setWardCode("");
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>): Promise<void> {
@@ -81,7 +154,6 @@ export default function AccountAddressPage() {
       setErr(null);
 
       if (editId != null) {
-        // UPDATE
         await updateMyAddress(editId, form);
       } else {
         await createMyAddress(form);
@@ -100,12 +172,13 @@ export default function AccountAddressPage() {
 
   function bind<K extends keyof AddressCreate>(key: K) {
     return {
-      value: (form[key] ?? "") as string | number | readonly string[],
+      value: (form[key] ?? "") as string,
       onChange: (ev: React.ChangeEvent<HTMLInputElement>) =>
         setForm((s) => ({ ...s, [key]: ev.target.value }) as AddressCreate),
     };
   }
 
+  /* ----- UI ----- */
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-gray-600">
@@ -117,25 +190,27 @@ export default function AccountAddressPage() {
   return (
     <div className="min-h-screen py-10">
       <div className="mx-auto max-w-5xl space-y-6 px-4">
+        {/* header */}
         <div className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600/10 text-indigo-700">
-            <svg viewBox="0 0 24 24" className="h-6 w-6">
+            <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden>
               <path
                 fill="currentColor"
-                d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5m0 2c-4.67 0-8 2.33-8 5v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-2.67-3.33-5-8-5"
+                d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm-7 9a1 1 0 0 1-1-1c0-3.866 4.477-7 8-7s8 3.134 8 7a1 1 0 0 1-1 1z"
               />
             </svg>
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">Địa chỉ của tôi</h1>
         </div>
 
+        {/* error */}
         {err && (
           <div className="rounded-xl border border-rose-200 bg-rose-50/70 px-4 py-3 text-sm text-rose-700 shadow-sm">
             {err}
           </div>
         )}
 
-        {/* Form */}
+        {/* form */}
         <form
           onSubmit={onSubmit}
           className="space-y-4 rounded-2xl border bg-white/80 p-5 shadow-sm ring-1 ring-black/5 backdrop-blur"
@@ -159,32 +234,77 @@ export default function AccountAddressPage() {
             </label>
           </div>
 
+          {/* selects */}
           <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-gray-600">
-              Tỉnh/Thành, Quận/Huyện, Phường/Xã
-            </span>
             <div className="grid gap-4 md:grid-cols-3">
-              <input
-                placeholder="Phường/Xã"
-                className="rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70"
-                required
-                {...bind("ward")}
-              />
-              <input
-                placeholder="Quận/Huyện"
-                className="rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70"
-                required
-                {...bind("district")}
-              />
-              <input
-                placeholder="Tỉnh/Thành"
-                className="rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70"
-                required
-                {...bind("province")}
-              />
+              {/* Province */}
+              <label className="space-y-1.5">
+                <span className="text-xs font-medium text-gray-600">Tỉnh/Thành phố</span>
+                <select
+                  className="w-full rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70"
+                  value={provinceCode}
+                  onChange={(e) => {
+                    const code = e.target.value ? Number(e.target.value) : "";
+                    setProvinceCode(code);
+                    setDistrictCode("");
+                    setWardCode("");
+                  }}
+                  required
+                >
+                  <option value="">Chọn Tỉnh/Thành phố</option>
+                  {provinces.map((p) => (
+                    <option key={p.code} value={p.code}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* District */}
+              <label className="space-y-1.5">
+                <span className="text-xs font-medium text-gray-600">Quận/Huyện</span>
+                <select
+                  className="w-full rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70 disabled:opacity-60"
+                  value={districtCode}
+                  onChange={(e) => {
+                    const code = e.target.value ? Number(e.target.value) : "";
+                    setDistrictCode(code);
+                    setWardCode("");
+                  }}
+                  disabled={!provinceCode}
+                  required
+                >
+                  <option value="">Chọn Quận/Huyện</option>
+                  {districts.map((d) => (
+                    <option key={d.code} value={d.code}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Ward */}
+              <label className="space-y-1.5">
+                <span className="text-xs font-medium text-gray-600">Phường/Xã</span>
+                <select
+                  className="w-full rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70 disabled:opacity-60"
+                  value={wardCode}
+                  onChange={(e) => setWardCode(e.target.value ? Number(e.target.value) : "")}
+                  disabled={!districtCode}
+                  required
+                >
+                  <option value="">Chọn Phường/Xã</option>
+                  {wards.map((w) => (
+                    <option key={w.code} value={w.code}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           </label>
 
+          {/* line1 */}
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-gray-600">Địa chỉ (Số nhà, đường…)</span>
             <input
@@ -194,6 +314,7 @@ export default function AccountAddressPage() {
             />
           </label>
 
+          {/* default */}
           <label className="inline-flex items-center gap-3 select-none">
             <input
               type="checkbox"
@@ -204,6 +325,7 @@ export default function AccountAddressPage() {
             <span className="cursor-pointer text-sm text-gray-700">Đặt làm địa chỉ mặc định</span>
           </label>
 
+          {/* buttons */}
           <div className="flex justify-between">
             {editId != null ? (
               <button
@@ -227,16 +349,15 @@ export default function AccountAddressPage() {
               <svg viewBox="0 0 24 24" className="h-5 w-5">
                 <path
                   fill="currentColor"
-                  d="M19 21H5a2 2 0 0 1-2-2V7a1 1 0 0 1 1-1h3l1-2h8l1 2h3a1 1 0 0 1 1 1v12a2 2 0 0 1-2 2M6 9v10h12V9z"
+                  d="M19 21H5a2 2 0 0 1-2-2V7a1 1 0 0 1 1-1h3l1-2h8l1 2h3a1 1 0 0 0 1 1v12a2 2 0 0 1-2 2M6 9v10h12V9z"
                 />
               </svg>
               {pending ? "Đang lưu..." : editId != null ? "Cập nhật địa chỉ" : "Thêm địa chỉ"}
             </motion.button>
           </div>
-          <button></button>
         </form>
 
-        {/* Danh sách */}
+        {/* list */}
         <div className="overflow-hidden rounded-2xl border bg-white/80 shadow-sm ring-1 ring-black/5 backdrop-blur">
           <div className="border-b bg-gray-50/60 px-5 py-3">
             <h2 className="text-sm font-medium text-gray-700">Danh sách địa chỉ</h2>

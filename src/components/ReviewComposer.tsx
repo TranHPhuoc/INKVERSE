@@ -4,9 +4,7 @@ import { useAuth } from "../context/AuthContext";
 
 type Props = {
   bookId: number;
-  /** Mặc định true: nếu đã có đánh giá → ẩn toàn bộ composer */
   hiddenWhenRated?: boolean;
-  /** gọi sau khi POST thành công (để cha reload list/summary) */
   onSubmitted?: () => void;
 };
 
@@ -18,7 +16,6 @@ export default function ReviewComposer({ bookId, hiddenWhenRated = true, onSubmi
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // lấy đánh giá của mình để quyết định ẩn/hiện
   useEffect(() => {
     let active = true;
     if (!isAuthenticated || !bookId) {
@@ -42,12 +39,11 @@ export default function ReviewComposer({ bookId, hiddenWhenRated = true, onSubmi
     };
   }, [bookId, isAuthenticated]);
 
-  // nếu đã có đánh giá và yêu cầu ẩn → return null
   if (!isAuthenticated) {
     return (
       <div className="text-sm text-gray-500">
         Chỉ có thành viên mới có thể viết nhận xét. Vui lòng{" "}
-        <a className="text-blue-600 hover:underline" href="/dang-nhap">
+        <a className="cursor-pointer text-blue-600 hover:underline" href="/dang-nhap">
           đăng nhập
         </a>
         .
@@ -63,7 +59,6 @@ export default function ReviewComposer({ bookId, hiddenWhenRated = true, onSubmi
       const s = Math.max(1, Math.min(5, Number(score) || 0));
       await upsertRating(bookId, { score: s, content: content.trim() });
 
-      // Reset form ngay sau khi gửi + thông báo cha reload
       setScore(5);
       setContent("");
       onSubmitted?.();
@@ -87,6 +82,7 @@ export default function ReviewComposer({ bookId, hiddenWhenRated = true, onSubmi
               type="button"
               onClick={() => setScore(i + 1)}
               aria-label={`${i + 1} sao`}
+              className="cursor-pointer"
             >
               <span className={i < score ? "text-yellow-400" : "text-gray-300"}>★</span>
             </button>
@@ -107,7 +103,7 @@ export default function ReviewComposer({ bookId, hiddenWhenRated = true, onSubmi
         <button
           onClick={submit}
           disabled={loading}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700 disabled:opacity-60"
+          className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700 disabled:opacity-60"
         >
           Gửi đánh giá
         </button>
