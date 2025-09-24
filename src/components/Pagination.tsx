@@ -2,18 +2,22 @@ import React, { useMemo } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
 type Props = {
-  page: number; // 1-based
+  /** current page (1-based) */
+  page: number;
   totalPages: number;
   onChange: (p: number) => void;
 
-  siblingCount?: number; // số trang kề 2 bên (mặc định 1)
-  boundaryCount?: number; // số trang sát biên (mặc định 1)
+  /** number of pages shown beside the current page (default 1) */
+  siblingCount?: number;
+  /** number of boundary pages at start/end (default 1) */
+  boundaryCount?: number;
+
   className?: string;
 
-  /** tự cuộn lên đầu list khi đổi trang */
+  /** auto scroll to top when page changes (default true) */
   autoScrollTop?: boolean;
 
-  /** selector hoặc ref tới container cần cuộn */
+  /** CSS selector or ref for the element to scroll to */
   scrollTarget?: string | React.RefObject<HTMLElement | null>;
 };
 
@@ -29,8 +33,6 @@ export default function Pagination({
   autoScrollTop = true,
   scrollTarget,
 }: Props) {
-  if (!totalPages || totalPages <= 1) return null;
-
   const go = (p: number) => {
     const next = clamp(p, 1, totalPages);
     if (next === page) return;
@@ -48,9 +50,11 @@ export default function Pagination({
     }
   };
 
+  // Always call hooks at the top-level (avoid conditional calls)
   const items = useMemo<(number | "...")[]>(() => {
-    const result: (number | "...")[] = [];
+    if (!totalPages || totalPages <= 1) return [];
 
+    const result: (number | "...")[] = [];
     const add = (v: number | "...") => result.push(v);
 
     const left = Math.max(1, page - siblingCount);
@@ -77,9 +81,12 @@ export default function Pagination({
     // right boundary
     for (let i = Math.max(totalPages - boundaryCount + 1, 1); i <= totalPages; i++) add(i);
 
-    // unique + giữ thứ tự (phòng khi totalPages nhỏ)
+    // unique + keep order
     return result.filter((v, i, a) => a.indexOf(v) === i);
   }, [page, totalPages, siblingCount, boundaryCount]);
+
+  // Render nothing when only one page
+  if (!totalPages || totalPages <= 1) return null;
 
   const Btn = ({
     disabled,
@@ -114,7 +121,7 @@ export default function Pagination({
 
       {items.map((it, idx) =>
         it === "..." ? (
-          <span key={`e-${idx}`} className="px-2 text-gray-500">
+          <span key={`e-${idx}`} className="px-2 text-gray-500" aria-hidden="true">
             …
           </span>
         ) : (

@@ -1,3 +1,4 @@
+// src/services/rating.ts
 import api from "./api";
 
 /* ------------ Types ------------ */
@@ -27,12 +28,15 @@ export type ResRatingSummary = {
   percent?: Record<number, number>; // {1..5: percent}
 };
 
-/** unwrap payload kiểu {statusCode,error,message,data} hoặc trả raw */
-function unwrap<T>(payload: any): T {
-  if (payload && typeof payload === "object" && "data" in payload && "statusCode" in payload) {
-    return payload.data as T;
-  }
-  return payload as T;
+/* ------------ unwrap helper (không dùng any) ------------ */
+type ApiResp<T> = { statusCode?: number; data: T };
+
+function isApiResp<T>(v: unknown): v is ApiResp<T> {
+  return typeof v === "object" && v !== null && "data" in (v as Record<string, unknown>);
+}
+
+function unwrap<T>(payload: unknown): T {
+  return isApiResp<T>(payload) ? payload.data : (payload as T);
 }
 
 /* ------------ API ------------ */
@@ -53,7 +57,7 @@ export async function listRatings(
 export async function myRating(bookId: number): Promise<ResRating | null> {
   const res = await api.get(`/api/v1/books/${bookId}/ratings/me`);
   const data = unwrap<ResRating | null>(res.data);
-  return (data as any) ?? null;
+  return data ?? null;
 }
 
 export async function upsertRating(

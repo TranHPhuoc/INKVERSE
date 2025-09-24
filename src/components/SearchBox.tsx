@@ -29,11 +29,11 @@ export default function SearchBox({ className = "" }: Props) {
         value={kw}
         onChange={(e) => setKw(e.target.value)}
         placeholder="Tìm kiếm"
-        className="h-10 flex-1 rounded-lg border bg-white px-3 text-xl outline-none focus:ring-2 focus:ring-indigo-500 md:h-15"
+        className="h-11 flex-1 rounded-lg border bg-white px-4 text-base outline-none focus:ring-2 focus:ring-indigo-500 md:h-12 md:text-[15px]"
       />
       <button
         type="submit"
-        className="h-10 cursor-pointer rounded-lg bg-[#db4444] px-4 text-xl font-medium text-white hover:opacity-90 md:h-15"
+        className="h-11 cursor-pointer rounded-lg bg-[#db4444] px-4 text-sm font-medium text-white hover:opacity-90 md:h-12 md:px-5 md:text-[15px]"
       >
         Tìm kiếm
       </button>

@@ -1,11 +1,14 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { useEffect } from "react";
 
 const ease: [number, number, number, number] = [0.22, 0.61, 0.36, 1];
 
 function SideItem({ to, label }: { to: string; label: string }) {
   const { pathname } = useLocation();
-  const active = pathname.startsWith(`/tai-khoan/${to}`);
+  const base = "/tai-khoan";
+  const isIndex = pathname === base || pathname === `${base}/`;
+  const active = pathname.startsWith(`${base}/${to}`) || (to === "ho-so-cua-toi" && isIndex);
 
   return (
     <div className="relative">
@@ -17,12 +20,11 @@ function SideItem({ to, label }: { to: string; label: string }) {
             background:
               "linear-gradient(90deg, rgba(255,0,122,0.06) 0%, rgba(99,102,241,0.06) 100%)",
           }}
-          transition={{ duration: 0.28, ease }}
+          transition={{ duration: 0.28 }}
         />
       )}
-
       <NavLink
-        to={to}
+        to={to} // relative -> /tai-khoan/{to}
         className={`relative z-10 flex h-10 items-center rounded-lg px-4 text-sm leading-[1.2] font-medium transition-colors duration-200 select-none ${
           active ? "text-gray-900" : "text-gray-700 hover:text-gray-900"
         }`}
@@ -35,23 +37,33 @@ function SideItem({ to, label }: { to: string; label: string }) {
 
 export default function AccountLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // BẮT BUỘC redirect khi đang đứng đúng /tai-khoan
+  useEffect(() => {
+    const base = "/tai-khoan";
+    if (location.pathname === base || location.pathname === `${base}/`) {
+      navigate("ho-so-cua-toi", { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-      {/* Khung chung: sidebar + content cùng một card bo góc */}
+      {/* Khung chung: sidebar + content */}
       <div className="overflow-hidden rounded-2xl border bg-white/90 shadow-sm">
         <div className="grid gap-0 md:grid-cols-[260px_1fr]">
-          {/* Sidebar: sticky (dính), căn padding đồng nhất để chữ không lệch */}
+          {/* Sidebar */}
           <aside className="relative border-b md:border-r md:border-b-0">
             <div className="self-start md:sticky md:top-[80px]">
               <div className="mb-1 px-4 text-sm font-semibold text-black">QUẢN LÝ TÀI KHOẢN</div>
               <nav className="relative space-y-1 px-2">
+                <SideItem to="ho-so-cua-toi" label="Hồ sơ của tôi" />
                 <SideItem to="dia-chi" label="Địa chỉ" />
+                <SideItem to="doi-mat-khau" label="Đổi mật khẩu" />
               </nav>
             </div>
           </aside>
 
-          {/* Content: chuyển cảnh nhẹ nhàng giữa 2 tab */}
           <section className="p-4 md:p-6">
             <AnimatePresence mode="wait">
               <motion.div

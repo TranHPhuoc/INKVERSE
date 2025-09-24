@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { listMyAddresses } from "../services/account-address";
+import type { AxiosError } from "axios";
 
 export default function useEnsureAddress(returnTo: string = "/checkout") {
   const nav = useNavigate();
@@ -33,10 +34,12 @@ export default function useEnsureAddress(returnTo: string = "/checkout") {
         }
 
         setReady(true);
-      } catch (e: any) {
+      } catch (err) {
         if (!alive) return;
 
-        const status = e?.response?.status;
+        const e = err as AxiosError; // 👈 cast thay cho any
+        const status = e.response?.status;
+
         if (status === 401) {
           if (!atLogin) {
             nav(`/dang-nhap?next=${encodeURIComponent(returnTo)}`, { replace: true });
@@ -47,7 +50,6 @@ export default function useEnsureAddress(returnTo: string = "/checkout") {
         if (!atAddress) {
           nav(`/tai-khoan/dia-chi?return=${encodeURIComponent(returnTo)}`, { replace: true });
         }
-        return;
       } finally {
         if (alive) setChecking(false);
       }

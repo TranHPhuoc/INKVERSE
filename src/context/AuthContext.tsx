@@ -1,8 +1,11 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthAPI, type ChangePasswordPayload } from "../services/auth";
 import type { RegisterPayload, VerifyEmailPayload, LoginPayload } from "../services/auth";
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from "../types/authKeys";
 import type { ApiEnvelope } from "../types/http";
+import { AuthContext } from "./AuthContextCore";
+
+/* ================= Types (type-only exports are fine) ================= */
 
 export type User = {
   id: number | string;
@@ -39,17 +42,34 @@ export type AuthContextType = AuthState & {
   isAuthenticated: boolean;
 };
 
-function decodeJwt(token: string): Record<string, unknown> | null {
+/** JWT payload dự kiến từ BE (để tránh any) */
+type JwtPayload = {
+  userId?: number | string;
+  id?: number | string;
+  sub?: string;
+  email?: string;
+  username?: string;
+  fullName?: string;
+  avatarUrl?: string;
+  role?: string;
+  roles?: string[];
+};
+
+/* =============== Utils (internal) =============== */
+
+function decodeJwt(token: string): JwtPayload | null {
   try {
     const payload = token.split(".")[1];
+    if (!payload) return null;
     const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(decodeURIComponent(escape(json)));
+    // escape/unescape là cũ nhưng dùng tạm để decode UTF-8 string
+    return JSON.parse(decodeURIComponent(escape(json))) as JwtPayload;
   } catch {
     return null;
   }
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+/* =============== Provider (only runtime export in this file) =============== */
 
 export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -66,13 +86,13 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     }
   }, []);
 
+  // Hydrate từ localStorage
   useEffect(() => {
     const t = localStorage.getItem(AUTH_TOKEN_KEY);
     const rawU = localStorage.getItem(AUTH_USER_KEY);
 
-    if (t) {
-      setAccessToken(t);
-    }
+    if (t) setAccessToken(t);
+
     if (rawU) {
       try {
         setUser(JSON.parse(rawU) as User);
@@ -80,21 +100,27 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         setUser(null);
       }
     } else if (t) {
-      const p = decodeJwt(t);
+      const p = decodeJwt(t) ?? {};
+      const idRaw = p.userId ?? p.id ?? p.sub ?? "";
+      const emailRaw = p.email ?? p.sub;
+      const nameRaw = p.username ?? p.fullName;
+      const avatarRaw = p.avatarUrl;
+      const roleRaw = Array.isArray(p.roles) ? p.roles[0] : p.role;
+
+      // Không gán undefined vào object literal (exactOptionalPropertyTypes)
       const u: User = {
-        id:
-          (p?.userId as number | string | undefined) ??
-          (p?.id as number | string | undefined) ??
-          "",
-        email: (p?.email as string | undefined) ?? (p?.sub as string | undefined),
-        role: Array.isArray(p?.roles as unknown[])
-          ? (p?.roles as string[])[0]
-          : (p?.role as string | undefined),
+        id: idRaw,
+        ...(emailRaw ? { email: emailRaw } : {}),
+        ...(nameRaw ? { name: nameRaw } : {}),
+        ...(avatarRaw ? { avatarUrl: avatarRaw } : {}),
+        ...(roleRaw ? { role: roleRaw } : {}),
       };
       setUser(u);
       persistSession(t, u);
     }
   }, [persistSession]);
+
+  /* ===== Actions ===== */
 
   const startRegister = useCallback(async (data: RegisterPayload) => {
     await AuthAPI.registerStart(data);
@@ -128,18 +154,21 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
       setAccessToken(token);
 
-      const p = decodeJwt(token);
+      const p = decodeJwt(token) ?? {};
+      const idRaw = p.userId ?? p.id ?? p.sub ?? "";
+      const emailRaw = p.email ?? p.sub;
+      const nameRaw = p.username ?? p.fullName;
+      const avatarRaw = p.avatarUrl;
+      const roleRaw = Array.isArray(p.roles) ? p.roles[0] : p.role;
+
       const u: User = {
-        id:
-          (p?.userId as number | string | undefined) ??
-          (p?.id as number | string | undefined) ??
-          "",
-        email: (p?.email as string | undefined) ?? (p?.sub as string | undefined),
-        name: (p?.username as string | undefined) ?? (p?.fullName as string | undefined),
-        role: Array.isArray(p?.roles as unknown[])
-          ? (p?.roles as string[])[0]
-          : (p?.role as string | undefined),
+        id: idRaw,
+        ...(emailRaw ? { email: emailRaw } : {}),
+        ...(nameRaw ? { name: nameRaw } : {}),
+        ...(avatarRaw ? { avatarUrl: avatarRaw } : {}),
+        ...(roleRaw ? { role: roleRaw } : {}),
       };
+
       setUser(u);
       persistSession(token, u);
     },
@@ -147,14 +176,10 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   );
 
   const logout = useCallback(() => {
-    AuthAPI.logout()
-      .then(() => {
-        /* noop */
-      })
-      .catch((e) => {
-        console.debug("logout error:", e);
-      });
-
+    AuthAPI.logout().catch((e) => {
+      // log nhẹ, không chặn logout local
+      console.debug("logout error:", e);
+    });
     setAccessToken(null);
     setRegisterData(null);
     setUser(null);
@@ -185,10 +210,12 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       setUser(null);
       persistSession(null, null);
     },
-    [persistSession],
+    [accessToken, persistSession],
   );
 
-  const value = useMemo<AuthContextType>(
+  /* ===== Context value ===== */
+
+  const value = useMemo(
     () => ({
       accessToken,
       user,
@@ -205,14 +232,20 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       setUser,
       isAuthenticated: !!accessToken,
     }),
-    [accessToken, user, registerData, startRegister, verifyEmail, resendOtp, login, logout],
+    [
+      accessToken,
+      user,
+      registerData,
+      startRegister,
+      verifyEmail,
+      resendOtp,
+      login,
+      logout,
+      forgotPasswordStart,
+      forgotPasswordVerify,
+      changePassword,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
-
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
 };

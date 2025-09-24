@@ -28,6 +28,14 @@ function findByName<T extends { name: string }>(arr: readonly T[], name?: string
   );
 }
 
+function extractErrorMessage(e: unknown, fallback: string): string {
+  if (e && typeof e === "object" && "response" in e) {
+    const errObj = e as { response?: { data?: { message?: string } } };
+    return errObj.response?.data?.message ?? fallback;
+  }
+  return fallback;
+}
+
 /* ==================== component ==================== */
 export default function AccountAddressPage() {
   const [list, setList] = useState<Address[]>([]);
@@ -56,13 +64,12 @@ export default function AccountAddressPage() {
   // load districts when province changes
   useEffect(() => {
     if (provinceCode !== "") void loadDistricts(Number(provinceCode));
-    // chỉ phụ thuộc provinceCode để tránh loop
-  }, [provinceCode]);
+  }, [provinceCode, loadDistricts]);
 
   // load wards when district changes
   useEffect(() => {
     if (districtCode !== "") void loadWards(Number(districtCode));
-  }, [districtCode]);
+  }, [districtCode, loadWards]);
 
   // sync display names into form
   useEffect(() => {
@@ -82,21 +89,21 @@ export default function AccountAddressPage() {
       const p = findByName<Province>(provinces, form.province);
       if (p) setProvinceCode(p.code);
     }
-  }, [provinces, form.province]);
+  }, [provinces, form.province, provinceCode]);
 
   useEffect(() => {
     if (!districtCode && districts.length && form.district) {
       const d = findByName<District>(districts, form.district);
       if (d) setDistrictCode(d.code);
     }
-  }, [districts, form.district]);
+  }, [districts, form.district, districtCode]);
 
   useEffect(() => {
     if (!wardCode && wards.length && form.ward) {
       const w = findByName<Ward>(wards, form.ward);
       if (w) setWardCode(w.code);
     }
-  }, [wards, form.ward]);
+  }, [wards, form.ward, wardCode]);
 
   const [search] = useSearchParams();
   const nav = useNavigate();
@@ -114,10 +121,10 @@ export default function AccountAddressPage() {
   async function refresh(): Promise<void> {
     try {
       setErr(null);
-      const data = await listMyAddresses();
+      const data: Address[] = await listMyAddresses();
       setList(Array.isArray(data) ? data : []);
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Không tải được địa chỉ");
+    } catch (e: unknown) {
+      setErr(extractErrorMessage(e, "Không tải được địa chỉ"));
       setList([]);
     } finally {
       setLoading(false);
@@ -129,7 +136,7 @@ export default function AccountAddressPage() {
   }, []);
 
   /* ----- form logic ----- */
-  function resetForm() {
+  function resetForm(): void {
     setEditId(null);
     setForm({
       fullName: "",
@@ -163,8 +170,8 @@ export default function AccountAddressPage() {
       resetForm();
 
       if (returnTo) nav(returnTo, { replace: true });
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Lưu địa chỉ thất bại");
+    } catch (e: unknown) {
+      setErr(extractErrorMessage(e, "Lưu địa chỉ thất bại"));
     } finally {
       setPending(false);
     }
@@ -227,6 +234,9 @@ export default function AccountAddressPage() {
             <label className="space-y-1.5">
               <span className="text-xs font-medium text-gray-600">Số điện thoại</span>
               <input
+                type="tel"
+                inputMode="tel"
+                pattern="^[0-9+\-\s]{8,15}$"
                 className="w-full rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70"
                 required
                 {...bind("phone")}
@@ -272,7 +282,7 @@ export default function AccountAddressPage() {
                     setWardCode("");
                   }}
                   disabled={!provinceCode}
-                  required
+                  required={!!provinceCode}
                 >
                   <option value="">Chọn Quận/Huyện</option>
                   {districts.map((d) => (
@@ -291,7 +301,7 @@ export default function AccountAddressPage() {
                   value={wardCode}
                   onChange={(e) => setWardCode(e.target.value ? Number(e.target.value) : "")}
                   disabled={!districtCode}
-                  required
+                  required={!!districtCode}
                 >
                   <option value="">Chọn Phường/Xã</option>
                   {wards.map((w) => (
@@ -395,8 +405,12 @@ export default function AccountAddressPage() {
                   {!a.isDefault && (
                     <motion.button
                       onClick={async () => {
-                        await setDefaultAddress(a.id);
-                        await refresh();
+                        try {
+                          await setDefaultAddress(a.id);
+                          await refresh();
+                        } catch (e: unknown) {
+                          setErr(extractErrorMessage(e, "Đặt mặc định thất bại"));
+                        }
                       }}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
@@ -426,12 +440,16 @@ export default function AccountAddressPage() {
                     Sửa
                   </motion.button>
                   <motion.button
+                    onClick={async () => {
+                      try {
+                        await deleteMyAddress(a.id);
+                        await refresh();
+                      } catch (e: unknown) {
+                        setErr(extractErrorMessage(e, "Xoá địa chỉ thất bại"));
+                      }
+                    }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={async () => {
-                      await deleteMyAddress(a.id);
-                      await refresh();
-                    }}
                     className="h-9 cursor-pointer rounded-lg border border-rose-300 bg-rose-50 px-3 text-sm text-rose-700 hover:bg-rose-100"
                   >
                     Xóa

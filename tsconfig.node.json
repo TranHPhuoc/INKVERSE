@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
+    "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+
     "target": "ES2023",
     "lib": ["ES2023"],
     "module": "ESNext",
@@ -13,13 +15,12 @@
     "moduleDetection": "force",
     "noEmit": true,
 
-    /* Linting */
+    /* Linting / Type safety */
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noImplicitAny": true,
+
+    /* DX */
+    "types": ["node", "vite/client"]
   },
   "include": ["vite.config.ts"]
 }

@@ -5,7 +5,7 @@ import { getBookDetailBySlug } from "../types/books";
 import { langVi, ageVi, coverVi } from "../types/labels";
 import { PLACEHOLDER } from "../types/img";
 import { addCartItem, addAndSelectOne } from "../services/cart";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import useCheckoutGuard from "../hooks/useCheckoutGuard";
 import BookGallery from "../components/BookGallery";
 import BookReviewAndComment from "../components/BookReviewAndComment";

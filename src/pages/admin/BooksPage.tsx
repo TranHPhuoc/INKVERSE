@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import api from "../../services/api";
 import { deleteBook } from "../../services/admin/books-admin";
@@ -26,6 +26,15 @@ type BookListItem = {
   status: "DRAFT" | "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
 };
 
+const STATUS_OPTIONS: readonly BookListItem["status"][] = [
+  "ACTIVE",
+  "INACTIVE",
+  "DRAFT",
+  "OUT_OF_STOCK",
+] as const;
+const isStatus = (v: string): v is BookListItem["status"] =>
+  (STATUS_OPTIONS as readonly string[]).includes(v);
+
 export default function BooksPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"" | BookListItem["status"]>("");
@@ -38,19 +47,19 @@ export default function BooksPage() {
   const [uploading, setUploading] = useState<number | null>(null);
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({});
 
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const hasQ = q.trim().length > 0;
       const url = hasQ ? "/api/v1/books/search" : "/api/v1/books";
-      const params: Record<string, string | number> = {
+      const params: Record<string, string | number | undefined> = {
         page,
         size,
         sort: "createdAt",
         direction: "DESC",
+        status: status || undefined,
+        q: hasQ ? q.trim() : undefined,
       };
-      if (status) params.status = status;
-      if (hasQ) params.q = q.trim();
 
       const res = await api.get(url, { params });
       const payload = (res?.data?.data ?? res?.data) as SpringPage<BookListItem>;
@@ -58,11 +67,11 @@ export default function BooksPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, size, q, status]);
 
   useEffect(() => {
     void fetchData();
-  }, [page, status]);
+  }, [fetchData]);
 
   const onDelete = async (id: number) => {
     if (!confirm("Xóa sách này?")) return;
@@ -125,14 +134,15 @@ export default function BooksPage() {
             <label className="mb-1 block text-sm text-gray-600">Trạng thái</label>
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value as any)}
+              onChange={(e) => setStatus(isStatus(e.target.value) ? e.target.value : "")}
               className="cursor-pointer rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             >
               <option value="">Tất cả</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE</option>
-              <option value="DRAFT">DRAFT</option>
-              <option value="OUT_OF_STOCK">OUT_OF_STOCK</option>
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
             </select>
           </div>
           <button
@@ -181,8 +191,8 @@ export default function BooksPage() {
                           alt={b.title}
                           className="h-12 w-12 rounded-md object-cover ring-1 ring-gray-200"
                           onError={(e) => {
-                            const el = e.currentTarget as HTMLImageElement;
-                            if (el.src !== PLACEHOLDER) el.src = PLACEHOLDER;
+                            if (e.currentTarget.src !== PLACEHOLDER)
+                              e.currentTarget.src = PLACEHOLDER;
                           }}
                         />
                       ) : (

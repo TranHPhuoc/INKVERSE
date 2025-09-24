@@ -6,6 +6,7 @@ import { placeOrder, type PaymentMethod, type DeliveryMethod } from "../services
 import api from "../services/api";
 import { motion } from "framer-motion";
 
+/* ================= constants ================= */
 const PAYMENT_METHODS: PaymentMethod[] = [
   "COD",
   "BANK_TRANSFER",
@@ -16,6 +17,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
 ];
 const DELIVERY_METHODS: DeliveryMethod[] = ["STANDARD", "EXPRESS"];
 
+/* ================= utils ================= */
 const formatVND = (n: number) => (Number.isFinite(n) ? n.toLocaleString("vi-VN") : "0");
 
 type CartItem = {
@@ -27,8 +29,8 @@ type CartItem = {
   qty: number;
 };
 
-function num(v: any): number | undefined {
-  if (v == null) return undefined;
+// parse number từ nhiều kiểu unknown
+function toNumber(v: unknown): number | undefined {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string") {
     const s = v.replace(/[^\d.-]/g, "");
@@ -38,49 +40,88 @@ function num(v: any): number | undefined {
   return undefined;
 }
 
-function pickUnitPrice(x: any, b: any, qty: number): number {
+// đọc thuộc tính an toàn từ object unknown
+function read<T = unknown>(obj: unknown, key: string): T | undefined {
+  if (obj && typeof obj === "object" && key in obj) {
+    return (obj as Record<string, T | undefined>)[key];
+  }
+  return undefined;
+}
+
+function pickUnitPrice(
+  x: Record<string, unknown>,
+  b: Record<string, unknown>,
+  qty: number,
+): number {
   const candidates = [
-    x?.unitPrice,
-    x?.price,
-    x?.effectivePrice,
-    x?.sellingPrice,
-    x?.salePrice,
-    x?.originalPrice,
-    b?.effectivePrice,
-    b?.price,
-    b?.sellingPrice,
-    b?.salePrice,
-    x?.price?.amount,
-    b?.price?.amount,
-  ].map(num);
+    read(x, "unitPrice"),
+    read(x, "price"),
+    read(x, "effectivePrice"),
+    read(x, "sellingPrice"),
+    read(x, "salePrice"),
+    read(x, "originalPrice"),
+    read(b, "effectivePrice"),
+    read(b, "price"),
+    read(b, "sellingPrice"),
+    read(b, "salePrice"),
+    read(read(x, "price"), "amount"),
+    read(read(b, "price"), "amount"),
+  ].map(toNumber);
 
   const found = candidates.find((v) => typeof v === "number");
   if (typeof found === "number") return found;
 
   const line =
-    num(x?.lineTotal) ?? num(x?.subtotal) ?? num(x?.subTotal) ?? num(x?.total) ?? num(x?.amount);
-  if (typeof line === "number" && qty > 0) return Math.round(line / qty);
+    toNumber(read(x, "lineTotal")) ??
+    toNumber(read(x, "subtotal")) ??
+    toNumber(read(x, "subTotal")) ??
+    toNumber(read(x, "total")) ??
+    toNumber(read(x, "amount"));
 
+  if (typeof line === "number" && qty > 0) return Math.round(line / qty);
   return 0;
 }
 
-function normalizeCart(payload: any): CartItem[] {
-  const raw = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : [];
-  return raw.map((x: any, idx: number): CartItem => {
-    const b = x.book || x.product || {};
-    const qty = Number(x.qty ?? x.quantity ?? 1) || 1;
+function normalizeCart(payload: unknown): CartItem[] {
+  const items: unknown[] = Array.isArray((payload as { items?: unknown[] })?.items)
+    ? ((payload as { items?: unknown[] }).items as unknown[])
+    : Array.isArray(payload)
+      ? (payload as unknown[])
+      : [];
+
+  return items.map((raw, idx): CartItem => {
+    const x = (raw as Record<string, unknown>) || {};
+    const b = (read<Record<string, unknown>>(x, "book") ??
+      read<Record<string, unknown>>(x, "product") ??
+      {}) as Record<string, unknown>;
+    const qty = Number(read(x, "qty") ?? read(x, "quantity") ?? 1) || 1;
 
     return {
-      id: Number(x.id ?? idx + 1),
-      bookId: Number(x.bookId ?? b.id ?? x.productId ?? 0),
-      title: String(x.title ?? b.title ?? "Sản phẩm"),
-      thumbnail: x.thumbnail ?? b.thumbnail ?? b.imageUrl ?? null,
+      id: Number(read(x, "id") ?? idx + 1),
+      bookId: Number(read(x, "bookId") ?? read(b, "id") ?? read(x, "productId") ?? 0),
+      title: String(read(x, "title") ?? read(b, "title") ?? "Sản phẩm"),
+      thumbnail:
+        read<string | null>(x, "thumbnail") ??
+        read<string | null>(b, "thumbnail") ??
+        read<string | null>(b, "imageUrl") ??
+        null ??
+        null,
       price: pickUnitPrice(x, b, qty),
       qty,
     };
   });
 }
 
+// lỗi API → message
+function extractErr(e: unknown, fallback: string): string {
+  if (e && typeof e === "object" && "response" in e) {
+    const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message;
+    if (typeof msg === "string" && msg.trim()) return msg;
+  }
+  return fallback;
+}
+
+/* ================= component ================= */
 export default function CheckoutPage() {
   const { checking, ready } = useEnsureAddress("/checkout");
 
@@ -95,7 +136,7 @@ export default function CheckoutPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loadingCart, setLoadingCart] = useState(true);
 
-  // Địa chỉ
+  /* -------- Địa chỉ -------- */
   useEffect(() => {
     if (!ready) return;
     (async () => {
@@ -111,14 +152,14 @@ export default function CheckoutPage() {
     })();
   }, [ready]);
 
-  // Giỏ hàng
+  /* -------- Giỏ hàng -------- */
   useEffect(() => {
     if (!ready) return;
     (async () => {
       setLoadingCart(true);
       try {
         const res = await api.get("/api/v1/cart", { validateStatus: (s) => s < 500 });
-        const payload = res?.data?.data ?? res?.data;
+        const payload = (res?.data as { data?: unknown })?.data ?? res?.data;
         setItems(normalizeCart(payload));
       } catch {
         setItems([]);
@@ -132,7 +173,7 @@ export default function CheckoutPage() {
 
   const shippingFee = useMemo(() => {
     if (items.length === 0) return 0;
-    return delivery === "EXPRESS" ? 35000 : 20000;
+    return delivery === "EXPRESS" ? 35_000 : 20_000;
   }, [delivery, items.length]);
 
   const grandTotal = subTotal + shippingFee;
@@ -148,20 +189,32 @@ export default function CheckoutPage() {
       setSubmitting(true);
       setErr(null);
 
-      const res = await placeOrder({
+      // Không truyền undefined khi dùng exactOptionalPropertyTypes
+      const payload = {
         addressId: Number(addressId),
         paymentMethod: payment,
         deliveryMethod: delivery,
-        note: note.trim() || undefined,
-      });
+        ...(note.trim() ? { note: note.trim() } : {}),
+      };
 
-      if ((res as any).paymentRedirectUrl) {
-        window.location.href = (res as any).paymentRedirectUrl;
-      } else {
-        window.location.href = `/orders/${(res as any).code}`;
+      const res = await placeOrder(payload);
+
+      if (res && typeof res === "object" && "paymentRedirectUrl" in res) {
+        const url = (res as { paymentRedirectUrl?: string }).paymentRedirectUrl;
+        if (url) {
+          window.location.href = url;
+          return;
+        }
       }
-    } catch (e: any) {
-      setErr(e?.response?.data?.message || "Đặt hàng thất bại");
+      if (res && typeof res === "object" && "code" in res) {
+        const code = (res as { code?: string | number }).code;
+        window.location.href = `/orders/${String(code ?? "")}`;
+      } else {
+        // fallback nếu API không trả expected fields
+        window.location.href = "/orders";
+      }
+    } catch (e: unknown) {
+      setErr(extractErr(e, "Đặt hàng thất bại"));
     } finally {
       setSubmitting(false);
     }
@@ -196,7 +249,6 @@ export default function CheckoutPage() {
               </div>
             ) : (
               <>
-                {/* danh sách sản phẩm */}
                 <div className="flex-1 divide-y">
                   {items.map((it) => (
                     <div key={it.id} className="flex items-start gap-5 py-4">

@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
-import { SplitText as GSAPSplitText } from "gsap-trial/SplitText";
+import SplitText from "gsap-trial/SplitText";
 
-gsap.registerPlugin(GSAPSplitText);
+gsap.registerPlugin(SplitText);
 
 export type SplitTextProps = {
   text: string;
@@ -10,7 +10,9 @@ export type SplitTextProps = {
   splitType?: "chars" | "words" | "lines" | "words, chars";
   from?: gsap.TweenVars;
   to?: gsap.TweenVars;
+  /** milliseconds between elements */
   delay?: number;
+  /** seconds per tween */
   duration?: number;
   ease?: string | ((t: number) => number);
   tag?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p" | "span";
@@ -18,9 +20,9 @@ export type SplitTextProps = {
   onComplete?: () => void;
 };
 
-type WithSplitCache = HTMLElement & { _split?: GSAPSplitText };
+type WithSplitCache = HTMLElement & { _split?: SplitText };
 
-const SplitText: React.FC<SplitTextProps> = ({
+const SplitTextComponent: React.FC<SplitTextProps> = ({
   text,
   className = "",
   splitType = "chars",
@@ -33,26 +35,38 @@ const SplitText: React.FC<SplitTextProps> = ({
   textAlign = "center",
   onComplete,
 }) => {
-  const ref = useRef<HTMLParagraphElement>(null);
+  const hostRef = useRef<HTMLElement | null>(null);
+
+  // callback ref để hợp với mọi thẻ (h1/h2/p/span…)
+  const setHostRef = <T extends HTMLElement>(node: T | null) => {
+    hostRef.current = node as HTMLElement | null;
+  };
+
   const [fontsReady, setFontsReady] = useState(false);
 
+  // Memo hoá from/to để thỏa ESLint exhaustive-deps
+  const fromVars = useMemo(() => from, [JSON.stringify(from)]);
+  const toVars = useMemo(() => to, [JSON.stringify(to)]);
+
   useEffect(() => {
-    const d = document as unknown as { fonts?: FontFaceSet };
-    if (d.fonts) {
-      if (d.fonts.status === "loaded") setFontsReady(true);
-      else d.fonts.ready.then(() => setFontsReady(true));
-    } else setFontsReady(true);
+    const anyDoc = document as unknown as { fonts?: FontFaceSet };
+    if (anyDoc.fonts) {
+      if (anyDoc.fonts.status === "loaded") setFontsReady(true);
+      else anyDoc.fonts.ready.then(() => setFontsReady(true));
+    } else {
+      setFontsReady(true);
+    }
   }, []);
 
   useEffect(() => {
-    const el = ref.current as WithSplitCache | null;
+    const el = hostRef.current as WithSplitCache | null;
     if (!el || !fontsReady) return;
 
+    // Revert lần trước nếu có
     el._split?.revert();
-    el._split = undefined;
+    delete el._split; // ❗ thay vì gán undefined (fix TS2412)
 
-    // Tách text
-    const split = new GSAPSplitText(el, {
+    const split = new SplitText(el, {
       type: splitType,
       smartWrap: true,
       autoSplit: splitType === "lines",
@@ -63,26 +77,26 @@ const SplitText: React.FC<SplitTextProps> = ({
     });
     el._split = split;
 
-    let targets: Element[] = [];
-    if (splitType.includes("chars") && split.chars?.length) targets = split.chars;
-    if (!targets.length && splitType.includes("words") && split.words?.length)
-      targets = split.words;
-    if (!targets.length && splitType.includes("lines") && split.lines?.length)
-      targets = split.lines;
-    if (!targets.length)
-      targets = (split.chars || split.words || split.lines) as unknown as Element[];
+    // chọn targets theo splitType, fallback hợp lý
+    const pickTargets = (): Element[] => {
+      if (splitType.includes("chars") && split.chars.length) return split.chars;
+      if (splitType.includes("words") && split.words.length) return split.words;
+      if (splitType.includes("lines") && split.lines.length) return split.lines;
+      return split.chars.length ? split.chars : split.words.length ? split.words : split.lines;
+    };
+    const targets = pickTargets();
 
     const tween = gsap.fromTo(
       targets,
-      { ...from },
+      { ...fromVars },
       {
-        ...to,
+        ...toVars,
         duration,
         ease,
         stagger: delay / 1000,
         force3D: true,
-        onComplete: onComplete,
         willChange: "transform,opacity",
+        ...(onComplete ? { onComplete } : {}), // tránh pass undefined
       },
     );
 
@@ -93,19 +107,9 @@ const SplitText: React.FC<SplitTextProps> = ({
       } catch {
         /* ignore */
       }
-      el._split = undefined;
+      delete el._split; // ❗ fix TS2412 lần 2
     };
-  }, [
-    text,
-    splitType,
-    JSON.stringify(from),
-    JSON.stringify(to),
-    delay,
-    duration,
-    ease,
-    fontsReady,
-    onComplete,
-  ]);
+  }, [text, splitType, fromVars, toVars, delay, duration, ease, fontsReady, onComplete]);
 
   const style: React.CSSProperties = {
     textAlign,
@@ -117,53 +121,53 @@ const SplitText: React.FC<SplitTextProps> = ({
   switch (tag) {
     case "h1":
       return (
-        <h1 ref={ref} style={style} className={classes}>
+        <h1 ref={setHostRef as React.Ref<HTMLHeadingElement>} style={style} className={classes}>
           {text}
         </h1>
       );
     case "h2":
       return (
-        <h2 ref={ref} style={style} className={classes}>
+        <h2 ref={setHostRef as React.Ref<HTMLHeadingElement>} style={style} className={classes}>
           {text}
         </h2>
       );
     case "h3":
       return (
-        <h3 ref={ref} style={style} className={classes}>
+        <h3 ref={setHostRef as React.Ref<HTMLHeadingElement>} style={style} className={classes}>
           {text}
         </h3>
       );
     case "h4":
       return (
-        <h4 ref={ref} style={style} className={classes}>
+        <h4 ref={setHostRef as React.Ref<HTMLHeadingElement>} style={style} className={classes}>
           {text}
         </h4>
       );
     case "h5":
       return (
-        <h5 ref={ref} style={style} className={classes}>
+        <h5 ref={setHostRef as React.Ref<HTMLHeadingElement>} style={style} className={classes}>
           {text}
         </h5>
       );
     case "h6":
       return (
-        <h6 ref={ref} style={style} className={classes}>
+        <h6 ref={setHostRef as React.Ref<HTMLHeadingElement>} style={style} className={classes}>
           {text}
         </h6>
       );
     case "span":
       return (
-        <span ref={ref} style={style} className={classes}>
+        <span ref={setHostRef as React.Ref<HTMLSpanElement>} style={style} className={classes}>
           {text}
         </span>
       );
     default:
       return (
-        <p ref={ref} style={style} className={classes}>
+        <p ref={setHostRef as React.Ref<HTMLParagraphElement>} style={style} className={classes}>
           {text}
         </p>
       );
   }
 };
 
-export default SplitText;
+export default SplitTextComponent;

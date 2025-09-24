@@ -10,13 +10,23 @@ import {
   unlikeComment,
   type ResComment,
 } from "../services/comment";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 /* ===== helpers ===== */
 function fmtTime(iso?: string) {
   if (!iso) return "";
   const d = dayjs(String(iso));
   return d.isValid() ? d.format("DD/MM/YYYY HH:mm") : "";
+}
+
+// Đọc an toàn các field “không chắc có” mà không dùng any
+function readUserId(c: ResComment): number | undefined {
+  const v = (c as unknown as Record<string, unknown>).userId;
+  return typeof v === "number" ? v : undefined;
+}
+function readIsMine(c: ResComment): boolean {
+  const v = (c as unknown as Record<string, unknown>).isMine;
+  return v === true;
 }
 
 function Kebab({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
@@ -80,7 +90,7 @@ function CommentItem({
 }: CommentItemProps) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(c.content ?? "");
-  const isMine = canEdit(c) || (c as any)?.isMine === true;
+  const isMine = canEdit(c) || readIsMine(c);
   const liked = !!c.likedByMe;
   const likeCount = c.likeCount ?? 0;
 
@@ -201,8 +211,8 @@ export default function CommentThread({ bookId }: { bookId: number }) {
 
   const canEdit = useCallback(
     (c: ResComment) => {
-      const commentUserId = (c as any)?.userId;
-      return user?.id != null && commentUserId != null ? user.id === commentUserId : false;
+      const uid = readUserId(c);
+      return user?.id != null && uid != null ? user.id === uid : false;
     },
     [user?.id],
   );
@@ -213,7 +223,9 @@ export default function CommentThread({ bookId }: { bookId: number }) {
     setErr(null);
     try {
       const res = await listComments(bookId, { page, size, sort: "new" });
-      setItems(res.content ?? []);
+      // Một số backend trả (ResComment | null)[], lọc null cho chắc
+      const arr = (res.content ?? []).filter((x): x is ResComment => !!x && typeof x === "object");
+      setItems(arr);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Không tải được bình luận");
     } finally {
@@ -225,16 +237,26 @@ export default function CommentThread({ bookId }: { bookId: number }) {
     void load();
   }, [load]);
 
-  // helper: patch 1 comment theo id (đệ quy)
+  function hasChildren(x: ResComment): x is ResComment & { children: ResComment[] } {
+    const v = (x as unknown as { children?: unknown }).children;
+    return Array.isArray(v);
+  }
+
+  // helper: patch 1 comment theo id (đệ quy) — type-safe cho children
   function patchById(
     list: ResComment[],
     id: number,
     patch: (c: ResComment) => ResComment,
   ): ResComment[] {
-    return list.map((c) => {
+    return list.map<ResComment>((c) => {
       if (c.id === id) return patch(c);
-      const children = c.children?.length ? patchById(c.children, id, patch) : c.children;
-      return children === c.children ? c : { ...c, children };
+
+      // kids: ResComment[] | undefined
+      const kids = hasChildren(c) ? c.children : undefined;
+      const nextKids = kids?.length ? patchById(kids, id, patch) : kids;
+
+      // Giữ nguyên reference nếu không đổi để tránh re-render thừa
+      return nextKids === kids ? c : ({ ...c, children: nextKids } as ResComment);
     });
   }
 
@@ -329,7 +351,7 @@ export default function CommentThread({ bookId }: { bookId: number }) {
         {empty && <div className="text-sm text-gray-500">Chưa có bình luận.</div>}
       </div>
 
-      {/* Composer dưới cùng, chữ to & đen, không viền */}
+      {/* Composer */}
       {isAuthenticated ? (
         <div className="rounded-2xl bg-white/95 p-4 shadow-sm">
           {replyTo && (

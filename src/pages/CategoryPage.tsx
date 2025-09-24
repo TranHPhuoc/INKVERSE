@@ -1,3 +1,4 @@
+// src/pages/CategoryPage.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { LANGUAGE_VI } from "../types/labels";
@@ -15,6 +16,7 @@ import ProductCard from "../components/ProductCard";
 import { ChevronDown } from "lucide-react";
 import Pagination from "../components/Pagination";
 
+/* ───────── helpers ───────── */
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 const fmtVND = (n: number) => {
   try {
@@ -29,75 +31,8 @@ const prettifySlug = (s: string) =>
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (m) => m.toUpperCase());
-const toSlug = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 
-type LocalCategory = { id: string; name: string; children?: string[] };
-const CATEGORIES: LocalCategory[] = [
-  {
-    id: "van-hoc",
-    name: "Sách Văn Học",
-    children: ["Tiểu Thuyết", "Truyện Ngắn", "Light Novel", "Ngôn Tình"],
-  },
-  {
-    id: "thieu-nhi",
-    name: "Sách Thiếu Nhi",
-    children: [
-      "Manga - Comic",
-      "Kiến Thức Bách Khoa",
-      "Sách Tranh Kỹ Năng Sống",
-      "Vừa Học Vừa Chơi Với Trẻ",
-    ],
-  },
-  {
-    id: "kinh-te",
-    name: "Sách Kinh Tế",
-    children: [
-      "Nhân Vật - Bài Học Kinh Doanh",
-      "Quản Trị - Lãnh Đạo",
-      "Marketing - Bán Hàng",
-      "Phân Tích Kinh Tế",
-    ],
-  },
-  {
-    id: "tieu-su",
-    name: "Sách Tiểu Sử - Hồi Ký",
-    children: ["Câu Chuyện Cuộc Đời", "Chính Trị", "Kinh Tế", "Nghệ Thuật - Giải Trí"],
-  },
-  {
-    id: "tam-ly",
-    name: "Sách Tâm Lý - Kỹ Năng Sống",
-    children: ["Kỹ Năng Sống", "Rèn Luyện Nhân Cách", "Tâm Lý", "Sách Cho Tuổi Mới Lớn"],
-  },
-  {
-    id: "giao-khoa",
-    name: "Sách Giáo Khoa - Tham Khảo",
-    children: ["Sách Giáo Khoa", "Sách Tham Khảo", "Luyện thi ĐH, CĐ", "Mẫu Giáo"],
-  },
-  {
-    id: "nuoi-day-con",
-    name: "Sách Nuôi Dạy Con",
-    children: [
-      "Cẩm Nang Làm Cha Mẹ",
-      "Phương Pháp Giáo Dục Trẻ Các Nước",
-      "Phát Triển Trí Tuệ Cho Trẻ",
-      "Phát Triển Kỹ Năng Cho Trẻ",
-    ],
-  },
-  {
-    id: "sach-hoc-ngoai-ngu",
-    name: "Sách Học Ngoại Ngữ",
-    children: ["Tiếng Anh", "Tiếng Nhật", "Tiếng Hoa", "Tiếng Hàn"],
-  },
-];
+/* ───────── constants ───────── */
 const SLUG_VI_SHORT: Record<string, string> = {
   "van-hoc": "Sách Văn Học",
   "thieu-nhi": "Sách Thiếu Nhi",
@@ -116,75 +51,85 @@ const AGE_BOUND_OPTIONS: { key: AgeBoundKey; label: string }[] = [
   { key: "16", label: "Trên 16 tuổi" },
   { key: "18", label: "Trên 18 tuổi" },
 ];
-const LANG_OPTIONS: Array<[LanguageKey, string]> = Object.entries(LANGUAGE_VI) as never;
 
-type SortKey = "NEWEST" | "BEST" | "PRICE_DESC" | "PRICE_ASC";
-const SORT_OPTIONS: { key: SortKey; label: string; sort: string; direction: "ASC" | "DESC" }[] = [
-  { key: "NEWEST", label: "Mới nhất", sort: "createdAt", direction: "DESC" },
-  { key: "BEST", label: "Bán chạy nhất", sort: "sold", direction: "DESC" },
-  { key: "PRICE_DESC", label: "Giá cao → thấp", sort: "price", direction: "DESC" },
-  { key: "PRICE_ASC", label: "Giá thấp → cao", sort: "price", direction: "ASC" },
-];
+const LANG_OPTIONS: Array<[LanguageKey, string]> = Object.entries(LANGUAGE_VI) as Array<
+  [LanguageKey, string]
+>;
 
-const CategoryNavCard: React.FC = () => {
+/* ───────── types & utils cho category tree ───────── */
+type CatNode = { id: number; name: string; slug: string; children?: CatNode[] };
+
+function findCatBySlug(tree: CatNode[], slug: string): CatNode | undefined {
+  for (const n of tree) {
+    if (n.slug === slug) return n;
+    const found = n.children?.length ? findCatBySlug(n.children!, slug) : undefined;
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/* ───────── Sidebar: render từ tree ───────── */
+const CategoryNavCard: React.FC<{ tree: CatNode[] }> = ({ tree }) => {
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  const toggle = (id: string, hasChildren: boolean) => {
-    if (hasChildren) setOpen((o) => ({ ...o, [id]: !o[id] }));
+  const toggle = (slug: string, hasChildren: boolean) => {
+    if (hasChildren) setOpen((o) => ({ ...o, [slug]: !o[slug] }));
   };
+
+  const renderNode = (c: CatNode) => {
+    const hasChildren = !!c.children?.length;
+    const opened = !!open[c.slug];
+    return (
+      <div key={c.slug}>
+        <Link
+          to={`/danh-muc/${c.slug}`}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm hover:bg-gray-50"
+        >
+          <span className="text-gray-800">{c.name}</span>
+          {hasChildren ? (
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${opened ? "rotate-180" : ""}`}
+              onClick={(e) => {
+                e.preventDefault();
+                toggle(c.slug, hasChildren);
+              }}
+            />
+          ) : (
+            <span className="h-4 w-4" />
+          )}
+        </Link>
+
+        {hasChildren && (
+          <div
+            className="overflow-hidden bg-white/60 transition-[max-height] duration-300 ease-in-out"
+            style={{ maxHeight: opened ? `${((c.children?.length ?? 0) + 1) * 40}px` : "0px" }}
+          >
+            <ul className="py-1">
+              {c.children!.map((child) => (
+                <li key={child.slug}>
+                  <Link
+                    to={`/danh-muc/${child.slug}`}
+                    className="block py-2 pr-4 pl-10 text-[13px] text-gray-700 hover:bg-indigo-50 hover:text-indigo-600"
+                  >
+                    {child.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
       <h3 className="bg-[#faf3e0] px-4 py-3 text-sm font-semibold text-black">DANH MỤC SẢN PHẨM</h3>
-      <nav className="divide-y">
-        {CATEGORIES.map((c) => {
-          const opened = !!open[c.id];
-          const hasChildren = !!c.children?.length;
-          return (
-            <div key={c.id}>
-              <Link
-                to={`/danh-muc/${c.id}`}
-                className="flex w-full items-center justify-between px-4 py-3 text-sm hover:bg-gray-50"
-              >
-                <span className="text-gray-800">{c.name}</span>
-                {hasChildren ? (
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform ${opened ? "rotate-180" : ""}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      toggle(c.id, hasChildren);
-                    }}
-                  />
-                ) : (
-                  <span className="h-4 w-4" />
-                )}
-              </Link>
-              {hasChildren && (
-                <div
-                  className="overflow-hidden bg-white/60 transition-[max-height] duration-300 ease-in-out"
-                  style={{ maxHeight: opened ? `${(c.children!.length + 1) * 40}px` : "0px" }}
-                >
-                  <ul className="py-1">
-                    {c.children!.map((child) => (
-                      <li key={child}>
-                        <Link
-                          to={`/danh-muc/${toSlug(child)}`}
-                          className="block py-2 pr-4 pl-10 text-[13px] text-gray-700 hover:bg-indigo-50 hover:text-indigo-600"
-                        >
-                          {child}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </nav>
+      <nav className="divide-y">{tree.map(renderNode)}</nav>
     </div>
   );
 };
 
-/* price slider */
+/* ───────── Price slider ───────── */
 type PriceSliderProps = {
   min?: number;
   max?: number;
@@ -259,14 +204,14 @@ function PriceSlider({
   );
 }
 
-/* page */
+/* ───────── Page ───────── */
 export default function CategoryPage() {
   const { catSlug = "" } = useParams<{ catSlug: string }>();
   const [sp, setSp] = useSearchParams();
 
   const page = Number(sp.get("page")) > 0 ? Number(sp.get("page")) : 1;
   const size = Number(sp.get("size")) > 0 ? Number(sp.get("size")) : 12;
-  const sortKey: SortKey = (sp.get("sort") as SortKey) || "NEWEST";
+  const sortKey = (sp.get("sort") as "NEWEST" | "BEST" | "PRICE_DESC" | "PRICE_ASC") || "NEWEST";
 
   const publisher = sp.get("publisher") || "";
   const supplier = sp.get("supplier") || "";
@@ -276,30 +221,46 @@ export default function CategoryPage() {
   const priceMax = sp.get("priceMax") || "";
   const age = (sp.get("age") as AgeBoundKey) || "ALL";
 
-  const filters: CatalogFilters = useMemo(
-    () => ({
-      publisher: publisher || undefined,
-      supplier: supplier || undefined,
-      language: language || undefined,
-      status: status || undefined,
-      priceMin: priceMin ? Number(priceMin) : undefined,
-      priceMax: priceMax ? Number(priceMax) : undefined,
-      ageMin: (age as AgeBoundKey) ?? "ALL",
-    }),
-    [publisher, supplier, language, status, priceMin, priceMax, age],
-  );
+  // ✅ Build filters không gán undefined (hợp lệ với exactOptionalPropertyTypes)
+  const filters = useMemo<CatalogFilters>(() => {
+    const f: CatalogFilters = { ageMin: (age as AgeBoundKey) || "ALL" };
+
+    if (publisher) f.publisher = publisher;
+    if (supplier) f.supplier = supplier;
+    if (language) f.language = language as LanguageKey;
+    if (status) f.status = status as ProductStatus;
+
+    const pMin = Number(priceMin);
+    const pMax = Number(priceMax);
+    if (!Number.isNaN(pMin) && priceMin !== "") f.priceMin = pMin;
+    if (!Number.isNaN(pMax) && priceMax !== "") f.priceMax = pMax;
+
+    return f;
+  }, [publisher, supplier, language, status, priceMin, priceMax, age]);
+
+  type SortKey = "NEWEST" | "BEST" | "PRICE_DESC" | "PRICE_ASC";
+  const SORT_OPTIONS: { key: SortKey; label: string; sort: string; direction: "ASC" | "DESC" }[] = [
+    { key: "NEWEST", label: "Mới nhất", sort: "createdAt", direction: "DESC" },
+    { key: "BEST", label: "Bán chạy nhất", sort: "sold", direction: "DESC" },
+    { key: "PRICE_DESC", label: "Giá cao → thấp", sort: "price", direction: "DESC" },
+    { key: "PRICE_ASC", label: "Giá thấp → cao", sort: "price", direction: "ASC" },
+  ];
 
   const [loading, setLoading] = useState(false);
   const [pageData, setPageData] = useState<SpringPage<BookListItem> | null>(null);
   const [catName, setCatName] = useState<string>(SLUG_VI_SHORT[catSlug] ?? prettifySlug(catSlug));
+  const [tree, setTree] = useState<CatNode[]>([]);
 
+  // load tree + set tên danh mục
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const cats = await getCategories();
-        const found = cats.find((c) => c.slug === catSlug);
-        if (mounted) setCatName(found?.name ?? SLUG_VI_SHORT[catSlug] ?? prettifySlug(catSlug));
+        const cats = (await getCategories()) as unknown as CatNode[];
+        if (!mounted) return;
+        setTree(cats || []);
+        const found = findCatBySlug(cats || [], catSlug);
+        setCatName(found?.name ?? SLUG_VI_SHORT[catSlug] ?? prettifySlug(catSlug));
       } catch {
         if (mounted) setCatName(SLUG_VI_SHORT[catSlug] ?? prettifySlug(catSlug));
       }
@@ -331,6 +292,7 @@ export default function CategoryPage() {
     };
   }, [catSlug, page, size, sortKey, filters]);
 
+  // helpers thay đổi query
   const setParam = (k: string, v?: string) => {
     if (!v) sp.delete(k);
     else sp.set(k, v);
@@ -355,7 +317,7 @@ export default function CategoryPage() {
       <div className="mx-auto grid max-w-[1990px] grid-cols-1 gap-6 px-4 py-6 md:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         {/* LEFT */}
         <aside className="hidden w-64 shrink-0 space-y-4 lg:block">
-          <CategoryNavCard />
+          <CategoryNavCard tree={tree} />
           <div className="rounded-2xl border bg-white p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold">Bộ lọc</h2>
@@ -366,6 +328,7 @@ export default function CategoryPage() {
                 Xóa tất cả
               </button>
             </div>
+
             {/* publisher */}
             <div className="border-t py-3">
               <div className="mb-1.5 text-xs font-medium">Nhà xuất bản</div>
@@ -376,6 +339,7 @@ export default function CategoryPage() {
                 className="h-9 w-full rounded-lg border px-2 text-sm"
               />
             </div>
+
             {/* supplier */}
             <div className="border-t py-3">
               <div className="mb-1.5 text-xs font-medium">Nhà cung cấp</div>
@@ -386,6 +350,7 @@ export default function CategoryPage() {
                 className="h-9 w-full rounded-lg border px-2 text-sm"
               />
             </div>
+
             {/* language */}
             <div className="border-t py-3">
               <div className="mb-1.5 text-xs font-medium">Ngôn ngữ</div>
@@ -402,6 +367,7 @@ export default function CategoryPage() {
                 ))}
               </select>
             </div>
+
             {/* price */}
             <div className="border-t py-3">
               <div className="mb-1.5 text-xs font-medium">Giá (₫)</div>
@@ -422,6 +388,7 @@ export default function CategoryPage() {
                 step={1000}
               />
             </div>
+
             {/* age */}
             <div className="border-t py-3">
               <div className="mb-1.5 text-xs font-medium">Độ tuổi</div>
@@ -462,10 +429,17 @@ export default function CategoryPage() {
               <label className="text-sm text-gray-700">Sắp xếp theo:</label>
               <select
                 value={sortKey}
-                onChange={(e) => setParam("sort", e.target.value as SortKey)}
+                onChange={(e) =>
+                  setParam("sort", e.target.value as "NEWEST" | "BEST" | "PRICE_DESC" | "PRICE_ASC")
+                }
                 className="h-9 rounded-lg border bg-white px-2 text-sm"
               >
-                {SORT_OPTIONS.map((o) => (
+                {[
+                  { key: "NEWEST", label: "Mới nhất" },
+                  { key: "BEST", label: "Bán chạy nhất" },
+                  { key: "PRICE_DESC", label: "Giá cao → thấp" },
+                  { key: "PRICE_ASC", label: "Giá thấp → cao" },
+                ].map((o) => (
                   <option key={o.key} value={o.key}>
                     {o.label}
                   </option>

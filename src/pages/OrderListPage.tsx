@@ -119,27 +119,52 @@ const viStatus = (s?: string) => {
   }
 };
 
-const fmtTime = (t: any) => {
-  const d = new Date(t);
+// ---- cleaned: no-any
+const fmtTime = (t: unknown): string => {
+  let d: Date;
+  if (t instanceof Date) d = t;
+  else if (typeof t === "string" || typeof t === "number") d = new Date(t);
+  else return String(t ?? "");
   return isNaN(d.getTime())
-    ? String(t)
+    ? String(t ?? "")
     : d.toLocaleTimeString("vi-VN", { hour12: false }) + " " + d.toLocaleDateString("vi-VN");
 };
 
-const getThumb = (o: ResOrderDetail): string => {
-  const first = o.items?.[0] as any;
-  return (
-    first?.thumbnail ||
-    first?.imageUrl ||
-    first?.book?.thumbnail ||
-    first?.book?.imageUrl ||
-    "/placeholder.svg"
-  );
+// helper type for safe access
+type OrderItemLite = {
+  thumbnail?: string | null;
+  imageUrl?: string | null;
+  title?: string | null;
+  book?: { thumbnail?: string | null; imageUrl?: string | null; title?: string | null } | null;
 };
 
+// ---- cleaned: no-any
+const getThumb = (o: ResOrderDetail): string => {
+  const first = (o.items?.[0] ?? null) as unknown;
+  if (first && typeof first === "object") {
+    const it = first as OrderItemLite;
+    const t =
+      (typeof it.thumbnail === "string" && it.thumbnail) ||
+      (typeof it.imageUrl === "string" && it.imageUrl) ||
+      (it.book && (it.book.thumbnail || it.book.imageUrl)) ||
+      null;
+    if (t) return t;
+  }
+  return "/placeholder.svg";
+};
+
+// ---- cleaned: no-any
 const getTitle = (o: ResOrderDetail): string => {
-  const first = o.items?.[0] as any;
-  return first?.title || first?.book?.title || "Sản phẩm";
+  const first = (o.items?.[0] ?? null) as unknown;
+  if (first && typeof first === "object") {
+    const it = first as OrderItemLite;
+    const t =
+      (typeof it.title === "string" && it.title) ||
+      (it.book && typeof it.book.title === "string" && it.book.title) ||
+      null;
+    if (t) return t;
+  }
+  return "Sản phẩm";
 };
 
 export default function OrdersListPage() {
@@ -151,7 +176,9 @@ export default function OrdersListPage() {
   const [loading, setLoading] = useState<boolean>(false);
 
   const activeTabId = (params.get("tab") as TabId) || "pending";
-  const activeTab = TABS.find((t) => t.id === activeTabId) || TABS[0];
+  const activeTab = useMemo<Tab>(() => {
+    return TABS.find((t) => t.id === activeTabId) ?? TABS[0]!;
+  }, [activeTabId]);
 
   useEffect(() => {
     let mounted = true;
@@ -170,7 +197,7 @@ export default function OrdersListPage() {
     if (!data) return [];
     const wanted = new Set(activeTab.statuses);
     return (data.content ?? []).filter((o) =>
-      wanted.has((o.status || "").toUpperCase() as OrderStatus),
+      wanted.has(((o.status || "") as string).toUpperCase() as OrderStatus),
     );
   }, [data, activeTab]);
 

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth.ts";
 import { listMyAddresses } from "../services/account-address";
 import AddressPromptModal from "../components/AddressPromptModal";
 

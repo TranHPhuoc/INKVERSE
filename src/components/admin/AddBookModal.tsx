@@ -1,3 +1,4 @@
+import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import api from "../../services/api";
 import { createBook, type BookCreate } from "../../services/admin/books-admin";
@@ -14,7 +15,12 @@ type Option = { id: number; name: string };
 
 /* ================= Utils ================= */
 function unwrap<T>(payload: unknown): T {
-  if (payload && typeof payload === "object" && payload !== null && "data" in (payload as any)) {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    payload !== null &&
+    "data" in (payload as Record<string, unknown>)
+  ) {
     return (payload as RestResponse<T>).data;
   }
   return payload as T;
@@ -47,6 +53,7 @@ const LANGUAGE_OPTIONS = [
   { value: "CN", label: "Tiếng Trung" },
   { value: "OTHER", label: "Khác" },
 ] as const;
+type Language = (typeof LANGUAGE_OPTIONS)[number]["value"];
 
 const AGE_OPTIONS = [
   { value: "ALL", label: "Mọi lứa tuổi" },
@@ -55,12 +62,48 @@ const AGE_OPTIONS = [
   { value: "_16PLUS", label: "16+" },
   { value: "_18PLUS", label: "18+" },
 ] as const;
+type AgeRating = (typeof AGE_OPTIONS)[number]["value"];
 
 const COVER_OPTIONS = [
   { value: "PAPERBACK", label: "Bìa mềm" },
   { value: "HARDCOVER", label: "Bìa cứng" },
   { value: "OTHER", label: "Khác" },
 ] as const;
+type CoverType = (typeof COVER_OPTIONS)[number]["value"];
+
+type FormImage = { url: string; sortOrder: number };
+
+type FormState = {
+  title: string;
+  slug: string;
+  sku: string;
+  isbn13: string;
+  description: string;
+
+  publisherId: number | undefined;
+  supplierId: number | undefined;
+  authorIds: number[];
+  categoryIds: number[];
+
+  pageCount: number;
+  publicationYear: number;
+  language: Language;
+  weightGram: number;
+  widthCm: number;
+  heightCm: number;
+  thicknessCm: number;
+  coverType: CoverType;
+  ageRating: AgeRating;
+
+  status: BookCreate["status"];
+  price: number;
+  salePrice: number | undefined;
+  saleStartAt: string;
+  saleEndAt: string;
+
+  images: FormImage[];
+  initialStock: number;
+};
 
 function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -79,35 +122,35 @@ export default function AddBookModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormState>({
     title: "",
     slug: "",
     sku: "",
     isbn13: "",
     description: "",
 
-    publisherId: undefined as number | undefined,
-    supplierId: undefined as number | undefined,
-    authorIds: [] as number[],
-    categoryIds: [] as number[],
+    publisherId: undefined,
+    supplierId: undefined,
+    authorIds: [],
+    categoryIds: [],
 
     pageCount: 100,
     publicationYear: new Date().getFullYear(),
-    language: "VI" as (typeof LANGUAGE_OPTIONS)[number]["value"],
+    language: "VI",
     weightGram: 200,
     widthCm: 15,
     heightCm: 20,
     thicknessCm: 1.5,
-    coverType: "PAPERBACK" as (typeof COVER_OPTIONS)[number]["value"],
-    ageRating: "ALL" as (typeof AGE_OPTIONS)[number]["value"],
+    coverType: "PAPERBACK",
+    ageRating: "ALL",
 
-    status: "ACTIVE" as BookCreate["status"],
+    status: "ACTIVE",
     price: 1,
-    salePrice: undefined as number | undefined,
-    saleStartAt: "" as string,
-    saleEndAt: "" as string,
+    salePrice: undefined,
+    saleStartAt: "",
+    saleEndAt: "",
 
-    images: [{ url: "", sortOrder: 0 }] as { url: string; sortOrder: number }[],
+    images: [{ url: "", sortOrder: 0 }],
     initialStock: 0,
   });
 
@@ -120,11 +163,12 @@ export default function AddBookModal({
   const [categories, setCategories] = useState<Option[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
 
-  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((s) => ({ ...s, [k]: v }));
 
   useEffect(() => {
     void loadOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const addWarning = (msg: string) => setWarnings((w) => (w.includes(msg) ? w : [...w, msg]));
@@ -193,7 +237,11 @@ export default function AddBookModal({
     );
   }, [form]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  function isRecord(val: unknown): val is Record<string, unknown> {
+    return !!val && typeof val === "object";
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
@@ -229,7 +277,9 @@ export default function AddBookModal({
         status: form.status,
         price: Number(form.price),
         salePrice:
-          form.salePrice != null && form.salePrice !== ("" as unknown as number)
+          form.salePrice !== undefined &&
+          form.salePrice !== null &&
+          String(form.salePrice).trim() !== ""
             ? Number(form.salePrice)
             : null,
         saleStartAt: toInstant(form.saleStartAt),
@@ -243,8 +293,19 @@ export default function AddBookModal({
 
       await createBook(payload);
       onCreated();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Tạo sách thất bại");
+    } catch (err: unknown) {
+      // cố gắng đọc message nếu có dạng axios error
+      let msg = "Tạo sách thất bại";
+      if (
+        isRecord(err) &&
+        isRecord(err.response) &&
+        isRecord(err.response.data) &&
+        "message" in err.response.data
+      ) {
+        const maybe = err.response.data.message;
+        if (typeof maybe === "string" && maybe.trim()) msg = maybe;
+      }
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -379,7 +440,7 @@ export default function AddBookModal({
               <FieldGroup label="Ngôn ngữ">
                 <select
                   value={form.language}
-                  onChange={(e) => set("language", e.target.value as any)}
+                  onChange={(e) => set("language", e.target.value as Language)}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   {LANGUAGE_OPTIONS.map((l) => (
@@ -421,7 +482,7 @@ export default function AddBookModal({
               <FieldGroup label="Loại bìa">
                 <select
                   value={form.coverType}
-                  onChange={(e) => set("coverType", e.target.value as any)}
+                  onChange={(e) => set("coverType", e.target.value as CoverType)}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   {COVER_OPTIONS.map((c) => (
@@ -470,7 +531,7 @@ export default function AddBookModal({
               <FieldGroup label="Độ tuổi">
                 <select
                   value={form.ageRating}
-                  onChange={(e) => set("ageRating", e.target.value as any)}
+                  onChange={(e) => set("ageRating", e.target.value as AgeRating)}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   {AGE_OPTIONS.map((a) => (
@@ -521,7 +582,10 @@ export default function AddBookModal({
                   type="number"
                   min={0}
                   value={form.salePrice ?? 0}
-                  onChange={(e) => set("salePrice", Number(e.target.value) || undefined)}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    set("salePrice", Number.isFinite(val) && val > 0 ? val : undefined);
+                  }}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </FieldGroup>

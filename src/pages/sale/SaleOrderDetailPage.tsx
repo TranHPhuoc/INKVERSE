@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   saleAddNote,
@@ -18,7 +18,6 @@ import {
 } from "../../types/sale-order";
 import { OrderStatusBadge, PaymentStatusBadge } from "../../components/sale/StatusBadge";
 import OrderItemsTable from "../../components/sale/OrderItemsTable";
-
 import {
   Ban,
   CreditCard,
@@ -39,40 +38,53 @@ export default function SaleOrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  async function refresh() {
+  /** load đơn hàng */
+  const refresh = useCallback(async () => {
     setLoading(true);
     setErr(null);
     try {
       const data = await saleGetOrder(orderId);
       setO(data);
-    } catch (e: any) {
-      setErr(e?.response?.data?.message || e.message || "Load lỗi");
+    } catch (e: unknown) {
+      console.error("saleGetOrder failed:", e);
+      const msg =
+        typeof e === "object" && e && "response" in e
+          ? // axios-like error
+            ((e as any)?.response?.data?.message ?? "Load lỗi")
+          : "Load lỗi";
+      setErr(msg);
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    refresh();
   }, [orderId]);
 
-  async function onUpdatePayment(paymentStatus: PaymentStatus, paidAt?: string | null) {
-    await saleUpdatePayment(orderId, { paymentStatus, paidAt: paidAt || undefined });
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  /** cập nhật thanh toán */
+  async function onUpdatePayment(paymentStatus: PaymentStatus, paidAt?: string) {
+    const body: Record<string, unknown> = { paymentStatus };
+    if (paidAt) body.paidAt = paidAt;
+
+    await saleUpdatePayment(orderId, body as Parameters<typeof saleUpdatePayment>[1]);
     await refresh();
   }
 
+  /** cập nhật vận chuyển */
   async function onUpdateShipping(payload: {
     fee?: string;
     carrier?: string;
     track?: string;
     shippedAt?: string;
   }) {
-    await saleUpdateShipping(orderId, {
-      fee: payload.fee,
-      shippingCarrier: payload.carrier,
-      trackingCode: payload.track,
-      shippedAt: payload.shippedAt,
-    });
+    const body: Record<string, string> = {};
+    if (payload.fee) body.fee = payload.fee;
+    if (payload.carrier) body.shippingCarrier = payload.carrier;
+    if (payload.track) body.trackingCode = payload.track;
+    if (payload.shippedAt) body.shippedAt = payload.shippedAt;
+
+    await saleUpdateShipping(orderId, body as Parameters<typeof saleUpdateShipping>[1]);
     await refresh();
   }
 
@@ -190,12 +202,25 @@ export default function SaleOrderDetailPage() {
               onSubmit={async (e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget as HTMLFormElement);
-                await onUpdateShipping({
-                  fee: fd.get("fee") as string,
-                  carrier: fd.get("carrier") as string,
-                  track: fd.get("tracking") as string,
-                  shippedAt: fd.get("shippedAt") as string,
-                });
+
+                const payload: {
+                  fee?: string;
+                  carrier?: string;
+                  track?: string;
+                  shippedAt?: string;
+                } = {};
+
+                const fee = fd.get("fee") as string;
+                const carrier = fd.get("carrier") as string;
+                const track = fd.get("tracking") as string;
+                const shippedAt = fd.get("shippedAt") as string;
+
+                if (fee) payload.fee = fee;
+                if (carrier) payload.carrier = carrier;
+                if (track) payload.track = track;
+                if (shippedAt) payload.shippedAt = shippedAt;
+
+                await onUpdateShipping(payload);
               }}
               className="space-y-2"
             >
@@ -232,8 +257,9 @@ export default function SaleOrderDetailPage() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                const id = Number((e.currentTarget as HTMLFormElement).assigneeId.value);
-                if (id > 0) await onAssign(id);
+                const idVal = (e.currentTarget as HTMLFormElement).assigneeId.value as string;
+                const idNum = Number(idVal);
+                if (idNum > 0) await onAssign(idNum);
               }}
               className="flex gap-2"
             >
@@ -304,10 +330,9 @@ export default function SaleOrderDetailPage() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                const amount = String((e.currentTarget as HTMLFormElement).amount.value || "");
-                const method = (
-                  e.currentTarget as HTMLFormElement
-                ).method.valueOf() as RefundMethod;
+                const fd = new FormData(e.currentTarget as HTMLFormElement);
+                const amount = (fd.get("amount") as string) || "";
+                const method = fd.get("method") as RefundMethod;
                 if (amount && method) await onRefundManual(amount, method);
               }}
               className="space-y-2"
@@ -340,6 +365,8 @@ export default function SaleOrderDetailPage() {
     </div>
   );
 }
+
+/* ---------- UI helpers ---------- */
 
 function Card({
   title,

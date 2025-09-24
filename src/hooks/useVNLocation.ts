@@ -39,10 +39,15 @@ function isNameCodeArray(x: unknown): x is Array<{ code: number; name: string }>
   );
 }
 function hasDistricts(x: unknown): x is { districts: Array<{ code: number; name: string }> } {
-  return typeof x === "object" && x !== null && isNameCodeArray((x as any).districts);
+  if (typeof x !== "object" || x === null) return false;
+  const maybe = (x as { districts?: unknown }).districts;
+  return isNameCodeArray(maybe);
 }
+
 function hasWards(x: unknown): x is { wards: Array<{ code: number; name: string }> } {
-  return typeof x === "object" && x !== null && isNameCodeArray((x as any).wards);
+  if (typeof x !== "object" || x === null) return false;
+  const maybe = (x as { wards?: unknown }).wards;
+  return isNameCodeArray(maybe);
 }
 
 /* ========== Hook ========== */

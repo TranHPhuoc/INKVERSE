@@ -1,8 +1,15 @@
+// src/types/books.ts
 import api from "../services/api.ts";
 
-function unwrap<T>(payload: any): T {
-  if (payload && typeof payload === "object" && "data" in payload && "statusCode" in payload) {
-    return payload.data as T;
+/* -------------------- helpers -------------------- */
+function unwrap<T>(payload: unknown): T {
+  // BE trả { statusCode, message, data } hoặc trả thẳng data
+  if (
+    payload !== null &&
+    typeof payload === "object" &&
+    "data" in (payload as Record<string, unknown>)
+  ) {
+    return (payload as { data: T }).data;
   }
   return payload as T;
 }
@@ -102,8 +109,33 @@ export type Category = {
   parentId?: number | null;
 };
 
-export type ProductStatus = "DRAFT" | "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
+export type CategoryTree = {
+  id: number;
+  name: string;
+  slug: string;
+  children: CategoryTree[];
+};
 
+/* --------- Categories (public endpoints) ---------- */
+export async function getCategoryTree(): Promise<CategoryTree[]> {
+  try {
+    const res = await api.get("/api/v1/categories/tree", {
+      validateStatus: (s) => s < 500,
+    });
+    const data = unwrap<CategoryTree[] | null>(res.data);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Giữ tên cũ để không phải sửa import ở nơi khác */
+export async function getCategories(): Promise<CategoryTree[]> {
+  return getCategoryTree();
+}
+
+/* --------------- listing & search ----------------- */
+export type ProductStatus = "DRAFT" | "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
 export type LanguageKey = "VI" | "EN" | "JA" | "ZH" | "KO" | string;
 export type AgeBoundKey = "ALL" | "6" | "12" | "16" | "18";
 
@@ -127,7 +159,7 @@ function ageKeyToYears(k?: AgeBoundKey): number | undefined {
   return Number.isNaN(n) ? undefined : n;
 }
 
-type ListParams = {
+export type ListParams = {
   status?: ProductStatus;
   authorId?: number;
   categoryId?: number;
@@ -139,22 +171,7 @@ type ListParams = {
   direction?: "ASC" | "DESC";
 };
 
-type SearchParams = ListParams & { q: string };
-
-/* -------------------- API -------------------- */
-export async function getCategories(): Promise<Category[]> {
-  try {
-    const res = await api.get("/api/v1/categories", {
-      validateStatus: (s) => s < 500,
-    });
-    if (res.status === 200 && Array.isArray(res.data)) {
-      return res.data as Category[];
-    }
-    return [];
-  } catch {
-    return [];
-  }
-}
+export type SearchBookReq = ListParams & { q: string };
 
 export async function listByCategorySlug(
   catSlug: string,
@@ -166,7 +183,6 @@ export async function listByCategorySlug(
     category: catSlug,
     page: toZeroBased(page),
     size,
-    // filters
     publisher: filters?.publisher,
     supplier: filters?.supplier,
     language: filters?.language,
@@ -178,7 +194,6 @@ export async function listByCategorySlug(
     sort: filters?.sort,
     direction: filters?.direction,
   });
-
   const res = await api.get("/api/v1/books/catalog", { params: qp });
   return unwrap<SpringPage<BookListItem>>(res.data);
 }
@@ -212,7 +227,7 @@ export async function listBooks(params: ListParams): Promise<SpringPage<BookList
   return unwrap<SpringPage<BookListItem>>(res.data);
 }
 
-export async function searchBooks(params: SearchParams): Promise<SpringPage<BookListItem>> {
+export async function searchBooks(params: SearchBookReq): Promise<SpringPage<BookListItem>> {
   const {
     q,
     page = 1,
@@ -227,17 +242,19 @@ export async function searchBooks(params: SearchParams): Promise<SpringPage<Book
   } = params;
 
   const keyword = sanitizeQ(q);
+
+  // Không có từ khoá → fallback sang listBooks với cùng filter
   if (!keyword) {
     return listBooks({
       page,
       size,
       sort,
       direction,
-      status,
-      authorId,
-      categoryId,
-      publisherId,
-      supplierId,
+      ...(status !== undefined ? { status } : {}),
+      ...(authorId !== undefined ? { authorId } : {}),
+      ...(categoryId !== undefined ? { categoryId } : {}),
+      ...(publisherId !== undefined ? { publisherId } : {}),
+      ...(supplierId !== undefined ? { supplierId } : {}),
     });
   }
 
@@ -267,7 +284,7 @@ export async function getHomeFeed(opts?: {
   perCategory?: number;
 }): Promise<HomeFeed> {
   const params = compactParams({
-    status: (opts?.status ?? "ACTIVE").toUpperCase(),
+    status: (opts?.status ?? "ACTIVE").toString().toUpperCase(),
     featuredSize: opts?.featuredSize,
     newSize: opts?.newSize,
     bestSize: opts?.bestSize,
@@ -280,7 +297,7 @@ export async function getHomeFeed(opts?: {
 }
 
 export async function getBookDetailBySlug(bookSlug: string): Promise<BookDetail> {
-  const res = await api.get(`/api/v1/books/slug/${bookSlug}`);
+  const res = await api.get(`/api/v1/books/slug/${encodeURIComponent(bookSlug)}`);
   return unwrap<BookDetail>(res.data);
 }
 

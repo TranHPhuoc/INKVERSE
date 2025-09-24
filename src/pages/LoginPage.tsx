@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 import type { ApiErrorBody } from "../types/http";
 import bgPoster from "../assets/backgroundbooks.png";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 export default function LoginPage() {
   const { login } = useAuth();

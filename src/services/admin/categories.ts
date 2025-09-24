@@ -1,60 +1,49 @@
-// services/admin/categories.ts
+// src/services/admin/categories.ts
 import api from "../api";
 
+/* ========== Helpers ========== */
+type ApiResp<T> = { statusCode?: number; message?: string | null; error?: unknown; data: T };
+
+const isApiResp = <T>(v: unknown): v is ApiResp<T> =>
+  typeof v === "object" && v !== null && "data" in (v as Record<string, unknown>);
+
+const unwrap = <T>(payload: unknown): T =>
+  isApiResp<T>(payload) ? (payload as ApiResp<T>).data : (payload as T);
+
+/* ========== Types ========== */
+// Phù hợp với ResCategoryFlat ở BE
 export type ResCategoryFlat = {
-    id: number;
-    name: string;
-    slug: string;
-    parentId: number | null;
-    leaf: boolean;
+  id: number;
+  name: string;
+  slug: string;
+  parentId: number | null;
+  leaf: boolean;
 };
 
-export type ResCategoryTreeDTO = {
-    id: number;
-    name: string;
-    slug: string;
-    children: ResCategoryTreeDTO[];
+// Payload tạo mới category ở BE (slug có thể để trống để BE tự sinh)
+export type CategoryCreate = {
+  name: string;
+  parentId?: number | null;
 };
 
-export type ReqCategoryCreate = {
-    name: string;
-    parentId?: number | null;
-    parentSlug?: string | null;
-};
+/* ========== Calls ========== */
 
-function unwrap<T>(payload: any): T {
-    if (payload && typeof payload === "object" && "data" in payload && "statusCode" in payload) {
-        return payload.data as T;
-    }
-    return payload as T;
-}
-
-
+/** Public: lấy toàn bộ danh mục dạng phẳng (không phân trang) */
 export async function listFlatCategories(): Promise<ResCategoryFlat[]> {
-    const res = await api.get(`/api/v1/admin/categories/flat`);
-    return unwrap<ResCategoryFlat[]>(res.data);
+  const res = await api.get("/api/v1/categories/flat", { validateStatus: (s) => s < 500 });
+  const data = unwrap<ResCategoryFlat[] | null>(res.data);
+  return Array.isArray(data) ? data : [];
 }
 
-
-export async function listTreeCategories(): Promise<ResCategoryTreeDTO[]> {
-    const res = await api.get(`/api/v1/admin/categories`);
-    return unwrap<ResCategoryTreeDTO[]>(res.data);
+/** Public: lấy toàn bộ lá (optional, nếu cần) */
+export async function listFlatLeafCategories(): Promise<ResCategoryFlat[]> {
+  const res = await api.get("/api/v1/categories/flat/leaf", { validateStatus: (s) => s < 500 });
+  const data = unwrap<ResCategoryFlat[] | null>(res.data);
+  return Array.isArray(data) ? data : [];
 }
 
-export async function createCategory(payload: ReqCategoryCreate) {
-    const res = await api.post(`/api/v1/admin/categories`, payload);
-    // BE trả CategoryDTO bọc/không bọc đều ok
-    return unwrap<any>(res.data);
-}
-
-export async function listAdminCategories() {
-    return listFlatCategories();
-}
-
-export async function createAdminCategory(payload: { name: string; slug?: string; parent?: { id: number } | null }) {
-    const req: ReqCategoryCreate = {
-        name: payload.name,
-        parentId: payload.parent?.id ?? null,
-    };
-    return createCategory(req);
+/** Admin: tạo category mới */
+export async function createCategory(payload: CategoryCreate) {
+  const res = await api.post("/api/v1/admin/categories", payload);
+  return unwrap(res.data);
 }

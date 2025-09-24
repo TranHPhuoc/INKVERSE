@@ -21,20 +21,28 @@ type Props = {
   onIndexChange?: (index: number) => void;
 };
 
-export default function BookGallery({ images, className, onIndexChange }: Props) {
-  const sorted = useMemo(
+export default function BookGallery({ images, initialIndex = 0, className, onIndexChange }: Props) {
+  const sorted = useMemo<GalleryImage[]>(
     () =>
       (images ?? [])
-        .filter(Boolean)
-        .sort((a: any, b: any) => (a?.sortOrder ?? 999) - (b?.sortOrder ?? 999)),
+        .filter((img): img is GalleryImage => Boolean(img))
+        .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999)),
     [images],
   );
 
-  const [active, setActive] = useState(0);
+  // đảm bảo index hợp lệ khi images đổi
+  const clamp = (i: number) => (sorted.length ? Math.max(0, Math.min(i, sorted.length - 1)) : 0);
+  const [active, setActive] = useState(() => clamp(initialIndex));
+
+  useEffect(() => {
+    setActive(clamp(initialIndex));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sorted.length, initialIndex]);
+
   const mainRef = useRef<HTMLImageElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  const current = sorted[active];
+  const current: GalleryImage | undefined = sorted[active];
 
   useEffect(() => {
     onIndexChange?.(active);
@@ -116,7 +124,7 @@ export default function BookGallery({ images, className, onIndexChange }: Props)
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.25 }}
             onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = PLACEHOLDER;
+              e.currentTarget.src = PLACEHOLDER;
             }}
           />
         </AnimatePresence>
@@ -166,7 +174,7 @@ export default function BookGallery({ images, className, onIndexChange }: Props)
                     loading="lazy"
                     className="h-full w-full object-cover"
                     onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = PLACEHOLDER;
+                      e.currentTarget.src = PLACEHOLDER;
                     }}
                   />
                 </button>

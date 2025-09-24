@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { myRating, upsertRating, type ResRating } from "../services/rating";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 type Props = {
   bookId: number;

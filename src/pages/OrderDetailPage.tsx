@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { getOrderByCode } from "../services/order";
@@ -62,28 +62,38 @@ function fmtDate(s?: string | null) {
   return isNaN(d.getTime()) ? s : d.toLocaleString("vi-VN");
 }
 
+function extractErr(e: unknown, fallback: string) {
+  if (e && typeof e === "object") {
+    const msg =
+      (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+      (e as { message?: string })?.message;
+    if (typeof msg === "string" && msg.trim()) return msg;
+  }
+  return fallback;
+}
+
 const OrderDetailPage: React.FC = () => {
   const { code = "" } = useParams();
   const [data, setData] = useState<ResOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       const res = await getOrderByCode(code);
       setData(res);
       setError(null);
-    } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || "Không tải được chi tiết đơn hàng");
+    } catch (e: unknown) {
+      setError(extractErr(e, "Không tải được chi tiết đơn hàng"));
     } finally {
       setLoading(false);
     }
-  }
+  }, [code]);
 
   useEffect(() => {
-    load();
-  }, [code]);
+    void load();
+  }, [load]);
 
   if (loading && !data) {
     return (
@@ -114,7 +124,6 @@ const OrderDetailPage: React.FC = () => {
     );
   }
 
-  // Cho phép huỷ khi đơn chưa hoàn tất/đã huỷ
   const cancelable = ["PENDING", "CONFIRMED", "PROCESSING", "CANCEL_REQUESTED"].includes(
     (data.status || "").toUpperCase(),
   );
@@ -143,7 +152,7 @@ const OrderDetailPage: React.FC = () => {
               orderCode={data.code}
               onDone={(updated) => {
                 if (updated) setData(updated);
-                else load();
+                else void load();
               }}
             />
           )}

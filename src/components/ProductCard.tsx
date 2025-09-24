@@ -10,19 +10,22 @@ type Props = {
 
 const isNewWithin = (d?: string | null, days = 14) => {
   if (!d) return false;
-  const diffDays = (Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24);
+  const created = new Date(d);
+  if (isNaN(created.getTime())) return false;
+  const diffDays = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
   return diffDays <= days;
 };
 
 export default function ProductCard({ item, catSlug }: Props) {
   const price = item.effectivePrice ?? item.price;
   const hasSale = item.salePrice != null && item.salePrice < item.price;
-  const percent = hasSale ? Math.max(0, Math.round(100 - (price / item.price) * 100)) : 0;
+  const percent =
+    hasSale && item.price > 0 ? Math.max(0, Math.round(100 - (price / item.price) * 100)) : 0;
 
   const href = catSlug ? `/danh-muc/${catSlug}/${item.slug}` : `/books/${item.slug}`;
 
   const imgSrc = resolveThumb(item.thumbnail);
-  const showNew = isNewWithin((item as any).createdAt);
+  const showNew = isNewWithin(item.createdAt);
 
   return (
     <Link

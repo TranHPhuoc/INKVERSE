@@ -5,12 +5,16 @@ import { motion } from "framer-motion";
 import { Clock, ClipboardCheck, Box, Truck, CheckCircle2, BadgeCheck, XCircle } from "lucide-react";
 
 import type { OrderStatus, ResOrderAdmin } from "../../types/sale-order";
-import { saleSearchOrders, saleUpdateStatus } from "../../services/sale/sale-order";
+import {
+  saleSearchOrders,
+  saleUpdateStatus,
+  type SearchParams,
+} from "../../services/sale/sale-order";
 import { PaymentStatusBadge } from "../../components/sale/StatusBadge";
 
 const nf = new Intl.NumberFormat("vi-VN");
 
-/** màu theo trạng thái */
+/* =================== Labels & styles =================== */
 const statusColor: Record<OrderStatus, string> = {
   PENDING: "bg-yellow-100 text-yellow-800 border-yellow-300",
   CONFIRMED: "bg-blue-100 text-blue-800 border-blue-300",
@@ -22,7 +26,6 @@ const statusColor: Record<OrderStatus, string> = {
   CANCEL_REQUESTED: "bg-orange-100 text-orange-800 border-orange-300",
 };
 
-/** nhãn tiếng Việt */
 const statusLabel: Record<OrderStatus, string> = {
   PENDING: "Chờ xử lý",
   CONFIRMED: "Đã xác nhận",
@@ -34,6 +37,7 @@ const statusLabel: Record<OrderStatus, string> = {
   CANCEL_REQUESTED: "Yêu cầu huỷ",
 };
 
+/* =================== Tabs =================== */
 type TabId =
   | "pending"
   | "confirmed"
@@ -103,6 +107,16 @@ const TABS: Tab[] = [
   },
 ];
 
+const TAB_STATUS_MAP: Record<TabId, OrderStatus[]> = {
+  pending: ["PENDING"],
+  confirmed: ["CONFIRMED"],
+  processing: ["PROCESSING"],
+  shipping: ["SHIPPED"],
+  delivered: ["DELIVERED"],
+  completed: ["COMPLETED"],
+  canceled: ["CANCELED", "CANCEL_REQUESTED"],
+};
+
 function tabIdFromStatus(s: OrderStatus): TabId {
   if (s === "PENDING") return "pending";
   if (s === "CONFIRMED") return "confirmed";
@@ -113,6 +127,7 @@ function tabIdFromStatus(s: OrderStatus): TabId {
   return "canceled";
 }
 
+/* =================== Status machine =================== */
 const NEXT_ALLOWED: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ["CONFIRMED", "CANCEL_REQUESTED", "CANCELED"],
   CONFIRMED: ["PROCESSING", "CANCELED"],
@@ -128,44 +143,66 @@ const getSelectableStatuses = (cur: OrderStatus) => [cur, ...NEXT_ALLOWED[cur]];
 const isTransitionAllowed = (cur: OrderStatus, next: OrderStatus) =>
   cur === next || NEXT_ALLOWED[cur]?.includes(next) === true;
 
+/* =================== Page =================== */
 export default function SaleOrdersPage() {
   const [params, setParams] = useSearchParams();
-  const [data, setData] = useState<ResOrderAdmin[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(Number(params.get("page") ?? 0));
-  const [size, setSize] = useState(Number(params.get("size") ?? 10));
-  const [loading, setLoading] = useState(false);
 
   const activeTabId = (params.get("tab") as TabId) || "pending";
-  const activeTab = TABS.find((t) => t.id === activeTabId) || TABS[0];
 
+  const activeTab = useMemo<Tab>(() => {
+    const i = TABS.findIndex((t) => t.id === activeTabId);
+    return TABS[i === -1 ? 0 : i]!;
+  }, [activeTabId]);
+
+  // Paging state (mirror URL)
+  const [page, setPage] = useState<number>(Number(params.get("page") ?? 0));
+  const [size, setSize] = useState<number>(Number(params.get("size") ?? 10));
+
+  // Filters từ URL
   const q = params.get("q") ?? "";
   const from = params.get("from") ?? "";
   const to = params.get("to") ?? "";
   const sort = params.get("sort") ?? "createdAt,desc";
+
+  // Đồng bộ page/size về URL
+  useEffect(() => {
+    const p = new URLSearchParams(params);
+    p.set("page", String(page));
+    p.set("size", String(size));
+    setParams(p, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, size]);
+
+  const [data, setData] = useState<ResOrderAdmin[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     setLoading(true);
 
     (async () => {
-      const statusParam = activeTab.statuses.length === 1 ? activeTab.statuses[0] : undefined;
+      const statuses = TAB_STATUS_MAP[activeTabId];
+      const singleStatus = statuses.length === 1 ? statuses[0] : undefined;
 
-      const res = await saleSearchOrders({
-        q,
+      // === Cách A: KHÔNG gán undefined (hợp lệ với exactOptionalPropertyTypes) ===
+      const base: SearchParams = {
+        q, // luôn là string (có thể rỗng)
         from,
         to,
-        page,
-        size,
-        sort,
-        status: statusParam,
-      });
+        page, // number
+        size, // number
+        sort, // string "createdAt,desc"...
+      };
+      const query: SearchParams = singleStatus ? { ...base, status: singleStatus } : base;
 
-      let content = res?.content ?? [];
+      const res = await saleSearchOrders(query);
+
+      let content: ResOrderAdmin[] = res?.content ?? [];
       let totalEl = res?.totalElements ?? content.length;
 
-      if (!statusParam && activeTab.statuses.length > 1) {
-        const wanted = new Set(activeTab.statuses);
+      if (!singleStatus) {
+        const wanted = new Set<OrderStatus>(statuses);
         content = content.filter((o) => wanted.has(o.status));
         totalEl = content.length;
       }
@@ -203,37 +240,39 @@ export default function SaleOrdersPage() {
     try {
       await saleUpdateStatus(orderId, { status: next });
       switchTab(tabIdFromStatus(next));
-    } catch (e: any) {
-      alert(e?.message || "Đổi trạng thái thất bại.");
+    } catch {
+      alert("Đổi trạng thái thất bại.");
     }
   }
-
-  const handleConfirm = (o: ResOrderAdmin) => handleChangeStatus(o.id, o.status, "CONFIRMED");
-  const handleCancel = (o: ResOrderAdmin) => handleChangeStatus(o.id, o.status, "CANCELED");
 
   return (
     <div className="space-y-4">
       {/* Tabs */}
       <div className="rounded-2xl border bg-white/70 p-2 backdrop-blur">
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((t) => {
-            const active = t.id === activeTabId;
-            return (
-              <motion.button
-                key={t.id}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => switchTab(t.id)}
-                className={`flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2 ${
-                  active
-                    ? `${t.color} font-semibold ring-2 ring-gray-300`
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                {t.icon}
-                <span>{t.label}</span>
-              </motion.button>
-            );
-          })}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            {TABS.map((t) => {
+              const active = t.id === activeTab.id;
+              return (
+                <motion.button
+                  key={t.id}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => switchTab(t.id)}
+                  className={`flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2 ${
+                    active
+                      ? `${t.color} font-semibold ring-2 ring-gray-300`
+                      : "bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {t.icon}
+                  <span>{t.label}</span>
+                </motion.button>
+              );
+            })}
+          </div>
+          <div className="text-xs text-gray-500">
+            Đang xem: <b>{activeTab.label}</b>
+          </div>
         </div>
       </div>
 
@@ -275,7 +314,7 @@ export default function SaleOrdersPage() {
                     <tr key={o.id} className="transition hover:bg-gray-50">
                       <td className="px-3 py-2 font-medium">{o.code}</td>
 
-                      {/* STATUS CELL */}
+                      {/* STATUS */}
                       <td className="px-3 py-2 text-center">
                         {isPending ? (
                           <div className="flex items-center justify-center gap-2">
@@ -286,7 +325,7 @@ export default function SaleOrdersPage() {
                             </span>
                             <motion.button
                               whileTap={{ scale: 0.98 }}
-                              onClick={() => handleConfirm(o)}
+                              onClick={() => handleChangeStatus(o.id, o.status, "CONFIRMED")}
                               className="cursor-pointer rounded-lg border bg-white px-2 py-1 text-xs hover:border-blue-300 hover:bg-blue-100"
                               title="Xác nhận đơn"
                             >
@@ -294,7 +333,7 @@ export default function SaleOrdersPage() {
                             </motion.button>
                             <motion.button
                               whileTap={{ scale: 0.98 }}
-                              onClick={() => handleCancel(o)}
+                              onClick={() => handleChangeStatus(o.id, o.status, "CANCELED")}
                               className="cursor-pointer rounded-lg border border-rose-200 bg-white px-2 py-1 text-xs text-rose-600 hover:border-rose-300 hover:bg-rose-100"
                               title="Huỷ đơn"
                             >

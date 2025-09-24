@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { searchBooks } from "../types/books.ts";
-import type { BookListItem, SpringPage } from "../types/books.ts";
+import type { BookListItem, SpringPage, ProductStatus } from "../types/books.ts";
 import ProductCard from "../components/ProductCard";
 import Pagination from "../components/Pagination";
 
@@ -10,59 +10,64 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [pageData, setPageData] = useState<SpringPage<BookListItem> | null>(null);
 
+  // query params
   const q = sp.get("q") ?? "";
   const page = Math.max(1, Number(sp.get("page") ?? "1"));
   const size = Math.max(1, Number(sp.get("size") ?? "20"));
   const sort = sp.get("sort") ?? "createdAt";
   const direction = (sp.get("direction") as "ASC" | "DESC") ?? "DESC";
 
-  const status = sp.get("status") ?? undefined;
+  const statusRaw = sp.get("status") ?? undefined;
   const authorId = sp.get("authorId") ? Number(sp.get("authorId")) : undefined;
   const categoryId = sp.get("categoryId") ? Number(sp.get("categoryId")) : undefined;
   const publisherId = sp.get("publisherId") ? Number(sp.get("publisherId")) : undefined;
   const supplierId = sp.get("supplierId") ? Number(sp.get("supplierId")) : undefined;
 
-  const deps = useMemo(
-    () =>
-      [q, page, size, sort, direction, status, authorId, categoryId, publisherId, supplierId].join(
-        "|",
-      ),
-    [q, page, size, sort, direction, status, authorId, categoryId, publisherId, supplierId],
-  );
+  // Chuẩn hoá status theo kiểu ProductStatus (nếu BE cần in hoa)
+  const status: ProductStatus | undefined = useMemo(() => {
+    if (!statusRaw) return undefined;
+    return statusRaw.toUpperCase() as ProductStatus;
+  }, [statusRaw]);
 
   useEffect(() => {
     let mounted = true;
+
     (async () => {
+      // Nếu không có từ khoá, clear kết quả
       if (!q.trim()) {
         setPageData(null);
         return;
       }
       setLoading(true);
       try {
-        const data = await searchBooks({
+        // Gõ kiểu đối số theo chữ ký của searchBooks
+        const req: Parameters<typeof searchBooks>[0] = {
           q,
           page,
           size,
           sort,
           direction,
-          status: status as any,
-          authorId,
-          categoryId,
-          publisherId,
-          supplierId,
-        });
+          ...(status ? { status: status as import("../types/books").ProductStatus } : {}),
+          ...(authorId !== undefined ? { authorId } : {}),
+          ...(categoryId !== undefined ? { categoryId } : {}),
+          ...(publisherId !== undefined ? { publisherId } : {}),
+          ...(supplierId !== undefined ? { supplierId } : {}),
+        };
+
+        const data = await searchBooks(req);
         if (mounted) setPageData(data);
-      } catch (e) {
-        console.error("[Search] error:", e);
+      } catch {
         if (mounted) setPageData(null);
       } finally {
         if (mounted) setLoading(false);
       }
     })();
+
     return () => {
       mounted = false;
     };
-  }, [deps]);
+    // đầy đủ deps, không cần "deps string" hack
+  }, [q, page, size, sort, direction, status, authorId, categoryId, publisherId, supplierId]);
 
   const totalPages = pageData?.totalPages ?? 0;
 

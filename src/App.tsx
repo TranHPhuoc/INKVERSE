@@ -32,6 +32,8 @@ import OrderListPage from "./pages/OrderListPage";
 // Pages – User
 import AccountLayout from "./pages/user/AccountLayout";
 import AccountAddressPage from "./pages/user/AccountAddressPage";
+import AccountProfilePage from "./pages/user/AccountProfilePage";
+import AccountChangePasswordPage from "./pages/user/AccountChangePasswordPage";
 
 // Pages – Admin
 import Dashboard from "./pages/admin/Dashboard";
@@ -220,11 +222,28 @@ export default function App() {
                 </PageTransition>
               }
             >
+              <Route index element={<Navigate to="ho-so-cua-toi" replace />} />
+              <Route
+                path="ho-so-cua-toi"
+                element={
+                  <PageTransition>
+                    <AccountProfilePage />
+                  </PageTransition>
+                }
+              />
               <Route
                 path="dia-chi"
                 element={
                   <PageTransition>
                     <AccountAddressPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="doi-mat-khau"
+                element={
+                  <PageTransition>
+                    <AccountChangePasswordPage />
                   </PageTransition>
                 }
               />

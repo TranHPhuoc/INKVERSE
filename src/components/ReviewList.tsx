@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { listRatings, deleteRating, upsertRating, type ResRating } from "../services/rating";
 import RatingStars from "./RatingStars";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 type Props = {
   bookId: number;

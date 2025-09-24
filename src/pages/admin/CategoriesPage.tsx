@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+// src/pages/admin/CategoriesPage.tsx
+import React, { useEffect, useState } from "react";
 import {
   listFlatCategories,
   createCategory,
   type ResCategoryFlat,
-  type ReqCategoryCreate,
+  type CategoryCreate,
 } from "../../services/admin/categories";
 import { motion } from "framer-motion";
 
@@ -12,15 +13,19 @@ export default function CategoriesPage() {
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await listFlatCategories();
-      setData(res);
-    } catch (e: any) {
+      const rows = await listFlatCategories();
+      // Có thể sort nhẹ theo tên để dễ nhìn
+      rows.sort((a, b) => a.name.localeCompare(b.name));
+      setData(rows);
+    } catch (err) {
+      console.error("Không tải được danh sách categories:", err);
       setError("Không tải được danh sách categories");
     } finally {
       setLoading(false);
@@ -28,26 +33,35 @@ export default function CategoriesPage() {
   };
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, []);
 
-  const onCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onCreate = async (ev: React.FormEvent<HTMLFormElement>) => {
+    ev.preventDefault();
     setError(null);
-    if (!name.trim()) return setError("Vui lòng nhập tên");
+    if (!name.trim()) {
+      setError("Vui lòng nhập tên danh mục");
+      return;
+    }
 
-    const payload: ReqCategoryCreate = {
+    const payload: CategoryCreate = {
       name: name.trim(),
       parentId: parentId ? Number(parentId) : null,
+      // slug có thể để BE tự sinh, nếu muốn có thể thêm:
+      // slug: toSlug(name.trim())
     };
 
     try {
+      setSubmitting(true);
       await createCategory(payload);
       setName("");
       setParentId("");
-      fetchData();
-    } catch (e: any) {
+      await fetchData();
+    } catch (err) {
+      console.error("Tạo category thất bại:", err);
       setError("Tạo category thất bại");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -59,9 +73,9 @@ export default function CategoriesPage() {
         onSubmit={onCreate}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-end gap-3 rounded-xl border bg-white/80 p-4 shadow-sm backdrop-blur"
+        className="flex flex-wrap items-end gap-3 rounded-xl border bg-white/80 p-4 shadow-sm backdrop-blur"
       >
-        <div className="flex-1">
+        <div className="min-w-[260px] flex-1">
           <label className="mb-1 block text-sm text-gray-600">Name</label>
           <input
             className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -70,12 +84,13 @@ export default function CategoriesPage() {
             required
           />
         </div>
-        <div className="w-64">
+
+        <div className="min-w-[220px]">
           <label className="mb-1 block text-sm text-gray-600">Parent</label>
           <select
-            className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             value={parentId}
-            onChange={(e) => setParentId(e.target.value as any)}
+            onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : "")}
           >
             <option value="">(none)</option>
             {data.map((c) => (
@@ -85,11 +100,13 @@ export default function CategoriesPage() {
             ))}
           </select>
         </div>
+
         <button
           type="submit"
-          className="h-10 rounded-lg bg-indigo-600 px-4 text-white transition hover:bg-indigo-700 active:scale-[0.99]"
+          disabled={submitting}
+          className="h-10 rounded-lg bg-indigo-600 px-4 text-white transition hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60"
         >
-          Create
+          {submitting ? "Creating..." : "Create"}
         </button>
       </motion.form>
 
@@ -99,10 +116,10 @@ export default function CategoriesPage() {
         </div>
       )}
 
-      {loading ? (
-        <div>Đang tải...</div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+        {loading ? (
+          <div className="p-4 text-sm text-gray-600">Đang tải...</div>
+        ) : (
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50/80 text-gray-600">
               <tr>
@@ -127,10 +144,17 @@ export default function CategoriesPage() {
                   <td className="px-4 py-3">{c.leaf ? "Yes" : "No"}</td>
                 </tr>
               ))}
+              {!data.length && (
+                <tr>
+                  <td className="px-4 py-6 text-center text-gray-500" colSpan={5}>
+                    Chưa có danh mục.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

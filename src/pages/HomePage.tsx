@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Headphones, ShieldCheck, Truck } from "lucide-react";
 import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Headphones,
-  ShieldCheck,
-  Truck,
-} from "lucide-react";
-import { motion, type Variants, useInView, useAnimationControls } from "framer-motion";
+  motion,
+  type Variants,
+  useInView,
+  useAnimationControls,
+  useMotionValue,
+  useTransform as fmTransform,
+} from "framer-motion";
 
 import ProductCard from "../components/ProductCard";
 import Pagination from "../components/Pagination";
@@ -21,77 +21,7 @@ import banner2 from "../assets/bannerbooks2.jpeg";
 import banner3 from "../assets/backgroundbooks.png";
 
 /* ───────────────────────── constants ───────────────────────── */
-type Category = { id: string; name: string; children?: string[] };
 const BANNERS: string[] = [banner1, banner2, banner3];
-
-const CATEGORIES: Category[] = [
-  {
-    id: "van-hoc",
-    name: "Sách Văn Học",
-    children: ["Tiểu Thuyết", "Truyện Ngắn", "Light Novel", "Ngôn Tình"],
-  },
-  {
-    id: "thieu-nhi",
-    name: "Sách Thiếu Nhi",
-    children: [
-      "Manga - Comic",
-      "Kiến Thức Bách Khoa",
-      "Sách Tranh Kỹ Năng Sống",
-      "Vừa Học Vừa Chơi Với Trẻ",
-    ],
-  },
-  {
-    id: "kinh-te",
-    name: "Sách Kinh Tế",
-    children: [
-      "Nhân Vật - Bài Học Kinh Doanh",
-      "Quản Trị - Lãnh Đạo",
-      "Marketing - Bán Hàng",
-      "Phân Tích Kinh Tế",
-    ],
-  },
-  {
-    id: "tieu-su",
-    name: "Sách Tiểu Sử - Hồi Ký",
-    children: ["Câu Chuyện Cuộc Đời", "Chính Trị", "Kinh Tế", "Nghệ Thuật - Giải Trí"],
-  },
-  {
-    id: "tam-ly",
-    name: "Sách Tâm Lý - Kỹ Năng Sống",
-    children: ["Kỹ Năng Sống", "Rèn Luyện Nhân Cách", "Tâm Lý", "Sách Cho Tuổi Mới Lớn"],
-  },
-  {
-    id: "giao-khoa",
-    name: "Sách Giáo Khoa - Tham Khảo",
-    children: ["Sách Giáo Khoa", "Sách Tham Khảo", "Luyện thi ĐH, CĐ", "Mẫu Giáo"],
-  },
-  {
-    id: "nuoi-day-con",
-    name: "Sách Nuôi Dạy Con",
-    children: [
-      "Cẩm Nang Làm Cha Mẹ",
-      "Phương Pháp Giáo Dục Trẻ Các Nước",
-      "Phát Triển Trí Tuệ Cho Trẻ",
-      "Phát Triển Kỹ Năng Cho Trẻ",
-    ],
-  },
-  {
-    id: "sach-hoc-ngoai-ngu",
-    name: "Sách Học Ngoại Ngữ",
-    children: ["Tiếng Anh", "Tiếng Nhật", "Tiếng Hoa", "Tiếng Hàn"],
-  },
-];
-
-const toSlug = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 
 const easeOutBezier = [0.22, 1, 0.36, 1] as const;
 const fadeUp: Variants = {
@@ -142,82 +72,35 @@ const isSaleActive = (b: BookListItem) => {
 };
 
 /* ───────────────────────── components ───────────────────────── */
-const CategorySidebar: React.FC = () => {
-  const [open, setOpen] = useState<Record<string, boolean>>({});
-  const toggle = (id: string, hasChildren: boolean) => {
-    if (hasChildren) setOpen((o) => ({ ...o, [id]: !o[id] }));
-  };
-  return (
-    <aside className="hidden w-[440px] shrink-0 border-r pr-4 lg:block">
-      <div className="overflow-hidden rounded-xl border bg-white shadow-[0_10px_30px_rgba(2,6,23,.06)]">
-        <h3 className="bg-rose-50 px-4 py-3 text-base font-semibold text-gray-900">
-          DANH MỤC SẢN PHẨM
-        </h3>
-        <nav className="divide-y">
-          {CATEGORIES.map((c) => {
-            const opened = !!open[c.id];
-            const hasChildren = !!c.children?.length;
-            return (
-              <div key={c.id}>
-                <a
-                  href={`/danh-muc/${c.id}`}
-                  className="flex w-full items-center justify-between px-5 py-3 text-[15px] font-medium hover:bg-gray-50"
-                >
-                  <span className="text-gray-800">{c.name}</span>
-                  {hasChildren ? (
-                    <ChevronDown
-                      className={`h-4 w-4 transition-transform ${opened ? "rotate-180" : ""}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        toggle(c.id, hasChildren);
-                      }}
-                    />
-                  ) : (
-                    <span className="h-4 w-4" />
-                  )}
-                </a>
+type HeroBannerProps = { images: string[]; intervalMs?: number; className?: string };
 
-                {hasChildren && (
-                  <div
-                    className="overflow-hidden bg-white/60 transition-[max-height] duration-300 ease-in-out"
-                    style={{ maxHeight: opened ? `${(c.children!.length + 1) * 40}px` : "0px" }}
-                  >
-                    <ul className="py-1">
-                      {c.children!.map((child) => (
-                        <li key={child}>
-                          <a
-                            href={`/danh-muc/${toSlug(child)}`}
-                            className="block py-2 pr-4 pl-12 text-[14px] text-gray-700 hover:bg-indigo-50 hover:text-indigo-600"
-                          >
-                            {child}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-      </div>
-    </aside>
-  );
-};
+const EASE = [0.22, 1, 0.36, 1] as const;
+const DURATION = 0.65;
 
-type HeroBannerProps = { images: string[]; intervalMs?: number };
-const HeroBanner: React.FC<HeroBannerProps & { className?: string }> = ({
-  images,
-  intervalMs = 3000,
-  className,
-}) => {
+const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000, className }) => {
   const [index, setIndex] = useState(1);
   const [withTransition, setWithTransition] = useState(true);
   const timerRef = useRef<number | null>(null);
   const isHoverRef = useRef(false);
-  const slides: string[] = [images[images.length - 1], ...images, images[0]];
 
+  // đo width thực tế để nội suy 3D theo pixel
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [wrapW, setWrapW] = useState(0);
   useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setWrapW(el.clientWidth));
+    ro.observe(el);
+    setWrapW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  // clone đầu/cuối để loop mượt
+  const slides = images.length >= 1 ? [images.at(-1)!, ...images, images[0]!] : [];
+
+  // autoplay + hover pause
+  useEffect(() => {
+    if (images.length < 2) return;
     const start = () => {
       stop();
       timerRef.current = window.setInterval(() => {
@@ -225,7 +108,7 @@ const HeroBanner: React.FC<HeroBannerProps & { className?: string }> = ({
       }, intervalMs);
     };
     const stop = () => {
-      if (timerRef.current) {
+      if (timerRef.current != null) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
@@ -236,22 +119,36 @@ const HeroBanner: React.FC<HeroBannerProps & { className?: string }> = ({
 
   const next = () => setIndex((i) => i + 1);
   const prev = () => setIndex((i) => i - 1);
-  const onTransitionEnd = () => {
+
+  // motion value cho track
+  const x = useMotionValue(0);
+
+  // reset về slide thật khi đang ở clone
+  const onTransitionSettled = () => {
+    if (images.length < 1) return;
     if (index === slides.length - 1) {
       setWithTransition(false);
       setIndex(1);
+      x.set(-wrapW * 1);
       requestAnimationFrame(() => setWithTransition(true));
     } else if (index === 0) {
       setWithTransition(false);
       setIndex(slides.length - 2);
+      x.set(-wrapW * (slides.length - 2));
       requestAnimationFrame(() => setWithTransition(true));
     }
   };
-  const real = (index - 1 + images.length) % images.length;
+
+  const real = images.length ? (index - 1 + images.length) % images.length : 0;
+
+  const trackTransition = withTransition
+    ? { type: "tween" as const, ease: EASE, duration: DURATION }
+    : { duration: 0 };
 
   return (
     <div
-      className={`relative aspect-[2240/1109] max-h-[650px] w-full overflow-hidden rounded-xl border bg-gray-100 ${className}`}
+      ref={wrapRef}
+      className={`relative aspect-[2240/1109] max-h-[820px] w-full overflow-hidden rounded-xl border bg-gray-100 ${className ?? ""}`}
       onMouseEnter={() => (isHoverRef.current = true)}
       onMouseLeave={() => (isHoverRef.current = false)}
       tabIndex={0}
@@ -262,46 +159,68 @@ const HeroBanner: React.FC<HeroBannerProps & { className?: string }> = ({
       aria-roledescription="carousel"
       aria-label="Banner"
     >
-      <div
-        className={`flex h-full ${withTransition ? "transition-transform duration-700 ease-out" : "transition-none"}`}
-        style={{ transform: `translateX(-${index * 100}%)` }}
-        onTransitionEnd={onTransitionEnd}
+      <motion.div
+        className="flex h-full will-change-transform"
+        style={{
+          x,
+          perspective: 1200,
+          transformStyle: "preserve-3d",
+        }}
+        animate={{ x: -index * wrapW }}
+        transition={trackTransition}
+        onAnimationComplete={onTransitionSettled}
       >
-        {slides.map((src, i) => (
-          <div key={`${src}-${i}`} className="relative h-full min-w-full">
-            <img
-              src={src}
-              alt={`banner-${i}`}
-              className="absolute inset-0 h-full w-full object-cover"
-              aria-hidden={i !== index}
-            />
-            <div className="absolute inset-0 bg-gradient-to-tr from-black/10 via-transparent to-white/0" />
-          </div>
-        ))}
-      </div>
+        {slides.map((src, i) => {
+          const range = [-(i + 1) * wrapW, -i * wrapW, -(i - 1) * wrapW];
+          const rotateY = fmTransform(x, range, [18, 0, -18], { clamp: false });
+          const scale = fmTransform(x, range, [0.94, 1, 0.94]);
+          const opacity = fmTransform(x, range, [0.6, 1, 0.6]);
+
+          return (
+            <motion.div
+              key={`${src}-${i}`}
+              className="relative h-full min-w-full"
+              style={{ rotateY, scale, opacity, transformStyle: "preserve-3d" }}
+              transition={trackTransition}
+            >
+              <img
+                src={src}
+                alt={`banner-${i}`}
+                className="absolute inset-0 h-full w-full object-cover"
+                aria-hidden={i !== index}
+                draggable={false}
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/15 via-transparent to-white/0" />
+            </motion.div>
+          );
+        })}
+      </motion.div>
 
       {images.length > 1 && (
         <>
           <button
             onClick={prev}
-            className="absolute top-1/2 left-3 -translate-y-1/2 rounded-full bg-white/20 p-2 text-white backdrop-blur transition hover:bg-white/60 hover:text-gray-900"
+            className="absolute top-1/2 left-3 -translate-y-1/2 rounded-full bg-white/25 p-2 text-white backdrop-blur transition hover:bg-white/70 hover:text-gray-900"
             aria-label="Ảnh trước"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             onClick={next}
-            className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full bg-white/20 p-2 text-white backdrop-blur transition hover:bg-white/60 hover:text-gray-900"
+            className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full bg-white/25 p-2 text-white backdrop-blur transition hover:bg-white/70 hover:text-gray-900"
             aria-label="Ảnh sau"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
 
+          {/* Dots */}
           <div className="absolute bottom-3 flex w-full justify-center gap-2">
             {images.map((_, i) => (
               <button
                 key={i}
-                className={`h-2.5 w-2.5 rounded-full border ${i === real ? "border-white bg-white" : "border-white/60 bg-white/60"}`}
+                className={`h-2.5 w-2.5 rounded-full border transition-colors ${
+                  i === real ? "border-white bg-white" : "border-white/70 bg-white/60"
+                }`}
                 onClick={() => setIndex(i + 1)}
                 aria-label={`Chuyển đến ảnh ${i + 1}`}
                 aria-pressed={i === real}
@@ -338,8 +257,13 @@ export default function HomePage() {
         setLoadingFeed(true);
         const res = await getHomeFeed();
         if (mounted) setFeed(res ?? null);
-      } catch (e: any) {
-        if (mounted) setErr(e?.response?.data?.message || e?.message || "Không tải được trang chủ");
+      } catch (e: unknown) {
+        const msg =
+          (e as { response?: { data?: { message?: string } }; message?: string }).response?.data
+            ?.message ||
+          (e as { message?: string }).message ||
+          "Không tải được trang chủ";
+        if (mounted) setErr(msg);
       } finally {
         if (mounted) setLoadingFeed(false);
       }
@@ -400,11 +324,9 @@ export default function HomePage() {
     <div className="flex min-h-screen flex-col bg-white">
       <ErrorBoundary fallback={<div className="p-6 text-rose-600">Có lỗi khi tải trang chủ</div>}>
         <main className="flex-1 bg-gray-50">
-          {/* Banner (khung 1990px) */}
           <div className="w-full px-4 py-4 md:px-6 xl:px-10 2xl:px-14">
-            <div className="mx-auto flex max-w-[1990px] gap-4">
-              <CategorySidebar />
-              <HeroBanner images={BANNERS} intervalMs={3000} className="w-[1550px]" />
+            <div className="mx-auto max-w-[1990px]">
+              <HeroBanner images={BANNERS} intervalMs={3000} />
             </div>
           </div>
 
@@ -442,11 +364,7 @@ export default function HomePage() {
                   fallback={<div className="p-4 text-rose-600">Không tải được Sản phẩm mới</div>}
                 >
                   <div className="overflow-hidden rounded-2xl border bg-white/80 shadow">
-                    <SectionHeader
-                      label="Sản phẩm mới"
-                      badge={`${newSize} / trang`}
-                      tone="indigo"
-                    />
+                    <SectionHeader label="Sản phẩm mới" badge={`${15} / trang`} tone="indigo" />
                     <div className="p-4">
                       {renderGrid(newest, false)}
                       <Pagination
@@ -514,7 +432,11 @@ export default function HomePage() {
                       className="flex items-center gap-4 rounded-2xl border bg-white p-5 shadow"
                     >
                       <div
-                        className={`${tone === "rose" ? "bg-rose-50 text-rose-600 ring-rose-100" : "bg-indigo-50 text-indigo-600 ring-indigo-100"} rounded-xl p-3 ring-1`}
+                        className={`${
+                          tone === "rose"
+                            ? "bg-rose-50 text-rose-600 ring-rose-100"
+                            : "bg-indigo-50 text-indigo-600 ring-indigo-100"
+                        } rounded-xl p-3 ring-1`}
                       >
                         <Icon className="h-5 w-5" />
                       </div>
