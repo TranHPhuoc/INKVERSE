@@ -12,6 +12,7 @@ import {
 import { motion } from "framer-motion";
 import useVnLocations from "../../hooks/useVNLocation";
 import type { Province, District, Ward } from "../../hooks/useVNLocation";
+import CartToast from "../../components/CardToast";
 
 /* ==================== helpers ==================== */
 function normalizeVN(s?: string): string {
@@ -45,6 +46,10 @@ export default function AccountAddressPage() {
 
   const [editId, setEditId] = useState<number | null>(null);
 
+  // toast
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string>("");
+
   const [form, setForm] = useState<AddressCreate>({
     fullName: "",
     phone: "",
@@ -71,7 +76,6 @@ export default function AccountAddressPage() {
     if (districtCode !== "") void loadWards(Number(districtCode));
   }, [districtCode, loadWards]);
 
-  // sync display names into form
   useEffect(() => {
     const p = provinces.find((x) => x.code === provinceCode);
     const d = districts.find((x) => x.code === districtCode);
@@ -162,10 +166,12 @@ export default function AccountAddressPage() {
 
       if (editId != null) {
         await updateMyAddress(editId, form);
+        setToastMsg("Cập nhật địa chỉ thành công");
       } else {
         await createMyAddress(form);
+        setToastMsg("Thêm địa chỉ thành công");
       }
-
+      setToastOpen(true);
       await refresh();
       resetForm();
 
@@ -460,6 +466,12 @@ export default function AccountAddressPage() {
           </div>
         </div>
       </div>
+      <CartToast
+        open={toastOpen}
+        text={toastMsg}
+        onClose={() => setToastOpen(false)}
+        duration={1400}
+      />
     </div>
   );
 }

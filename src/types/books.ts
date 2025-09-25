@@ -1,9 +1,7 @@
-// src/types/books.ts
 import api from "../services/api.ts";
 
 /* -------------------- helpers -------------------- */
 function unwrap<T>(payload: unknown): T {
-  // BE trả { statusCode, message, data } hoặc trả thẳng data
   if (
     payload !== null &&
     typeof payload === "object" &&
@@ -46,6 +44,8 @@ export type BookListItem = {
   saleEndAt: string | null;
   effectivePrice: number;
   sold: number;
+  likedByMe?: boolean;
+  favoriteCount?: number;
   status: "DRAFT" | "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
   createdAt: string | null;
 };
@@ -89,6 +89,8 @@ export type BookDetail = {
   sold: number;
   createdAt: string;
   updatedAt: string;
+  likedByMe?: boolean;
+  favoriteCount?: number;
 };
 
 export type HomeFeed = {

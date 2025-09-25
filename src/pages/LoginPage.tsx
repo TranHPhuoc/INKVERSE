@@ -91,7 +91,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="mt-1 w-full rounded-lg bg-red-500 py-3 text-base font-semibold text-white transition hover:bg-red-600 active:scale-[0.99] md:mt-2 md:py-3.5 md:text-lg"
+              className="mt-1 w-full cursor-pointer rounded-lg bg-red-500 py-3 text-base font-semibold text-white transition hover:bg-red-600 active:scale-[0.99] md:mt-2 md:py-3.5 md:text-lg"
             >
               Đăng nhập
             </button>

@@ -1,6 +1,9 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { AnimatePresence } from "framer-motion";
+import { useEffect } from "react";
+import { useAuth } from "./context/useAuth";
+import { configureFavoritesForUser, preloadFavoritesFromServer } from "./store/favorite-store";
 
 // Layouts
 import MainLayout from "./layouts/MainLayout";
@@ -28,6 +31,7 @@ import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import OrderListPage from "./pages/OrderListPage";
+import FavoritesPage from "./pages/FavoritePage.tsx";
 
 // Pages – User
 import AccountLayout from "./pages/user/AccountLayout";
@@ -68,8 +72,13 @@ function LoginGuard({ children }: { children: ReactNode }) {
 
 /* ───────────────────────── Main App ───────────────────────── */
 export default function App() {
+  const { user, isAuthenticated } = useAuth();
   const location = useLocation();
   const hideIntro = location.pathname.startsWith("/sale") || location.pathname.startsWith("/admin");
+  useEffect(() => {
+    configureFavoritesForUser(isAuthenticated ? user?.id : null);
+    preloadFavoritesFromServer().catch(() => {});
+  }, [isAuthenticated, user?.id]);
 
   return (
     <>
@@ -209,6 +218,14 @@ export default function App() {
               element={
                 <PageTransition>
                   <OrderListPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/yeu-thich"
+              element={
+                <PageTransition>
+                  <FavoritesPage />
                 </PageTransition>
               }
             />

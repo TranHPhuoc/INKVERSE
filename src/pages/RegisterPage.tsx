@@ -131,14 +131,14 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-1 w-full rounded-lg bg-red-600 py-3 font-semibold text-white transition hover:bg-red-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-1 w-full cursor-pointer rounded-lg bg-red-600 py-3 font-semibold text-white transition hover:bg-red-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Đang gửi OTP..." : "Đăng ký"}
             </button>
 
             <button
               type="button"
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 py-3 transition hover:bg-white/10 active:scale-[0.99]"
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 py-3 transition hover:bg-white/10 active:scale-[0.99]"
             >
               <FcGoogle size={22} />
               <span className="text-sm font-medium md:text-base">Đăng ký với Google</span>

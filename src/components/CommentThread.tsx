@@ -19,7 +19,6 @@ function fmtTime(iso?: string) {
   return d.isValid() ? d.format("DD/MM/YYYY HH:mm") : "";
 }
 
-// Đọc an toàn các field “không chắc có” mà không dùng any
 function readUserId(c: ResComment): number | undefined {
   const v = (c as unknown as Record<string, unknown>).userId;
   return typeof v === "number" ? v : undefined;
@@ -223,7 +222,6 @@ export default function CommentThread({ bookId }: { bookId: number }) {
     setErr(null);
     try {
       const res = await listComments(bookId, { page, size, sort: "new" });
-      // Một số backend trả (ResComment | null)[], lọc null cho chắc
       const arr = (res.content ?? []).filter((x): x is ResComment => !!x && typeof x === "object");
       setItems(arr);
     } catch (e) {
@@ -242,7 +240,6 @@ export default function CommentThread({ bookId }: { bookId: number }) {
     return Array.isArray(v);
   }
 
-  // helper: patch 1 comment theo id (đệ quy) — type-safe cho children
   function patchById(
     list: ResComment[],
     id: number,
@@ -251,18 +248,15 @@ export default function CommentThread({ bookId }: { bookId: number }) {
     return list.map<ResComment>((c) => {
       if (c.id === id) return patch(c);
 
-      // kids: ResComment[] | undefined
       const kids = hasChildren(c) ? c.children : undefined;
       const nextKids = kids?.length ? patchById(kids, id, patch) : kids;
 
-      // Giữ nguyên reference nếu không đổi để tránh re-render thừa
       return nextKids === kids ? c : ({ ...c, children: nextKids } as ResComment);
     });
   }
 
   const toggleLike = async (id: number, currentlyLiked: boolean) => {
     if (!isAuthenticated) return; // hoặc điều hướng login nếu muốn
-    // optimistic UI
     setItems((prev) =>
       patchById(prev, id, (c) => ({
         ...c,
@@ -277,7 +271,6 @@ export default function CommentThread({ bookId }: { bookId: number }) {
         await likeComment(id);
       }
     } catch {
-      // revert nếu lỗi
       setItems((prev) =>
         patchById(prev, id, (c) => ({
           ...c,

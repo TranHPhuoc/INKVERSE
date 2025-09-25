@@ -10,9 +10,16 @@ import useCheckoutGuard from "../hooks/useCheckoutGuard";
 import BookGallery from "../components/BookGallery";
 import BookReviewAndComment from "../components/BookReviewAndComment";
 import { getRatingSummary } from "../services/rating";
+import FavoriteHeart from "../components/FavoriteHeart";
 import ErrorBoundary from "../components/ErrorBoundary";
+import { isFavorite, getCount as getFavCount } from "../store/favorite-store";
 
-/* ===== Utils nhỏ ===== */
+type BookDetailView = BookDetail & {
+  likedByMe?: boolean;
+  favoriteCount?: number;
+};
+
+/* ===== Helpers ===== */
 function formatVND(n?: number | null): string {
   if (n == null) return "";
   try {
@@ -58,7 +65,7 @@ function SpecRow({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-/* animation mini add to cart */
+/* animation add to cart */
 function animateFlyToCart(sourceEl: HTMLElement): Promise<void> {
   return new Promise<void>((resolve) => {
     try {
@@ -105,7 +112,7 @@ function animateFlyToCart(sourceEl: HTMLElement): Promise<void> {
 /* ================= Page ================= */
 export default function ProductDetailsPage() {
   const { bookSlug = "" } = useParams<{ bookSlug: string }>();
-  const [data, setData] = useState<BookDetail | null>(null);
+  const [data, setData] = useState<BookDetailView | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -120,6 +127,8 @@ export default function ProductDetailsPage() {
   const [toastMsg, setToastMsg] = useState<string>("");
 
   const [summary, setSummary] = useState<{ average?: number; count?: number }>({});
+
+  /* Rating summary */
   useEffect(() => {
     let dead = false;
     if (!data?.id) return;
@@ -136,6 +145,7 @@ export default function ProductDetailsPage() {
     };
   }, [data?.id]);
 
+  /* Load detail by slug */
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -144,7 +154,7 @@ export default function ProductDetailsPage() {
     getBookDetailBySlug(bookSlug)
       .then((d) => {
         if (!mounted) return;
-        setData(d);
+        setData(d as BookDetailView);
       })
       .catch((e: unknown) => {
         if (!mounted) return;
@@ -231,6 +241,7 @@ export default function ProductDetailsPage() {
     }
   }
 
+  /* Breadcrumb */
   const firstCat = data.categories?.[0];
   const breadcrumb = (
     <nav className="mb-5 text-sm">
@@ -259,6 +270,12 @@ export default function ProductDetailsPage() {
       </div>
     </nav>
   );
+
+  /* Seed favorite: chỉ khi login mới check local store */
+  const storeLiked = isAuthenticated ? isFavorite(Number(data.id)) : false;
+  const storeCount = isAuthenticated ? getFavCount(Number(data.id)) : undefined;
+  const initialLiked = isAuthenticated ? storeLiked || Boolean(data.likedByMe) : false;
+  const initialCount = storeCount ?? data.favoriteCount ?? 0;
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-white via-rose-50/[.35] to-white">
@@ -301,10 +318,22 @@ export default function ProductDetailsPage() {
 
             {/* ===== Right: Info ===== */}
             <div className="space-y-6">
-              {/* Title + meta */}
+              {/* Title + meta + favorite */}
               <div className="rounded-2xl border border-gray-100 bg-white/70 p-5 shadow-sm ring-1 ring-white/50 backdrop-blur">
-                <h1 className="text-2xl leading-snug font-bold text-gray-900">{data.title}</h1>
+                <div className="flex items-start justify-between gap-3">
+                  <h1 className="text-2xl leading-snug font-bold text-gray-900">{data.title}</h1>
 
+                  {/* Heart + số lượt thích */}
+                  <FavoriteHeart
+                    bookId={Number(data.id)}
+                    initialLiked={initialLiked}
+                    initialCount={initialCount}
+                    size={24}
+                    className="rounded-full border bg-white/80 px-2.5 py-1 backdrop-blur"
+                  />
+                </div>
+
+                {/* meta info */}
                 <div className="mt-2 grid grid-cols-1 gap-y-1 text-sm text-gray-700 sm:grid-cols-2">
                   {data.supplier && (
                     <div>
@@ -472,13 +501,13 @@ export default function ProductDetailsPage() {
       <div className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-2 gap-2 border-t border-gray-200 bg-white/90 p-3 backdrop-blur md:hidden">
         <button
           onClick={handleAddToCart}
-          className="h-11 rounded-xl border-2 border-rose-600/90 bg-white font-medium text-rose-600"
+          className="h-11 cursor-pointer rounded-xl border-2 border-rose-600/90 bg-white font-medium text-rose-600"
         >
           Thêm vào giỏ
         </button>
         <button
           onClick={handleBuyNow}
-          className="h-11 rounded-xl bg-rose-600 font-semibold text-white"
+          className="h-11 cursor-pointer rounded-xl bg-rose-600 font-semibold text-white"
         >
           Mua ngay
         </button>

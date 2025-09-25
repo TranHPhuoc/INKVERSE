@@ -112,7 +112,6 @@ const PillNav: React.FC<PillNavProps> = ({
       overwrite: "auto",
     });
   };
-
   const handleLeave = (i: number) => {
     const tl = tlRefs.current[i];
     if (!tl) return;
@@ -127,7 +126,6 @@ const PillNav: React.FC<PillNavProps> = ({
     href.startsWith("tel:") ||
     href.startsWith("#");
 
-  // CSS variables dùng cho inline styles
   const cssVars = {
     ["--pill-bg"]: pillColor,
     ["--hover-circle"]: hoverCircleColor,
@@ -151,27 +149,45 @@ const PillNav: React.FC<PillNavProps> = ({
         className="m-0 flex list-none items-center p-0"
         style={{ gap: "var(--pill-gap)" }}
       >
-        {items.map((item) => {
+        {items.map((item, idx) => {
           const active = activeHref === item.href;
 
-          const pillStyle: React.CSSProperties = {
-            background: "var(--pill-bg)",
-            color: "var(--pill-text)",
-            border: `1px solid var(--pill-border)`,
-            height: "var(--nav-h)",
-            paddingLeft: "var(--pill-pad-x)",
-            paddingRight: "var(--pill-pad-x)",
-            fontSize: "var(--pill-font)",
-          };
+          // màu & trạng thái khi active
+          const pillStyle: React.CSSProperties = active
+            ? {
+                background: "var(--hover-circle)", // tô đen nền
+                color: "var(--hover-text)", // chữ trắng
+                border: `1px solid var(--hover-circle)`,
+                height: "var(--nav-h)",
+                paddingLeft: "var(--pill-pad-x)",
+                paddingRight: "var(--pill-pad-x)",
+                fontSize: "var(--pill-font)",
+              }
+            : {
+                background: "var(--pill-bg)",
+                color: "var(--pill-text)",
+                border: `1px solid var(--pill-border)`,
+                height: "var(--nav-h)",
+                paddingLeft: "var(--pill-pad-x)",
+                paddingRight: "var(--pill-pad-x)",
+                fontSize: "var(--pill-font)",
+              };
 
-          const PillContent = (
+          // nội dung pill:
+          const PillContent = active ? (
+            // --- ACTIVE: không render circle + label hover, không hiệu ứng ---
+            <span className="relative z-[2] inline-flex items-center gap-1.5 leading-[1]">
+              {item.label}
+            </span>
+          ) : (
+            // --- NORMAL/HOVERABLE ---
             <>
               {/* vòng tròn hover */}
               <span
                 className="hover-circle pointer-events-none absolute bottom-0 left-1/2 z-[1] block rounded-full"
                 style={{ background: "var(--hover-circle)", willChange: "transform" }}
                 ref={(el) => {
-                  circleRefs.current[items.indexOf(item)] = el;
+                  circleRefs.current[idx] = el;
                 }}
               />
               {/* stack label */}
@@ -190,26 +206,22 @@ const PillNav: React.FC<PillNavProps> = ({
                   {item.label}
                 </span>
               </span>
-
-              {/* chấm active (tuỳ thích giữ lại) */}
-              {active && (
-                <span
-                  className="absolute -bottom-[6px] left-1/2 z-[4] h-3 w-3 -translate-x-1/2 rounded-full"
-                  style={{ background: "var(--hover-circle)" }}
-                  aria-hidden="true"
-                />
-              )}
             </>
           );
 
+          // props chung (tắt hiệu ứng hover cho active)
           const common: CommonLinkAttrs = {
             role: "menuitem",
             className:
               "relative overflow-hidden inline-flex items-center justify-center no-underline rounded-full box-border font-semibold md:font-bold leading-none whitespace-nowrap cursor-pointer select-none",
             style: pillStyle,
             "aria-label": item.ariaLabel,
-            onMouseEnter: () => handleEnter(items.indexOf(item)),
-            onMouseLeave: () => handleLeave(items.indexOf(item)),
+            ...(active
+              ? { "aria-current": "page" as const } // đánh dấu trang hiện tại
+              : {
+                  onMouseEnter: () => handleEnter(idx),
+                  onMouseLeave: () => handleLeave(idx),
+                }),
             ...(item.linkProps ?? {}),
           };
 

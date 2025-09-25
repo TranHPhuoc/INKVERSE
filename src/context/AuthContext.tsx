@@ -5,7 +5,7 @@ import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from "../types/authKeys";
 import type { ApiEnvelope } from "../types/http";
 import { AuthContext } from "./AuthContextCore";
 
-/* ================= Types (type-only exports are fine) ================= */
+/* ================= Types ================= */
 
 export type User = {
   id: number | string;
@@ -42,7 +42,8 @@ export type AuthContextType = AuthState & {
   isAuthenticated: boolean;
 };
 
-/** JWT payload dự kiến từ BE (để tránh any) */
+/* ================= Utils ================= */
+
 type JwtPayload = {
   userId?: number | string;
   id?: number | string;
@@ -55,21 +56,19 @@ type JwtPayload = {
   roles?: string[];
 };
 
-/* =============== Utils (internal) =============== */
-
 function decodeJwt(token: string): JwtPayload | null {
   try {
     const payload = token.split(".")[1];
     if (!payload) return null;
     const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    // escape/unescape là cũ nhưng dùng tạm để decode UTF-8 string
+    // decode UTF-8 an toàn
     return JSON.parse(decodeURIComponent(escape(json))) as JwtPayload;
   } catch {
     return null;
   }
 }
 
-/* =============== Provider (only runtime export in this file) =============== */
+/* ================= Provider ================= */
 
 export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -107,7 +106,6 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const avatarRaw = p.avatarUrl;
       const roleRaw = Array.isArray(p.roles) ? p.roles[0] : p.role;
 
-      // Không gán undefined vào object literal (exactOptionalPropertyTypes)
       const u: User = {
         id: idRaw,
         ...(emailRaw ? { email: emailRaw } : {}),
@@ -129,9 +127,8 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const verifyEmail = useCallback(
     async (otp: string) => {
-      if (!registerData?.email) {
+      if (!registerData?.email)
         throw new Error("Missing register data. Please start register again.");
-      }
       const payload: VerifyEmailPayload = { ...registerData, otp };
       const res = await AuthAPI.verifyEmail(payload);
       const body = res.data as ApiEnvelope<{ userId: number; message: string }>;
@@ -171,19 +168,18 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
       setUser(u);
       persistSession(token, u);
+      // Trang Login nên đọc redirectAfterLogin và navigate sau khi gọi login()
     },
     [persistSession],
   );
 
   const logout = useCallback(() => {
-    AuthAPI.logout().catch((e) => {
-      // log nhẹ, không chặn logout local
-      console.debug("logout error:", e);
-    });
+    AuthAPI.logout().catch(() => {});
     setAccessToken(null);
     setRegisterData(null);
     setUser(null);
     persistSession(null, null);
+    // không navigate trong provider để tránh phụ thuộc Router
   }, [persistSession]);
 
   const forgotPasswordStart = useCallback(async (email: string) => {

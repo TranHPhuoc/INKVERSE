@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, Phone, ShoppingCart, User as UserIcon, LogOut } from "lucide-react";
+import { Home, Phone, ShoppingCart, User as UserIcon, Heart, LogOut } from "lucide-react";
 import { useAuth } from "../context/useAuth";
 import SearchBox from "./SearchBox";
 import HeaderCategoryMenu from "./HeaderCategoryMenu";
@@ -192,7 +192,7 @@ const Header: React.FC = () => {
                 onFocus={openMenu}
                 onBlur={scheduleClose}
               >
-                {/* Nút trigger (không cần click) */}
+                {/* Nút trigger */}
                 <button
                   type="button"
                   className="inline-flex h-[46px] items-center gap-1 rounded-full border px-4 text-[17px] font-medium text-slate-900 transition-colors hover:bg-slate-900 hover:text-white"
@@ -228,6 +228,16 @@ const Header: React.FC = () => {
                       >
                         <UserIcon className="h-4 w-4" /> Quản lý tài khoản
                       </button>
+
+                      {/* NEW: Link tới trang yêu thích */}
+                      <Link
+                        to="/yeu-thich"
+                        className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
+                        onClick={() => setOpen(false)}
+                      >
+                        <Heart className="h-4 w-4" /> Sản phẩm yêu thích
+                      </Link>
+
                       <Link
                         to="/don-hang"
                         className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"

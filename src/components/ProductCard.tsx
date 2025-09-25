@@ -11,9 +11,8 @@ type Props = {
 const isNewWithin = (d?: string | null, days = 14) => {
   if (!d) return false;
   const created = new Date(d);
-  if (isNaN(created.getTime())) return false;
-  const diffDays = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
-  return diffDays <= days;
+  if (Number.isNaN(created.getTime())) return false;
+  return (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24) <= days;
 };
 
 export default function ProductCard({ item, catSlug }: Props) {
@@ -23,7 +22,6 @@ export default function ProductCard({ item, catSlug }: Props) {
     hasSale && item.price > 0 ? Math.max(0, Math.round(100 - (price / item.price) * 100)) : 0;
 
   const href = catSlug ? `/danh-muc/${catSlug}/${item.slug}` : `/books/${item.slug}`;
-
   const imgSrc = resolveThumb(item.thumbnail);
   const showNew = isNewWithin(item.createdAt);
 
@@ -34,7 +32,6 @@ export default function ProductCard({ item, catSlug }: Props) {
       aria-label={item.title}
       title={item.title}
     >
-      {/* Thumbnail + badges */}
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-gray-50">
         <img
           src={imgSrc}
@@ -46,14 +43,12 @@ export default function ProductCard({ item, catSlug }: Props) {
           }}
         />
 
-        {/* Badge NEW */}
         {showNew && (
           <span className="absolute top-2 left-2 rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white shadow">
             New
           </span>
         )}
 
-        {/* Ribbon SALE */}
         {hasSale && (
           <span className="absolute top-2 right-0 rounded-l-md bg-rose-600 px-3 py-1 text-[11px] font-bold text-white shadow">
             -{percent}%
@@ -61,18 +56,16 @@ export default function ProductCard({ item, catSlug }: Props) {
         )}
       </div>
 
-      {/* Title */}
       <div className="mt-2 line-clamp-2 min-h-[2.5rem] text-sm leading-5 font-medium text-gray-900">
         {item.title}
       </div>
 
-      {/* Price */}
       <div className="mt-auto pt-2">
         <div className="flex items-baseline gap-2">
-          <span className="font-semibold text-rose-600">{price.toLocaleString()} ₫</span>
+          <span className="font-semibold text-rose-600">{Number(price).toLocaleString()} ₫</span>
           {hasSale && (
             <span className="text-xs text-gray-500 line-through">
-              {item.price.toLocaleString()} ₫
+              {Number(item.price).toLocaleString()} ₫
             </span>
           )}
         </div>

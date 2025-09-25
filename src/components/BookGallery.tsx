@@ -49,7 +49,6 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
   }, [active, onIndexChange]);
 
   useEffect(() => {
-    // preload ảnh đầu tiên cho mượt
     if (sorted[0]?.url) {
       const pre = new Image();
       pre.src = pickBest(sorted[0]);

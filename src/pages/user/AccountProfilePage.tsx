@@ -1,6 +1,6 @@
-// src/pages/user/AccountProfilePage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import axios from "axios";
 import { useAuth } from "../../context/useAuth";
 import {
   userGetById,
@@ -8,12 +8,12 @@ import {
   type ResUserDTO,
   type ReqUserUpdate,
 } from "../../services/user";
+import CartToast from "../../components/CardToast";
 
 type Gender = "MALE" | "FEMALE" | "OTHER";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-/** luôn trả về string, không undefined */
 function splitFullName(fullName?: string | null): { lastName: string; firstName: string } {
   const s = (fullName ?? "").trim().replace(/\s+/g, " ");
   if (!s) return { lastName: "", firstName: "" };
@@ -38,11 +38,24 @@ function isValidYMD(y: string, m: string, d: string) {
   return dt.getUTCFullYear() === yy && dt.getUTCMonth() + 1 === mm && dt.getUTCDate() === dd;
 }
 
+function getErrorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { message?: string } | undefined;
+    return data?.message ?? err.message ?? "Đã xảy ra lỗi.";
+  }
+  if (err instanceof Error) return err.message || "Đã xảy ra lỗi.";
+  return "Đã xảy ra lỗi.";
+}
+
 export default function AccountProfilePage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [me, setMe] = useState<ResUserDTO | null>(null);
+
+  // toast
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string>("");
 
   // form state
   const [lastName, setLastName] = useState("");
@@ -92,17 +105,21 @@ export default function AccountProfilePage() {
     e.preventDefault();
     const fullName = joinFullName(lastName, firstName);
 
-    // Build payload theo exactOptionalPropertyTypes: true
     const payload: ReqUserUpdate = {};
     if (fullName) payload.fullName = fullName;
     if (phone.trim() !== "") payload.phone = phone.trim();
-    if (gender) payload.gender = gender; // "MALE" | "FEMALE" | "OTHER"
+    if (gender) payload.gender = gender;
     if (birthISO) payload.birthDate = birthISO;
 
     setSaving(true);
     try {
-      const updated = await userUpdateMe(payload);
+      const updated: ResUserDTO = await userUpdateMe(payload);
       setMe(updated);
+      setToastMsg("Lưu thông tin thành công");
+      setToastOpen(true);
+    } catch (err: unknown) {
+      setToastMsg(getErrorMessage(err));
+      setToastOpen(true);
     } finally {
       setSaving(false);
     }
@@ -120,154 +137,164 @@ export default function AccountProfilePage() {
   }
 
   return (
-    <motion.form
-      onSubmit={onSubmit}
-      className="rounded-2xl border bg-white/80 p-6 shadow-sm backdrop-blur"
-      initial={{ opacity: 0.95 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.2 }}
-    >
-      <h2 className="mb-5 text-xl font-semibold">Hồ sơ cá nhân</h2>
+    <>
+      <motion.form
+        onSubmit={onSubmit}
+        className="rounded-2xl border bg-white/80 p-6 shadow-sm backdrop-blur"
+        initial={{ opacity: 0.95 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+      >
+        <h2 className="mb-5 text-xl font-semibold">Hồ sơ cá nhân</h2>
 
-      {/* Họ */}
-      <div className="mb-4">
-        <label className="mb-1 block text-sm font-medium">
-          Họ<span className="text-red-500">*</span>
-        </label>
-        <input
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
-          placeholder="Ví dụ: Trần"
-          required
-        />
-      </div>
-
-      {/* Tên */}
-      <div className="mb-4">
-        <label className="mb-1 block text-sm font-medium">
-          Tên<span className="text-red-500">*</span>
-        </label>
-        <input
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
-          placeholder="Ví dụ: Hữu Phước"
-          required
-        />
-      </div>
-
-      {/* Số điện thoại */}
-      <div className="mb-4">
-        <label className="mb-1 block text-sm font-medium">Số điện thoại</label>
-        <div className="flex gap-3">
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="flex-1 rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
-            placeholder="Nhập số điện thoại"
-          />
-        </div>
-      </div>
-
-      {/* Email (chỉ hiển thị) */}
-      <div className="mb-4">
-        <label className="mb-1 block text-sm font-medium">Email</label>
-        <div className="flex gap-3">
-          <input
-            value={me?.email || ""}
-            disabled
-            className="flex-1 rounded-lg border bg-gray-50 px-3 py-2 text-gray-500"
-          />
-        </div>
-      </div>
-
-      {/* Giới tính */}
-      <div className="mb-4">
-        <label className="mb-1 block text-sm font-medium">
-          Giới tính<span className="text-red-500">*</span>
-        </label>
-        <div className="flex items-center gap-6">
-          <label className="inline-flex items-center gap-2">
-            <input
-              type="radio"
-              name="gender"
-              checked={gender === "MALE"}
-              onChange={() => setGender("MALE")}
-            />
-            Nam
+        {/* Họ */}
+        <div className="mb-4">
+          <label className="mb-1 block text-sm font-medium">
+            Họ<span className="text-red-500">*</span>
           </label>
-          <label className="inline-flex items-center gap-2">
-            <input
-              type="radio"
-              name="gender"
-              checked={gender === "FEMALE"}
-              onChange={() => setGender("FEMALE")}
-            />
-            Nữ
-          </label>
-          <label className="inline-flex items-center gap-2">
-            <input
-              type="radio"
-              name="gender"
-              checked={gender === "OTHER"}
-              onChange={() => setGender("OTHER")}
-            />
-            Khác
-          </label>
-        </div>
-      </div>
-
-      {/* Birthday: dd / mm / yyyy */}
-      <div className="mb-6">
-        <label className="mb-1 block text-sm font-medium">
-          Birthday<span className="text-red-500">*</span>
-        </label>
-        <div className="grid max-w-xl grid-cols-3 gap-3">
           <input
-            placeholder="DD"
-            inputMode="numeric"
-            maxLength={2}
-            value={d}
-            onChange={(e) => setD(e.target.value.replace(/\D/g, "").slice(0, 2))}
-            className="rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
-            required
-          />
-          <input
-            placeholder="MM"
-            inputMode="numeric"
-            maxLength={2}
-            value={m}
-            onChange={(e) => setM(e.target.value.replace(/\D/g, "").slice(0, 2))}
-            className="rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
-            required
-          />
-          <input
-            placeholder="YYYY"
-            inputMode="numeric"
-            maxLength={4}
-            value={y}
-            onChange={(e) => setY(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            className="rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
+            placeholder="Ví dụ: Trần"
             required
           />
         </div>
-        {y || m || d ? (
-          <p className="mt-1 text-xs text-gray-500">
-            {isValidYMD(y, m, d) ? "" : "Ngày sinh không hợp lệ."}
-          </p>
-        ) : null}
-      </div>
 
-      <div className="pt-2">
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-48 rounded-xl bg-rose-600 px-4 py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
-        >
-          {saving ? "Đang lưu..." : "Lưu thay đổi"}
-        </button>
-      </div>
-    </motion.form>
+        {/* Tên */}
+        <div className="mb-4">
+          <label className="mb-1 block text-sm font-medium">
+            Tên<span className="text-red-500">*</span>
+          </label>
+          <input
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
+            placeholder="Ví dụ: Hữu Phước"
+            required
+          />
+        </div>
+
+        {/* Số điện thoại */}
+        <div className="mb-4">
+          <label className="mb-1 block text-sm font-medium">Số điện thoại</label>
+          <div className="flex gap-3">
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="flex-1 rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
+              placeholder="Nhập số điện thoại"
+            />
+          </div>
+        </div>
+
+        {/* Email (chỉ hiển thị) */}
+        <div className="mb-4">
+          <label className="mb-1 block text-sm font-medium">Email</label>
+          <div className="flex gap-3">
+            <input
+              value={me?.email || ""}
+              disabled
+              className="flex-1 rounded-lg border bg-gray-50 px-3 py-2 text-gray-500"
+            />
+          </div>
+        </div>
+
+        {/* Giới tính */}
+        <div className="mb-4">
+          <label className="mb-1 block text-sm font-medium">
+            Giới tính<span className="text-red-500">*</span>
+          </label>
+          <div className="flex items-center gap-6">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="gender"
+                checked={gender === "MALE"}
+                onChange={() => setGender("MALE")}
+              />
+              Nam
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="gender"
+                checked={gender === "FEMALE"}
+                onChange={() => setGender("FEMALE")}
+              />
+              Nữ
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="gender"
+                checked={gender === "OTHER"}
+                onChange={() => setGender("OTHER")}
+              />
+              Khác
+            </label>
+          </div>
+        </div>
+
+        {/* Birthday: dd / mm / yyyy */}
+        <div className="mb-6">
+          <label className="mb-1 block text-sm font-medium">
+            Birthday<span className="text-red-500">*</span>
+          </label>
+          <div className="grid max-w-xl grid-cols-3 gap-3">
+            <input
+              placeholder="DD"
+              inputMode="numeric"
+              maxLength={2}
+              value={d}
+              onChange={(e) => setD(e.target.value.replace(/\D/g, "").slice(0, 2))}
+              className="rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
+              required
+            />
+            <input
+              placeholder="MM"
+              inputMode="numeric"
+              maxLength={2}
+              value={m}
+              onChange={(e) => setM(e.target.value.replace(/\D/g, "").slice(0, 2))}
+              className="rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
+              required
+            />
+            <input
+              placeholder="YYYY"
+              inputMode="numeric"
+              maxLength={4}
+              value={y}
+              onChange={(e) => setY(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              className="rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
+              required
+            />
+          </div>
+          {y || m || d ? (
+            <p className="mt-1 text-xs text-gray-500">
+              {isValidYMD(y, m, d) ? "" : "Ngày sinh không hợp lệ."}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-48 cursor-pointer rounded-xl bg-rose-600 px-4 py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+          >
+            {saving ? "Đang lưu..." : "Lưu thay đổi"}
+          </button>
+        </div>
+      </motion.form>
+
+      {/* Toast */}
+      <CartToast
+        open={toastOpen}
+        text={toastMsg}
+        onClose={() => setToastOpen(false)}
+        duration={1400}
+      />
+    </>
   );
 }
