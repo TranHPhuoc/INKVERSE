@@ -66,7 +66,6 @@ function isDigits13(s: string): boolean {
   return /^\d{13}$/.test(s);
 }
 
-// Full ISBN-13 checksum validation
 function isValidIsbn13(s: string): boolean {
   if (!isDigits13(s)) return false;
   const digits = s.split("").map((c) => Number(c));
@@ -103,8 +102,6 @@ const COVER_OPTIONS = [
 type CoverType = (typeof COVER_OPTIONS)[number]["value"];
 
 /* ---------------- Form types ---------------- */
-type FormImage = { url: string; sortOrder: number };
-
 type FormState = {
   title: string;
   slug: string;
@@ -133,7 +130,6 @@ type FormState = {
   saleStartAt: string;
   saleEndAt: string;
 
-  images: FormImage[];
   initialStock: number;
 };
 
@@ -183,7 +179,6 @@ export default function AddBookModal({
     saleStartAt: "",
     saleEndAt: "",
 
-    images: [{ url: "", sortOrder: 0 }],
     initialStock: 0,
   });
 
@@ -230,7 +225,6 @@ export default function AddBookModal({
       addWarning("Không tải được Tác giả (/api/v1/admin/authors).");
     }
 
-    // Gọi public API để lấy danh mục lá → tránh 405 ở /admin/categories
     try {
       const res = await api.get("/api/v1/categories/flat/leaf");
       const list = unwrap<ResOption[]>(res.data);
@@ -244,17 +238,6 @@ export default function AddBookModal({
     return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
   }
 
-  function addImage() {
-    set("images", [...form.images, { url: "", sortOrder: form.images.length }]);
-  }
-  function removeImage(idx: number) {
-    set(
-      "images",
-      form.images.filter((_, i) => i !== idx).map((it, i) => ({ ...it, sortOrder: i })),
-    );
-  }
-
-  // Tính toán validate cục bộ
   const isbnError: string | null = useMemo(() => {
     const raw = form.isbn13.trim();
     if (!raw) return "ISBN-13 là bắt buộc";
@@ -264,10 +247,9 @@ export default function AddBookModal({
   }, [form.isbn13]);
 
   const canSubmit = useMemo(() => {
-    const hasAtLeastOneImage = form.images.some((it) => it.url.trim().length > 0);
     return (
       !!form.title.trim() &&
-      !!form.isbn13.trim() && // chỉ cần nhập đủ 13 số
+      !!form.isbn13.trim() &&
       !!form.publisherId &&
       !!form.supplierId &&
       form.authorIds.length > 0 &&
@@ -276,8 +258,7 @@ export default function AddBookModal({
       Number(form.price) > 0 &&
       !!form.language &&
       !!form.coverType &&
-      !!form.ageRating &&
-      hasAtLeastOneImage
+      !!form.ageRating
     );
   }, [form, isbnError]);
 
@@ -286,21 +267,20 @@ export default function AddBookModal({
     setError(null);
 
     if (!canSubmit) {
-      setError(isbnError ?? "Điền đủ trường bắt buộc + ít nhất 1 ảnh.");
+      setError(isbnError ?? "Điền đủ trường bắt buộc.");
       return;
     }
 
     try {
       setSubmitting(true);
 
-      // Auto-slug nếu trống
       const finalSlug = (form.slug?.trim() || slugify(form.title)).slice(0, 200);
 
       const payload: BookCreate = {
         title: form.title.trim(),
         slug: finalSlug,
         sku: form.sku?.trim() || null,
-        isbn13: form.isbn13.trim(), // đã validate 13 digits & checksum
+        isbn13: form.isbn13.trim(),
         description: form.description || null,
 
         publisherId: form.publisherId!,
@@ -329,12 +309,7 @@ export default function AddBookModal({
         saleStartAt: toInstant(form.saleStartAt),
         saleEndAt: toInstant(form.saleEndAt),
 
-        images: form.images
-          .filter((it) => it.url.trim().length > 0)
-          .map((it, i) => ({
-            url: it.url.trim(),
-            sortOrder: Number(it.sortOrder ?? i),
-          })),
+        images: [],
         initialStock: Number(form.initialStock),
       };
 
@@ -342,7 +317,6 @@ export default function AddBookModal({
       onCreated();
     } catch (err: unknown) {
       const raw = pickAxiosMessage(err);
-      // Map thông điệp backend thành message thân thiện
       if (raw && /duplicate slug or isbn-13/i.test(raw)) {
         setError("Slug hoặc ISBN-13 đã tồn tại. Hãy đổi slug/ISBN-13 rồi thử lại.");
       } else {
@@ -661,50 +635,6 @@ export default function AddBookModal({
                 />
               </FieldGroup>
             </div>
-
-            <FieldGroup label="Ảnh (ít nhất 1)">
-              <div className="space-y-2">
-                {form.images.map((img, idx) => (
-                  <div key={idx} className="grid grid-cols-12 items-center gap-2">
-                    <input
-                      placeholder="URL ảnh"
-                      value={img.url}
-                      onChange={(e) => {
-                        const next = [...form.images];
-                        next[idx] = { ...img, url: e.target.value };
-                        set("images", next);
-                      }}
-                      className="col-span-9 rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      value={img.sortOrder}
-                      onChange={(e) => {
-                        const next = [...form.images];
-                        next[idx] = { ...img, sortOrder: Number(e.target.value) };
-                        set("images", next);
-                      }}
-                      className="col-span-2 rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(idx)}
-                      className="col-span-1 h-10 rounded-lg border hover:bg-gray-50"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={addImage}
-                  className="h-10 rounded-lg border px-3 hover:bg-gray-50"
-                >
-                  + Thêm ảnh
-                </button>
-              </div>
-            </FieldGroup>
           </div>
 
           {error && <div className="col-span-2 text-sm text-rose-600">{error}</div>}
