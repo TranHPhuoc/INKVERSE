@@ -1,8 +1,10 @@
+// src/pages/admin/BooksPage.tsx
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import api from "../../services/api";
 import { deleteBook } from "../../services/admin/books-admin";
 import AddBookModal from "../../components/admin/AddBookModal";
+import EditBookModal from "../../components/admin/EditBookModal";
 import { resolveThumb, PLACEHOLDER } from "../../types/img";
 
 /* ===== Types ===== */
@@ -35,18 +37,27 @@ const STATUS_OPTIONS: readonly BookListItem["status"][] = [
 const isStatus = (v: string): v is BookListItem["status"] =>
   (STATUS_OPTIONS as readonly string[]).includes(v);
 
+/* ===== Page ===== */
 export default function BooksPage() {
+  // filters
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"" | BookListItem["status"]>("");
   const [page, setPage] = useState(0);
   const [size] = useState(10);
+
+  // data
   const [data, setData] = useState<SpringPage<BookListItem> | null>(null);
   const [loading, setLoading] = useState(false);
-  const [openCreate, setOpenCreate] = useState(false);
 
+  // modals
+  const [openCreate, setOpenCreate] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  // upload
   const [uploading, setUploading] = useState<number | null>(null);
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({});
 
+  /* ---------- data fetch ---------- */
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -60,7 +71,6 @@ export default function BooksPage() {
         status: status || undefined,
         q: hasQ ? q.trim() : undefined,
       };
-
       const res = await api.get(url, { params });
       const payload = (res?.data?.data ?? res?.data) as SpringPage<BookListItem>;
       setData(payload);
@@ -73,23 +83,23 @@ export default function BooksPage() {
     void fetchData();
   }, [fetchData]);
 
+  /* ---------- delete ---------- */
   const onDelete = async (id: number) => {
     if (!confirm("Xóa sách này?")) return;
     await deleteBook(id);
     void fetchData();
   };
 
+  /* ---------- upload images ---------- */
   async function handleUploadImages(bookId: number, files: FileList | null) {
     if (!files || files.length === 0) return;
     setUploading(bookId);
     try {
       const form = new FormData();
       Array.from(files).forEach((f) => form.append("file", f));
-
       await api.post(`/api/uploads/${bookId}/images`, form, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-
       await fetchData();
     } catch (e) {
       console.error(e);
@@ -101,6 +111,30 @@ export default function BooksPage() {
     }
   }
 
+  /* ---------- edit modal + URL sync ---------- */
+  const openEdit = (id: number) => {
+    setEditingId(id);
+    const url = new URL(window.location.href);
+    url.searchParams.set("edit", String(id));
+    window.history.replaceState({}, "", url);
+  };
+  const closeEdit = () => {
+    setEditingId(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("edit");
+    window.history.replaceState({}, "", url);
+  };
+
+  // auto open when landing with ?edit=ID
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const idStr = sp.get("edit");
+    if (idStr && /^\d+$/.test(idStr)) {
+      setEditingId(Number(idStr));
+    }
+  }, []);
+
+  /* ---------- ui helpers ---------- */
   const badge = (s: BookListItem["status"]) => {
     const map: Record<BookListItem["status"], string> = {
       ACTIVE: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200",
@@ -111,6 +145,7 @@ export default function BooksPage() {
     return <span className={`rounded px-2 py-0.5 text-xs font-medium ${map[s]}`}>{s}</span>;
   };
 
+  /* ---------- render ---------- */
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Books</h2>
@@ -146,6 +181,7 @@ export default function BooksPage() {
             </select>
           </div>
           <button
+            type="button"
             onClick={() => {
               setPage(0);
               void fetchData();
@@ -155,6 +191,7 @@ export default function BooksPage() {
             Tìm
           </button>
           <button
+            type="button"
             onClick={() => setOpenCreate(true)}
             className="h-10 cursor-pointer rounded-lg bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-4 font-medium text-white"
           >
@@ -247,13 +284,15 @@ export default function BooksPage() {
                     <td className="px-4 py-3">{badge(b.status)}</td>
 
                     <td className="space-x-2 px-4 py-3">
-                      <a
+                      <button
+                        type="button"
                         className="rounded-md bg-indigo-50 px-3 py-1 text-indigo-700 hover:bg-indigo-100"
-                        href={`/admin/books?edit=${b.id}`}
+                        onClick={() => openEdit(b.id)}
                       >
                         Sửa
-                      </a>
+                      </button>
                       <button
+                        type="button"
                         className="rounded-md bg-rose-50 px-3 py-1 text-rose-700 hover:bg-rose-100"
                         onClick={() => onDelete(b.id)}
                       >
@@ -269,6 +308,7 @@ export default function BooksPage() {
           {/* Pagination */}
           <div className="mt-4 flex items-center justify-end gap-2">
             <button
+              type="button"
               className="rounded-lg bg-gray-100 px-3 py-1 hover:bg-gray-200 disabled:opacity-50"
               onClick={() => setPage(Math.max(0, page - 1))}
               disabled={page <= 0}
@@ -279,6 +319,7 @@ export default function BooksPage() {
               Page {data.number + 1} / {data.totalPages || 1}
             </div>
             <button
+              type="button"
               className="rounded-lg bg-gray-100 px-3 py-1 hover:bg-gray-200 disabled:opacity-50"
               onClick={() => setPage(Math.min((data.totalPages || 1) - 1, page + 1))}
               disabled={page >= (data.totalPages || 1) - 1}
@@ -289,11 +330,24 @@ export default function BooksPage() {
         </>
       )}
 
+      {/* Modal tạo */}
       {openCreate && (
         <AddBookModal
           onClose={() => setOpenCreate(false)}
           onCreated={() => {
             setOpenCreate(false);
+            void fetchData();
+          }}
+        />
+      )}
+
+      {/* Modal sửa */}
+      {editingId !== null && (
+        <EditBookModal
+          bookId={editingId}
+          onClose={closeEdit}
+          onUpdated={() => {
+            closeEdit();
             void fetchData();
           }}
         />

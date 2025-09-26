@@ -1,7 +1,13 @@
+// src/components/admin/EditBookModal.tsx
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import api from "../../services/api";
-import { createBook, type BookCreate } from "../../services/admin/books-admin";
+import {
+  getBookDetailById,
+  updateBook,
+  type BookDetail,
+  type BookCreate,
+} from "../../services/admin/books-admin";
 
 /* ---------------- Types from API wrappers ---------------- */
 type RestResponse<T> = {
@@ -13,7 +19,6 @@ type RestResponse<T> = {
 type ResOption = { id: number; name: string; slug?: string };
 type Option = { id: number; name: string };
 
-/* ---------------- Utils ---------------- */
 function unwrap<T>(payload: unknown): T {
   if (
     payload &&
@@ -25,33 +30,26 @@ function unwrap<T>(payload: unknown): T {
   }
   return payload as T;
 }
-
 function toOptions(list: ResOption[]): Option[] {
   return (list || [])
     .map((x) => ({ id: Number(x.id), name: String(x.name) }))
     .filter((x) => Number.isFinite(x.id) && !!x.name);
 }
-
 function toInstant(dateStr: string): string | null {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
-
-function isRecord(val: unknown): val is Record<string, unknown> {
-  return !!val && typeof val === "object";
+function fromIsoToLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  // yyyy-MM-ddTHH:mm (no seconds)
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
+    d.getMinutes(),
+  )}`;
 }
-
-// Axios-like error safe picker
-type AxiosLikeError = { response?: { data?: { message?: unknown } } };
-function pickAxiosMessage(err: unknown): string | null {
-  if (!isRecord(err)) return null;
-  const maybe = err as AxiosLikeError;
-  const msg = maybe.response?.data?.message;
-  return typeof msg === "string" && msg.trim() ? msg : null;
-}
-
-/* ---------------- Validation helpers ---------------- */
 function slugify(input: string): string {
   const noAccent = input.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const s = noAccent
@@ -61,18 +59,18 @@ function slugify(input: string): string {
     .replace(/-{2,}/g, "-");
   return s || "n-a";
 }
-
 function isDigits13(s: string): boolean {
   return /^\d{13}$/.test(s);
 }
-
-// Full ISBN-13 checksum validation
-function isValidIsbn13(s: string): boolean {
-  if (!isDigits13(s)) return false;
-  const digits = s.split("").map((c) => Number(c));
-  const checksum = digits.slice(0, 12).reduce((sum, d, i) => sum + d * (i % 2 === 0 ? 1 : 3), 0);
-  const checkDigit = (10 - (checksum % 10)) % 10;
-  return checkDigit === digits[12];
+function isRecord(val: unknown): val is Record<string, unknown> {
+  return !!val && typeof val === "object";
+}
+type AxiosLikeError = { response?: { data?: { message?: unknown } } };
+function pickAxiosMessage(err: unknown): string | null {
+  if (!isRecord(err)) return null;
+  const maybe = err as AxiosLikeError;
+  const msg = maybe.response?.data?.message;
+  return typeof msg === "string" && msg.trim() ? msg : null;
 }
 
 /* ---------------- Static options ---------------- */
@@ -148,13 +146,17 @@ function FieldGroup({ label, children }: { label: string; children: React.ReactN
 }
 
 /* ---------------- MAIN ---------------- */
-export default function AddBookModal({
+export default function EditBookModal({
+  bookId,
   onClose,
-  onCreated,
+  onUpdated,
 }: {
+  bookId: number;
   onClose: () => void;
-  onCreated: () => void;
+  onUpdated: () => void;
 }) {
+  const [loaded, setLoaded] = useState(false);
+
   const [form, setForm] = useState<FormState>({
     title: "",
     slug: "",
@@ -167,23 +169,23 @@ export default function AddBookModal({
     authorIds: [],
     categoryIds: [],
 
-    pageCount: 100,
+    pageCount: 0,
     publicationYear: new Date().getFullYear(),
     language: "VI",
-    weightGram: 200,
-    widthCm: 15,
-    heightCm: 20,
-    thicknessCm: 1.5,
+    weightGram: 0,
+    widthCm: 0,
+    heightCm: 0,
+    thicknessCm: 0,
     coverType: "PAPERBACK",
     ageRating: "ALL",
 
     status: "ACTIVE",
-    price: 1,
+    price: 0,
     salePrice: undefined,
     saleStartAt: "",
     saleEndAt: "",
 
-    images: [{ url: "", sortOrder: 0 }],
+    images: [],
     initialStock: 0,
   });
 
@@ -200,107 +202,105 @@ export default function AddBookModal({
     setForm((s) => ({ ...s, [k]: v }));
 
   useEffect(() => {
-    void loadOptions();
+    void (async () => {
+      setWarnings([]);
+      try {
+        const [pubRes, supRes, authRes, leafRes] = await Promise.all([
+          api.get("/api/v1/admin/publishers"),
+          api.get("/api/v1/admin/suppliers"),
+          api.get("/api/v1/admin/authors"),
+          api.get("/api/v1/categories/flat/leaf"),
+        ]);
+        setPublishers(toOptions(unwrap<ResOption[]>(pubRes.data)));
+        setSuppliers(toOptions(unwrap<ResOption[]>(supRes.data)));
+        setAuthors(toOptions(unwrap<ResOption[]>(authRes.data)));
+        setCategories(toOptions(unwrap<ResOption[]>(leafRes.data)));
+      } catch {
+        setWarnings((w) => [...w, "Không tải được options (NXB/NCC/Tác giả/Danh mục)."]);
+      }
+
+      try {
+        const detail = await getBookDetailById(bookId);
+        hydrate(detail);
+        setLoaded(true);
+      } catch (e) {
+        console.error(e);
+        setError("Không tải được thông tin sách.");
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [bookId]);
 
-  const addWarning = (msg: string) => setWarnings((w) => (w.includes(msg) ? w : [...w, msg]));
+  function hydrate(b: BookDetail) {
+    setForm({
+      title: b.title ?? "",
+      slug: b.slug ?? "",
+      sku: b.sku ?? "",
+      isbn13: b.isbn13 ?? "",
+      description: b.description ?? "",
 
-  async function loadOptions(): Promise<void> {
-    setWarnings([]);
+      publisherId: b.publisher?.id,
+      supplierId: b.supplier?.id,
+      authorIds: b.authors?.map((a) => a.id) ?? [],
+      categoryIds: b.categories?.map((c) => c.id) ?? [],
 
-    try {
-      const res = await api.get("/api/v1/admin/publishers");
-      setPublishers(toOptions(unwrap<ResOption[]>(res.data)));
-    } catch {
-      addWarning("Không tải được NXB (/api/v1/admin/publishers).");
-    }
+      pageCount: b.pageCount ?? 0,
+      publicationYear: b.publicationYear ?? new Date().getFullYear(),
+      language: (b.language as Language) ?? "VI",
+      weightGram: b.weightGram ?? 0,
+      widthCm: b.widthCm ?? 0,
+      heightCm: b.heightCm ?? 0,
+      thicknessCm: b.thicknessCm ?? 0,
+      coverType: (b.coverType as CoverType) ?? "PAPERBACK",
+      ageRating: (b.ageRating as AgeRating) ?? "ALL",
 
-    try {
-      const res = await api.get("/api/v1/admin/suppliers");
-      setSuppliers(toOptions(unwrap<ResOption[]>(res.data)));
-    } catch {
-      addWarning("Không tải được NCC (/api/v1/admin/suppliers).");
-    }
+      status: (b.status as BookCreate["status"]) ?? "ACTIVE",
+      price: b.price ?? 0,
+      salePrice: b.salePrice ?? undefined,
+      saleStartAt: fromIsoToLocalInput(b.saleStartAt),
+      saleEndAt: fromIsoToLocalInput(b.saleEndAt),
 
-    try {
-      const res = await api.get("/api/v1/admin/authors");
-      setAuthors(toOptions(unwrap<ResOption[]>(res.data)));
-    } catch {
-      addWarning("Không tải được Tác giả (/api/v1/admin/authors).");
-    }
-
-    // Gọi public API để lấy danh mục lá → tránh 405 ở /admin/categories
-    try {
-      const res = await api.get("/api/v1/categories/flat/leaf");
-      const list = unwrap<ResOption[]>(res.data);
-      setCategories(toOptions(list));
-    } catch {
-      addWarning("Không tải được Danh mục (/api/v1/categories/flat/leaf).");
-    }
+      images: (b.images || []).map((i) => ({ url: i.url, sortOrder: i.sortOrder })),
+      initialStock: b.stock ?? 0,
+    });
   }
-
-  function toggleId(list: number[], id: number) {
-    return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
-  }
-
-  function addImage() {
-    set("images", [...form.images, { url: "", sortOrder: form.images.length }]);
-  }
-  function removeImage(idx: number) {
-    set(
-      "images",
-      form.images.filter((_, i) => i !== idx).map((it, i) => ({ ...it, sortOrder: i })),
-    );
-  }
-
-  // Tính toán validate cục bộ
-  const isbnError: string | null = useMemo(() => {
-    const raw = form.isbn13.trim();
-    if (!raw) return "ISBN-13 là bắt buộc";
-    if (!isDigits13(raw)) return "ISBN-13 phải gồm đúng 13 chữ số";
-    if (!isValidIsbn13(raw)) return "ISBN-13 không hợp lệ (sai checksum)";
-    return null;
-  }, [form.isbn13]);
 
   const canSubmit = useMemo(() => {
     const hasAtLeastOneImage = form.images.some((it) => it.url.trim().length > 0);
     return (
       !!form.title.trim() &&
-      !!form.isbn13.trim() && // chỉ cần nhập đủ 13 số
       !!form.publisherId &&
       !!form.supplierId &&
       form.authorIds.length > 0 &&
       form.categoryIds.length > 0 &&
-      Number(form.pageCount) > 0 &&
+      Number(form.pageCount) >= 0 &&
       Number(form.price) > 0 &&
       !!form.language &&
       !!form.coverType &&
       !!form.ageRating &&
-      hasAtLeastOneImage
+      hasAtLeastOneImage &&
+      (!form.isbn13 || isDigits13(form.isbn13))
     );
-  }, [form, isbnError]);
+  }, [form]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-
     if (!canSubmit) {
-      setError(isbnError ?? "Điền đủ trường bắt buộc + ít nhất 1 ảnh.");
+      setError("Vui lòng kiểm tra các trường bắt buộc (ISBN nếu nhập phải đủ 13 số).");
       return;
     }
 
     try {
       setSubmitting(true);
 
-      // Auto-slug nếu trống
       const finalSlug = (form.slug?.trim() || slugify(form.title)).slice(0, 200);
 
       const payload: BookCreate = {
         title: form.title.trim(),
         slug: finalSlug,
         sku: form.sku?.trim() || null,
-        isbn13: form.isbn13.trim(), // đã validate 13 digits & checksum
+        isbn13: form.isbn13?.trim() || null,
         description: form.description || null,
 
         publisherId: form.publisherId!,
@@ -338,26 +338,33 @@ export default function AddBookModal({
         initialStock: Number(form.initialStock),
       };
 
-      await createBook(payload);
-      onCreated();
+      await updateBook(bookId, payload);
+      onUpdated();
     } catch (err: unknown) {
       const raw = pickAxiosMessage(err);
-      // Map thông điệp backend thành message thân thiện
       if (raw && /duplicate slug or isbn-13/i.test(raw)) {
         setError("Slug hoặc ISBN-13 đã tồn tại. Hãy đổi slug/ISBN-13 rồi thử lại.");
       } else {
-        setError(raw ?? "Tạo sách thất bại");
+        setError(raw ?? "Cập nhật sách thất bại");
       }
     } finally {
       setSubmitting(false);
     }
   }
 
+  if (!loaded) {
+    return (
+      <div className="fixed inset-0 z-[9999] grid place-items-center bg-black/40">
+        <div className="rounded-2xl border bg-white px-6 py-4 shadow-xl">Đang tải…</div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[9999] grid place-items-center bg-black/40">
       <div className="w-full max-w-4xl rounded-2xl border bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Thêm sách</h3>
+          <h3 className="text-lg font-semibold">Sửa sách #{bookId}</h3>
           <button onClick={onClose} className="rounded px-2 py-1 hover:bg-gray-100">
             ✕
           </button>
@@ -412,7 +419,7 @@ export default function AddBookModal({
                 placeholder="Ví dụ: 9786042101234"
                 inputMode="numeric"
               />
-              <div className="mt-1 text-xs text-gray-500">Nhập đủ 13 chữ số.</div>
+              <div className="mt-1 text-xs text-gray-500">Phải đủ 13 chữ số.</div>
             </FieldGroup>
 
             <FieldGroup label="Mô tả">
@@ -465,7 +472,14 @@ export default function AddBookModal({
                     <input
                       type="checkbox"
                       checked={form.authorIds.includes(a.id)}
-                      onChange={() => set("authorIds", toggleId(form.authorIds, a.id))}
+                      onChange={() =>
+                        set(
+                          "authorIds",
+                          form.authorIds.includes(a.id)
+                            ? form.authorIds.filter((x) => x !== a.id)
+                            : [...form.authorIds, a.id],
+                        )
+                      }
                     />
                     <span>{a.name}</span>
                   </label>
@@ -480,7 +494,14 @@ export default function AddBookModal({
                     <input
                       type="checkbox"
                       checked={form.categoryIds.includes(c.id)}
-                      onChange={() => set("categoryIds", toggleId(form.categoryIds, c.id))}
+                      onChange={() =>
+                        set(
+                          "categoryIds",
+                          form.categoryIds.includes(c.id)
+                            ? form.categoryIds.filter((x) => x !== c.id)
+                            : [...form.categoryIds, c.id],
+                        )
+                      }
                     />
                     <span>{c.name}</span>
                   </label>
@@ -519,7 +540,7 @@ export default function AddBookModal({
               <FieldGroup label="Số trang">
                 <input
                   type="number"
-                  min={1}
+                  min={0}
                   value={form.pageCount}
                   onChange={(e) => set("pageCount", Number(e.target.value))}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
@@ -689,7 +710,14 @@ export default function AddBookModal({
                     />
                     <button
                       type="button"
-                      onClick={() => removeImage(idx)}
+                      onClick={() =>
+                        set(
+                          "images",
+                          form.images
+                            .filter((_, i) => i !== idx)
+                            .map((it, i2) => ({ ...it, sortOrder: i2 })),
+                        )
+                      }
                       className="col-span-1 h-10 rounded-lg border hover:bg-gray-50"
                     >
                       ✕
@@ -698,7 +726,9 @@ export default function AddBookModal({
                 ))}
                 <button
                   type="button"
-                  onClick={addImage}
+                  onClick={() =>
+                    set("images", [...form.images, { url: "", sortOrder: form.images.length }])
+                  }
                   className="h-10 rounded-lg border px-3 hover:bg-gray-50"
                 >
                   + Thêm ảnh
@@ -722,7 +752,7 @@ export default function AddBookModal({
               type="submit"
               className="h-10 rounded-lg bg-indigo-600 px-4 text-white hover:bg-indigo-500 disabled:opacity-60"
             >
-              {submitting ? "Đang tạo..." : "Tạo sách"}
+              {submitting ? "Đang lưu..." : "Lưu thay đổi"}
             </button>
           </div>
         </form>

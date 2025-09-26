@@ -62,11 +62,17 @@ export type ListReq = {
   size: number;
   sort?: string;
   direction?: Direction;
-  status?: ProductStatus | ""; // empty => ignore
-  q?: string; // when provided -> /search
+  status?: ProductStatus | "";
+  q?: string;
+  authorId?: number;
+  categoryId?: number;
+  publisherId?: number;
+  supplierId?: number;
 };
 
 /* ---------- calls ---------- */
+
+/** GET /api/v1/books (hoặc /search nếu có q) */
 export async function listBooks(params: ListReq): Promise<SpringPage<BookListItem>> {
   const query: Record<string, unknown> = {
     page: Math.max(0, params.page),
@@ -74,7 +80,12 @@ export async function listBooks(params: ListReq): Promise<SpringPage<BookListIte
     sort: params.sort ?? "createdAt",
     direction: params.direction ?? "DESC",
   };
+
   if (params.status) query.status = params.status;
+  if (params.authorId != null) query.authorId = params.authorId;
+  if (params.categoryId != null) query.categoryId = params.categoryId;
+  if (params.publisherId != null) query.publisherId = params.publisherId;
+  if (params.supplierId != null) query.supplierId = params.supplierId;
 
   const hasQ = !!params.q?.trim();
   if (hasQ) query.q = params.q!.trim();
@@ -84,19 +95,26 @@ export async function listBooks(params: ListReq): Promise<SpringPage<BookListIte
   return unwrap<SpringPage<BookListItem>>(res.data);
 }
 
+export async function getBookDetailById(id: number): Promise<BookDetail> {
+  const res = await api.get(`/api/v1/books/${id}`);
+  return unwrap<BookDetail>(res.data);
+}
+
+/** POST /api/v1/admin/books */
 export async function createBook(payload: BookCreate): Promise<BookDetail> {
   const res = await api.post(`/api/v1/admin/books`, payload);
   return unwrap<BookDetail>(res.data);
 }
 
+/** PUT /api/v1/admin/books/:id */
 export async function updateBook(id: number, payload: BookUpdate): Promise<BookDetail> {
   const res = await api.put(`/api/v1/admin/books/${id}`, payload);
   return unwrap<BookDetail>(res.data);
 }
 
+/** DELETE /api/v1/admin/books/:id */
 export async function deleteBook(id: number): Promise<void> {
   await api.delete(`/api/v1/admin/books/${id}`);
 }
 
-// re-exports if other files import from admin service
-export type { SpringPage, BookListItem } from "../../types/books";
+export type { SpringPage, BookListItem, BookDetail } from "../../types/books";
