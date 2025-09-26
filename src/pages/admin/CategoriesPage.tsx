@@ -47,8 +47,6 @@ export default function CategoriesPage() {
     const payload: CategoryCreate = {
       name: name.trim(),
       parentId: parentId ? Number(parentId) : null,
-      // slug có thể để BE tự sinh, nếu muốn có thể thêm:
-      // slug: toSlug(name.trim())
     };
 
     try {

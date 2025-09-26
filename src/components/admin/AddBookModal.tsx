@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../../services/api";
 import { createBook, type BookCreate } from "../../services/admin/books-admin";
 
+/* ---------------- Types from API wrappers ---------------- */
 type RestResponse<T> = {
   statusCode: number;
   error: string | null;
@@ -10,10 +11,9 @@ type RestResponse<T> = {
   data: T;
 };
 type ResOption = { id: number; name: string; slug?: string };
-type CategoryTree = { id: number; name: string; slug: string; children: CategoryTree[] };
 type Option = { id: number; name: string };
 
-/* ================= Utils ================= */
+/* ---------------- Utils ---------------- */
 function unwrap<T>(payload: unknown): T {
   if (
     payload &&
@@ -25,26 +25,33 @@ function unwrap<T>(payload: unknown): T {
   }
   return payload as T;
 }
+
 function toOptions(list: ResOption[]): Option[] {
   return (list || [])
     .map((x) => ({ id: Number(x.id), name: String(x.name) }))
     .filter((x) => Number.isFinite(x.id) && !!x.name);
 }
-function flattenLeafCategories(tree: CategoryTree[]): Option[] {
-  const out: Option[] = [];
-  const dfs = (n: CategoryTree) => {
-    if (!n.children || n.children.length === 0) out.push({ id: n.id, name: n.name });
-    else n.children.forEach(dfs);
-  };
-  (tree || []).forEach(dfs);
-  return out.sort((a, b) => a.name.localeCompare(b.name, "vi"));
-}
+
 function toInstant(dateStr: string): string | null {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+function isRecord(val: unknown): val is Record<string, unknown> {
+  return !!val && typeof val === "object";
+}
+
+// Đọc message từ Axios error mà không dùng any
+type AxiosLikeError = { response?: { data?: { message?: unknown } } };
+function pickAxiosMessage(err: unknown): string | null {
+  if (!isRecord(err)) return null;
+  const maybe = err as AxiosLikeError;
+  const msg = maybe.response?.data?.message;
+  return typeof msg === "string" && msg.trim() ? msg : null;
+}
+
+/* ---------------- Static options ---------------- */
 const LANGUAGE_OPTIONS = [
   { value: "VI", label: "Tiếng Việt" },
   { value: "EN", label: "Tiếng Anh" },
@@ -71,6 +78,7 @@ const COVER_OPTIONS = [
 ] as const;
 type CoverType = (typeof COVER_OPTIONS)[number]["value"];
 
+/* ---------------- Form types ---------------- */
 type FormImage = { url: string; sortOrder: number };
 
 type FormState = {
@@ -105,6 +113,7 @@ type FormState = {
   initialStock: number;
 };
 
+/* ---------------- UI helpers ---------------- */
 function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
@@ -114,7 +123,7 @@ function FieldGroup({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-/**/
+/* ---------------- MAIN ---------------- */
 export default function AddBookModal({
   onClose,
   onCreated,
@@ -173,7 +182,7 @@ export default function AddBookModal({
 
   const addWarning = (msg: string) => setWarnings((w) => (w.includes(msg) ? w : [...w, msg]));
 
-  async function loadOptions() {
+  async function loadOptions(): Promise<void> {
     setWarnings([]);
 
     try {
@@ -197,12 +206,13 @@ export default function AddBookModal({
       addWarning("Không tải được Tác giả (/api/v1/admin/authors).");
     }
 
+    // Gọi public API để lấy danh mục lá → tránh 405 ở /admin/categories
     try {
-      const res = await api.get("/api/v1/admin/categories");
-      const tree = unwrap<CategoryTree[]>(res.data);
-      setCategories(flattenLeafCategories(tree));
+      const res = await api.get("/api/v1/categories/flat/leaf");
+      const list = unwrap<ResOption[]>(res.data);
+      setCategories(toOptions(list));
     } catch {
-      addWarning("Không tải được Danh mục (/api/v1/admin/categories).");
+      addWarning("Không tải được Danh mục (/api/v1/categories/flat/leaf).");
     }
   }
 
@@ -236,10 +246,6 @@ export default function AddBookModal({
       hasAtLeastOneImage
     );
   }, [form]);
-
-  function isRecord(val: unknown): val is Record<string, unknown> {
-    return !!val && typeof val === "object";
-  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -287,24 +293,17 @@ export default function AddBookModal({
 
         images: form.images
           .filter((it) => it.url.trim().length > 0)
-          .map((it, i) => ({ url: it.url.trim(), sortOrder: Number(it.sortOrder ?? i) })),
+          .map((it, i) => ({
+            url: it.url.trim(),
+            sortOrder: Number(it.sortOrder ?? i),
+          })),
         initialStock: Number(form.initialStock),
       };
 
       await createBook(payload);
       onCreated();
     } catch (err: unknown) {
-      // cố gắng đọc message nếu có dạng axios error
-      let msg = "Tạo sách thất bại";
-      if (
-        isRecord(err) &&
-        isRecord(err.response) &&
-        isRecord(err.response.data) &&
-        "message" in err.response.data
-      ) {
-        const maybe = err.response.data.message;
-        if (typeof maybe === "string" && maybe.trim()) msg = maybe;
-      }
+      const msg = pickAxiosMessage(err) ?? "Tạo sách thất bại";
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -372,7 +371,7 @@ export default function AddBookModal({
               <FieldGroup label="Nhà xuất bản">
                 <select
                   value={form.publisherId ?? ""}
-                  onChange={(e) => set("publisherId", Number(e.target.value))}
+                  onChange={(e) => set("publisherId", Number(e.target.value || 0))}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="" disabled>
@@ -388,7 +387,7 @@ export default function AddBookModal({
               <FieldGroup label="Nhà cung cấp">
                 <select
                   value={form.supplierId ?? ""}
-                  onChange={(e) => set("supplierId", Number(e.target.value))}
+                  onChange={(e) => set("supplierId", Number(e.target.value || 0))}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="" disabled>
@@ -418,7 +417,7 @@ export default function AddBookModal({
               </div>
             </FieldGroup>
 
-            <FieldGroup label="Danh mục (chỉ lá)">
+            <FieldGroup label="Danh mục">
               <div className="max-h-32 overflow-auto rounded-lg border p-2">
                 {categories.map((c) => (
                   <label key={c.id} className="flex items-center gap-2 py-1 text-sm">
