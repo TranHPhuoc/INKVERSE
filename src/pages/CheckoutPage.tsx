@@ -310,12 +310,8 @@ export default function CheckoutPage() {
 
       if (payment === "VNPAY") {
         sessionStorage.setItem("intro.skip.once", "1");
-        const returnUrl = `${window.location.origin}/checkout?skipIntro=1`;
-        const { checkoutUrl }: { checkoutUrl?: string } = await createVnpayCheckout(
-          orderCode,
-          returnUrl,
-        );
-        if (!checkoutUrl) throw new Error("Không nhận được URL thanh toán VNPay");
+        const returnUrl = `${window.location.origin}/#/checkout?skipIntro=1`;
+        const { checkoutUrl } = await createVnpayCheckout(orderCode, returnUrl);
         hardRedirect(checkoutUrl);
         return;
       }
