@@ -4,6 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./context/useAuth";
 import { configureFavoritesForUser, preloadFavoritesFromServer } from "./store/favorite-store";
+import PaymentReturnPage from "./pages/PaymentReturnPage";
 
 // Layouts
 import MainLayout from "./layouts/MainLayout";
@@ -131,6 +132,14 @@ export default function App() {
                 element={
                   <PageTransition>
                     <HomePage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/payment/vnpay/return"
+                element={
+                  <PageTransition>
+                    <PaymentReturnPage />
                   </PageTransition>
                 }
               />
