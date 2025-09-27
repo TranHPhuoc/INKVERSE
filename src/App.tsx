@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { AnimatePresence } from "framer-motion";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./context/useAuth";
 import { configureFavoritesForUser, preloadFavoritesFromServer } from "./store/favorite-store";
 
@@ -70,11 +70,49 @@ function LoginGuard({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/* ───────────────────────── Intro Gate ───────────────────────── */
+function IntroGate({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const [skipped, setSkipped] = useState(false);
+
+  const shouldSkip = useMemo(() => {
+    const q = new URLSearchParams(location.search);
+    const fromQuery = q.get("skipIntro") === "1";
+    const fromSession = sessionStorage.getItem("intro.skip.once") === "1";
+    return fromQuery || fromSession;
+  }, [location.search]);
+
+  useEffect(() => {
+    if (shouldSkip) {
+      sessionStorage.removeItem("intro.skip.once");
+      setSkipped(true);
+    }
+  }, [shouldSkip]);
+
+  const hideIntro = location.pathname.startsWith("/sale") || location.pathname.startsWith("/admin");
+
+  if (!hideIntro && !skipped) {
+    return (
+      <>
+        <Intro
+          title="Chào mừng bạn đến với INKVERSE"
+          ctaLabel="Khám phá ngay"
+          to="/"
+          onlyOnce={false}
+        />
+        {children}
+      </>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 /* ───────────────────────── Main App ───────────────────────── */
 export default function App() {
   const { user, isAuthenticated } = useAuth();
   const location = useLocation();
-  const hideIntro = location.pathname.startsWith("/sale") || location.pathname.startsWith("/admin");
+
   useEffect(() => {
     configureFavoritesForUser(isAuthenticated ? user?.id : null);
     preloadFavoritesFromServer().catch(() => {});
@@ -83,280 +121,274 @@ export default function App() {
   return (
     <>
       <ScrollToTop />
-      {!hideIntro && (
-        <Intro
-          title="Chào mừng bạn đến với INKVERSE"
-          ctaLabel="Khám phá ngay"
-          to="/"
-          onlyOnce={false}
-        />
-      )}
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          {/* PUBLIC */}
-          <Route element={<MainLayout />}>
-            <Route
-              path="/"
-              element={
-                <PageTransition>
-                  <HomePage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/dang-ky"
-              element={
-                <PageTransition>
-                  <RegisterPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/dang-nhap"
-              element={
-                <LoginGuard>
+      <IntroGate>
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
+            {/* PUBLIC */}
+            <Route element={<MainLayout />}>
+              <Route
+                path="/"
+                element={
                   <PageTransition>
-                    <LoginPage />
+                    <HomePage />
                   </PageTransition>
-                </LoginGuard>
-              }
-            />
-            <Route
-              path="/verify-email"
-              element={
-                <PageTransition>
-                  <VerifyEmailPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/quen-mat-khau"
-              element={
-                <PageTransition>
-                  <ForgotStartPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/dat-lai-mat-khau"
-              element={
-                <PageTransition>
-                  <ForgotVerifyPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/doi-mat-khau"
-              element={
-                <PageTransition>
-                  <ChangePasswordPage />
-                </PageTransition>
-              }
-            />
+                }
+              />
+              <Route
+                path="/dang-ky"
+                element={
+                  <PageTransition>
+                    <RegisterPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/dang-nhap"
+                element={
+                  <LoginGuard>
+                    <PageTransition>
+                      <LoginPage />
+                    </PageTransition>
+                  </LoginGuard>
+                }
+              />
+              <Route
+                path="/verify-email"
+                element={
+                  <PageTransition>
+                    <VerifyEmailPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/quen-mat-khau"
+                element={
+                  <PageTransition>
+                    <ForgotStartPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/dat-lai-mat-khau"
+                element={
+                  <PageTransition>
+                    <ForgotVerifyPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/doi-mat-khau"
+                element={
+                  <PageTransition>
+                    <ChangePasswordPage />
+                  </PageTransition>
+                }
+              />
 
-            {/* Products */}
-            <Route
-              path="/books/:bookSlug"
-              element={
-                <PageTransition>
-                  <ProductDetailsPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/danh-muc/:catSlug/:bookSlug"
-              element={
-                <PageTransition>
-                  <ProductDetailsPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/danh-muc/:catSlug"
-              element={
-                <PageTransition>
-                  <CategoryPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/search"
-              element={
-                <PageTransition>
-                  <SearchPage />
-                </PageTransition>
-              }
-            />
+              {/* Products */}
+              <Route
+                path="/books/:bookSlug"
+                element={
+                  <PageTransition>
+                    <ProductDetailsPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/danh-muc/:catSlug/:bookSlug"
+                element={
+                  <PageTransition>
+                    <ProductDetailsPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/danh-muc/:catSlug"
+                element={
+                  <PageTransition>
+                    <CategoryPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/search"
+                element={
+                  <PageTransition>
+                    <SearchPage />
+                  </PageTransition>
+                }
+              />
 
-            {/* Cart / Orders */}
-            <Route
-              path="/gio-hang"
-              element={
-                <PageTransition>
-                  <CartPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/checkout"
-              element={
-                <PageTransition>
-                  <CheckoutPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/orders/:code"
-              element={
-                <PageTransition>
-                  <OrderDetailPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/don-hang"
-              element={
-                <PageTransition>
-                  <OrderListPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/yeu-thich"
-              element={
-                <PageTransition>
-                  <FavoritesPage />
-                </PageTransition>
-              }
-            />
+              {/* Cart / Orders */}
+              <Route
+                path="/gio-hang"
+                element={
+                  <PageTransition>
+                    <CartPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/checkout"
+                element={
+                  <PageTransition>
+                    <CheckoutPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/orders/:code"
+                element={
+                  <PageTransition>
+                    <OrderDetailPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/don-hang"
+                element={
+                  <PageTransition>
+                    <OrderListPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/yeu-thich"
+                element={
+                  <PageTransition>
+                    <FavoritesPage />
+                  </PageTransition>
+                }
+              />
 
-            {/* USER */}
+              {/* USER */}
+              <Route
+                path="/tai-khoan"
+                element={
+                  <PageTransition>
+                    <AccountLayout />
+                  </PageTransition>
+                }
+              >
+                <Route index element={<Navigate to="ho-so-cua-toi" replace />} />
+                <Route
+                  path="ho-so-cua-toi"
+                  element={
+                    <PageTransition>
+                      <AccountProfilePage />
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="dia-chi"
+                  element={
+                    <PageTransition>
+                      <AccountAddressPage />
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="doi-mat-khau"
+                  element={
+                    <PageTransition>
+                      <AccountChangePasswordPage />
+                    </PageTransition>
+                  }
+                />
+              </Route>
+            </Route>
+
+            {/* ADMIN */}
             <Route
-              path="/tai-khoan"
+              path="/admin"
               element={
-                <PageTransition>
-                  <AccountLayout />
-                </PageTransition>
+                <ProtectedRoute roles={["ADMIN", "ROLE_ADMIN"]}>
+                  <AdminLayout />
+                </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="ho-so-cua-toi" replace />} />
               <Route
-                path="ho-so-cua-toi"
+                index
                 element={
                   <PageTransition>
-                    <AccountProfilePage />
+                    <Dashboard />
                   </PageTransition>
                 }
               />
               <Route
-                path="dia-chi"
+                path="books"
                 element={
                   <PageTransition>
-                    <AccountAddressPage />
+                    <BooksPage />
                   </PageTransition>
                 }
               />
               <Route
-                path="doi-mat-khau"
+                path="users"
                 element={
                   <PageTransition>
-                    <AccountChangePasswordPage />
+                    <UserPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="categories"
+                element={
+                  <PageTransition>
+                    <CategoriesPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="masters"
+                element={
+                  <PageTransition>
+                    <MasterPage />
                   </PageTransition>
                 }
               />
             </Route>
-          </Route>
 
-          {/* ADMIN */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute roles={["ADMIN", "ROLE_ADMIN"]}>
-                <AdminLayout />
-              </ProtectedRoute>
-            }
-          >
+            {/* SALE */}
             <Route
-              index
+              path="/sale"
               element={
-                <PageTransition>
-                  <Dashboard />
-                </PageTransition>
+                <ProtectedRoute roles={["SALE", "ROLE_SALE", "ADMIN", "ROLE_ADMIN"]}>
+                  <SaleLayout />
+                </ProtectedRoute>
               }
-            />
-            <Route
-              path="books"
-              element={
-                <PageTransition>
-                  <BooksPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="users"
-              element={
-                <PageTransition>
-                  <UserPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="categories"
-              element={
-                <PageTransition>
-                  <CategoriesPage />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="masters"
-              element={
-                <PageTransition>
-                  <MasterPage />
-                </PageTransition>
-              }
-            />
-          </Route>
+            >
+              <Route index element={<Navigate to="orders" replace />} />
+              <Route
+                path="orders"
+                element={
+                  <PageTransition>
+                    <SaleOrdersPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="orders/:id"
+                element={
+                  <PageTransition>
+                    <SaleOrderDetailPage />
+                  </PageTransition>
+                }
+              />
+            </Route>
 
-          {/* SALE */}
-          <Route
-            path="/sale"
-            element={
-              <ProtectedRoute roles={["SALE", "ROLE_SALE", "ADMIN", "ROLE_ADMIN"]}>
-                <SaleLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="orders" replace />} />
+            {/* 404 fallback */}
             <Route
-              path="orders"
+              path="*"
               element={
                 <PageTransition>
-                  <SaleOrdersPage />
+                  <div className="p-10 text-center text-gray-600">404 – Không tìm thấy trang</div>
                 </PageTransition>
               }
             />
-            <Route
-              path="orders/:id"
-              element={
-                <PageTransition>
-                  <SaleOrderDetailPage />
-                </PageTransition>
-              }
-            />
-          </Route>
-
-          {/* 404 fallback */}
-          <Route
-            path="*"
-            element={
-              <PageTransition>
-                <div className="p-10 text-center text-gray-600">404 – Không tìm thấy trang</div>
-              </PageTransition>
-            }
-          />
-        </Routes>
-      </AnimatePresence>
+          </Routes>
+        </AnimatePresence>
+      </IntroGate>
     </>
   );
 }

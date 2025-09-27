@@ -1,6 +1,6 @@
 // ================= Enums (match BE) =================
 export type DeliveryMethod = "STANDARD" | "EXPRESS" | "PICKUP";
-export type PaymentMethod = "COD" | "VNPAY" | "MOMO" | "BANK";
+export type PaymentMethod = "COD" | "VNPAY" | "MOMO" | "BANK_TRANSFER";
 export type PaymentStatus = "UNPAID" | "PENDING" | "PAID" | "REFUNDED";
 export type OrderStatus =
   | "PENDING"
@@ -78,8 +78,8 @@ export type ResOrderDetail = {
 // ================= Pagination =================
 export type SpringPage<T> = {
   content: T[];
-  number: number; // current page idx
-  size: number; // page size
+  number: number;
+  size: number;
   totalElements: number;
   totalPages: number;
 };
