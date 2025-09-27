@@ -1,3 +1,4 @@
+// src/pages/CheckoutPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import useEnsureAddress from "../hooks/useEnsureAddress";
@@ -6,8 +7,7 @@ import { placeOrder, type PaymentMethod, type DeliveryMethod } from "../services
 import api from "../services/api";
 import { motion } from "framer-motion";
 import PaymentMethodGrid from "../components/PaymentMethodGrid";
-import { createVnpayCheckout, parseVnpayReturnRaw, type ResVnpReturn } from "../services/payment";
-import { getOrderByCode } from "../services/order";
+import { createVnpayCheckout } from "../services/payment";
 
 /* =============== helpers =============== */
 const formatVND = (n: number) => (Number.isFinite(n) ? n.toLocaleString("vi-VN") : "0");
@@ -22,10 +22,6 @@ type CartItem = {
 };
 
 type ApiResp<T> = { statusCode?: number; data: T };
-
-type OrderLookup = {
-  paymentStatus?: "PENDING" | "PAID" | "FAILED" | "CANCELED" | string;
-};
 
 type PlaceOrderResult =
   | { code: string }
@@ -163,18 +159,7 @@ function getCodeFromPlaceOrder(res: unknown): string | null {
   return null;
 }
 
-function extractVnpFields(v: ResVnpReturn | Record<string, unknown>): {
-  orderCode: string;
-  responseCode: string;
-} {
-  const code = read<string>(v, "orderCode") ?? read<string>(v, "orderCode2") ?? "";
-  const rsp = read<string>(v, "responseCode") ?? read<string>(v, "responseCode2") ?? "";
-  return { orderCode: code || "", responseCode: rsp || "" };
-}
-
 /* =============== component =============== */
-type VnpStatus = "success" | "pending" | "fail" | null;
-
 export default function CheckoutPage() {
   const { checking, ready } = useEnsureAddress("/checkout");
 
@@ -188,10 +173,6 @@ export default function CheckoutPage() {
 
   const [items, setItems] = useState<CartItem[]>([]);
   const [loadingCart, setLoadingCart] = useState<boolean>(true);
-
-  // trạng thái banner thanh toán
-  const [vnpStatus, setVnpStatus] = useState<VnpStatus>(null);
-  const [vnpMessage, setVnpMessage] = useState<string>("");
 
   /* -------- Reset payment về COD nếu state cũ != COD/VNPAY -------- */
   useEffect(() => {
@@ -239,57 +220,6 @@ export default function CheckoutPage() {
   const grandTotal = subTotal + shippingFee;
   const canPlace = addressId !== null && !!payment && !!delivery && items.length > 0 && !submitting;
 
-  useEffect(() => {
-    const qs = window.location.search;
-    if (!qs.includes("vnp_")) return;
-
-    (async () => {
-      try {
-        const ret = await parseVnpayReturnRaw(qs);
-        const { orderCode, responseCode } = extractVnpFields(ret);
-
-        window.history.replaceState({}, "", "/checkout");
-
-        if (!orderCode) {
-          setVnpStatus(responseCode === "00" ? "pending" : "fail");
-          setVnpMessage(
-            responseCode === "00"
-              ? "VNPay báo thành công, đang chờ xác nhận."
-              : "Thanh toán VNPay thất bại. Vui lòng thử lại.",
-          );
-          return;
-        }
-
-        let paid = false;
-        for (let i = 0; i < 5 && !paid; i++) {
-          try {
-            const o: OrderLookup = await getOrderByCode(orderCode);
-            paid = o?.paymentStatus === "PAID";
-          } catch {
-            /* noop */
-          }
-          if (!paid) await new Promise((r) => setTimeout(r, 1200));
-        }
-
-        if (paid) {
-          setVnpStatus("success");
-          setVnpMessage("Thanh toán thành công. Hãy quay về Trang chủ để tiếp tục mua sắm.");
-        } else if (responseCode === "00") {
-          setVnpStatus("pending");
-          setVnpMessage("VNPay đã ghi nhận. Đang chờ hệ thống xác nhận thanh toán.");
-        } else {
-          setVnpStatus("fail");
-          setVnpMessage("Thanh toán VNPay không thành công.");
-        }
-      } catch {
-        // Nếu call BE fail, vẫn xoá param & báo lỗi nhẹ
-        window.history.replaceState({}, "", "/checkout");
-        setVnpStatus("fail");
-        setVnpMessage("Không đọc được kết quả thanh toán VNPay.");
-      }
-    })();
-  }, []);
-
   /* -------- Place order -------- */
   async function onPlaceOrder() {
     if (!canPlace || addressId == null) return;
@@ -309,13 +239,16 @@ export default function CheckoutPage() {
       if (!orderCode) throw new Error("Không nhận được mã đơn hàng");
 
       if (payment === "VNPAY") {
+        // Cho trang Intro skip 1 lần sau khi quay về
         sessionStorage.setItem("intro.skip.once", "1");
-        const returnUrl = `${window.location.origin}/#/checkout?skipIntro=1`;
+        // Return về homepage để tránh 404 (server luôn có index.html ở "/")
+        const returnUrl = `${window.location.origin}/?vnp_cb=1&skipIntro=1`;
         const { checkoutUrl } = await createVnpayCheckout(orderCode, returnUrl);
         hardRedirect(checkoutUrl);
         return;
       }
 
+      // COD → đi thẳng trang chi tiết đơn
       window.location.href = `/orders/${orderCode}`;
     } catch (e: unknown) {
       setErr(extractErr(e, "Đặt hàng thất bại"));
@@ -392,58 +325,7 @@ export default function CheckoutPage() {
           {/* RIGHT */}
           <aside className="space-y-4">
             <section className="space-y-5 rounded-2xl border bg-white p-5 shadow-sm">
-              {/* VNPay banner */}
-              {vnpStatus && (
-                <div
-                  className={
-                    "rounded-xl border px-4 py-3 text-sm " +
-                    (vnpStatus === "success"
-                      ? "border-green-200 bg-green-50 text-green-800"
-                      : vnpStatus === "pending"
-                        ? "border-amber-200 bg-amber-50 text-amber-800"
-                        : "border-rose-200 bg-rose-50 text-rose-800")
-                  }
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-medium">
-                      {vnpStatus === "success"
-                        ? "Thanh toán thành công"
-                        : vnpStatus === "pending"
-                          ? "Đang chờ xác nhận"
-                          : "Thanh toán thất bại"}
-                    </p>
-                    <div className="flex gap-2">
-                      {vnpStatus === "success" && (
-                        <button
-                          onClick={() => (window.location.href = "/")}
-                          className="cursor-pointer rounded-lg bg-green-600 px-3 py-1.5 text-white hover:opacity-90"
-                        >
-                          Quay về trang chủ
-                        </button>
-                      )}
-                      {vnpStatus === "pending" && (
-                        <button
-                          onClick={() => (window.location.href = "/don-hang")}
-                          className="rounded-lg bg-amber-600 px-3 py-1.5 text-white hover:opacity-90"
-                        >
-                          Xem đơn hàng
-                        </button>
-                      )}
-                      {vnpStatus === "fail" && (
-                        <button
-                          onClick={() => setVnpStatus(null)}
-                          className="rounded-lg border px-3 py-1.5 hover:bg-white/60"
-                        >
-                          Đóng
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {vnpMessage && <div className="mt-1 text-[13px] opacity-90">{vnpMessage}</div>}
-                </div>
-              )}
-
-              {/* Address */}
+              {/* Địa chỉ */}
               <div>
                 <div className="flex items-center justify-between">
                   <label className="mb-2 block text-base font-medium">Địa chỉ nhận hàng</label>

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
@@ -50,6 +50,20 @@ import MasterPage from "./pages/admin/MasterPage";
 // Pages – Sale
 import SaleOrdersPage from "./pages/sale/SaleOrderPage";
 import SaleOrderDetailPage from "./pages/sale/SaleOrderDetailPage";
+
+function useVnpBootstrap() {
+  const nav = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname !== "/") return;
+
+    const search = location.search || "";
+    if (!search.includes("vnp_")) return;
+
+    nav(`/payment/vnpay/return${search}`, { replace: true });
+  }, [location.pathname, location.search, nav]);
+}
 
 /* ───────────────────────── Guards ───────────────────────── */
 function LoginGuard({ children }: { children: ReactNode }) {
@@ -113,6 +127,8 @@ function IntroGate({ children }: { children: ReactNode }) {
 export default function App() {
   const { user, isAuthenticated } = useAuth();
   const location = useLocation();
+
+  useVnpBootstrap();
 
   useEffect(() => {
     configureFavoritesForUser(isAuthenticated ? user?.id : null);
