@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Clock,
@@ -16,6 +16,7 @@ import type { ResOrderDetail, SpringPage } from "../types/order";
 import { vnd } from "../utils/currency";
 import type React from "react";
 
+/* ---------- types ---------- */
 type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
@@ -41,7 +42,7 @@ type Tab = {
   label: string;
   statuses: OrderStatus[];
   icon: React.ReactNode;
-  color: string;
+  color: string; // chỉ dùng text + bg
 };
 
 const TABS: Tab[] = [
@@ -50,52 +51,53 @@ const TABS: Tab[] = [
     label: "Chờ xử lý",
     statuses: ["PENDING"],
     icon: <Clock className="h-4 w-4" />,
-    color: "text-amber-700 border-amber-200 bg-amber-50",
+    color: "text-amber-700 bg-amber-50",
   },
   {
     id: "confirmed",
     label: "Đã xác nhận",
     statuses: ["CONFIRMED"],
     icon: <ClipboardCheck className="h-4 w-4" />,
-    color: "text-blue-700 border-blue-200 bg-blue-50",
+    color: "text-blue-700 bg-blue-50",
   },
   {
     id: "processing",
     label: "Đang xử lý",
     statuses: ["PROCESSING"],
     icon: <Boxes className="h-4 w-4" />,
-    color: "text-indigo-700 border-indigo-200 bg-indigo-50",
+    color: "text-indigo-700 bg-indigo-50",
   },
   {
     id: "shipping",
     label: "Đang giao",
     statuses: ["SHIPPED"],
     icon: <Truck className="h-4 w-4" />,
-    color: "text-cyan-700 border-cyan-200 bg-cyan-50",
+    color: "text-cyan-700 bg-cyan-50",
   },
   {
     id: "delivered",
     label: "Đã giao",
     statuses: ["DELIVERED"],
     icon: <CheckCircle2 className="h-4 w-4" />,
-    color: "text-green-700 border-green-200 bg-green-50",
+    color: "text-green-700 bg-green-50",
   },
   {
     id: "completed",
     label: "Hoàn tất",
     statuses: ["COMPLETED"],
     icon: <BadgeCheck className="h-4 w-4" />,
-    color: "text-emerald-700 border-emerald-200 bg-emerald-50",
+    color: "text-emerald-700 bg-emerald-50",
   },
   {
     id: "canceled",
     label: "Đã huỷ",
     statuses: ["CANCELED", "CANCEL_REQUESTED"],
     icon: <XCircle className="h-4 w-4" />,
-    color: "text-rose-700 border-rose-200 bg-rose-50",
+    color: "text-rose-700 bg-rose-50",
   },
 ];
 
+/* ---------- helpers ---------- */
 const viStatus = (s?: string) => {
   switch ((s || "").toUpperCase()) {
     case "PENDING":
@@ -119,7 +121,6 @@ const viStatus = (s?: string) => {
   }
 };
 
-// ---- cleaned: no-any
 const fmtTime = (t: unknown): string => {
   let d: Date;
   if (t instanceof Date) d = t;
@@ -130,15 +131,19 @@ const fmtTime = (t: unknown): string => {
     : d.toLocaleTimeString("vi-VN", { hour12: false }) + " " + d.toLocaleDateString("vi-VN");
 };
 
-// helper type for safe access
 type OrderItemLite = {
   thumbnail?: string | null;
   imageUrl?: string | null;
   title?: string | null;
-  book?: { thumbnail?: string | null; imageUrl?: string | null; title?: string | null } | null;
+  book?: {
+    id?: number | null;
+    title?: string | null;
+    thumbnail?: string | null;
+    imageUrl?: string | null;
+  } | null;
+  bookId?: number | null;
 };
 
-// ---- cleaned: no-any
 const getThumb = (o: ResOrderDetail): string => {
   const first = (o.items?.[0] ?? null) as unknown;
   if (first && typeof first === "object") {
@@ -153,7 +158,6 @@ const getThumb = (o: ResOrderDetail): string => {
   return "/placeholder.svg";
 };
 
-// ---- cleaned: no-any
 const getTitle = (o: ResOrderDetail): string => {
   const first = (o.items?.[0] ?? null) as unknown;
   if (first && typeof first === "object") {
@@ -167,7 +171,18 @@ const getTitle = (o: ResOrderDetail): string => {
   return "Sản phẩm";
 };
 
+/** Luôn ưu tiên điều hướng bằng bookId để tránh lỗi BE /slug/{number} */
+const getFirstProductLinkById = (o: ResOrderDetail): string | null => {
+  const first = (o.items?.[0] ?? null) as unknown;
+  if (!first || typeof first !== "object") return null;
+  const it = first as OrderItemLite;
+  const id = Number(it.book?.id ?? it.bookId ?? 0) || null;
+  return id ? `/books/${id}?by=id&action=review` : null;
+};
+
+/* ---------- page ---------- */
 export default function OrdersListPage() {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
   const [page, setPage] = useState<number>(Number(params.get("page") ?? 0));
@@ -176,9 +191,10 @@ export default function OrdersListPage() {
   const [loading, setLoading] = useState<boolean>(false);
 
   const activeTabId = (params.get("tab") as TabId) || "pending";
-  const activeTab = useMemo<Tab>(() => {
-    return TABS.find((t) => t.id === activeTabId) ?? TABS[0]!;
-  }, [activeTabId]);
+  const activeTab = useMemo<Tab>(
+    () => TABS.find((t) => t.id === activeTabId) ?? TABS[0]!,
+    [activeTabId],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -210,11 +226,11 @@ export default function OrdersListPage() {
   }
 
   return (
-    <div className="container mx-auto space-y-4 px-4 py-8">
+    <div className="container mx-auto space-y-5 px-4 py-8">
       <h1 className="text-2xl font-semibold">Đơn hàng của tôi</h1>
 
       {/* Tabs */}
-      <div className="rounded-2xl border bg-white/70 p-2 backdrop-blur">
+      <div className="rounded-2xl bg-white/80 p-2 shadow-sm ring-1 ring-black/5 backdrop-blur">
         <div className="relative flex flex-wrap gap-2">
           {TABS.map((t) => {
             const active = t.id === activeTabId;
@@ -223,10 +239,10 @@ export default function OrdersListPage() {
                 key={t.id}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => switchTab(t.id)}
-                className={`relative flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2 transition ${
+                className={`relative flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 transition ${
                   active
-                    ? `${t.color} font-semibold ring-2 ring-black/5`
-                    : "bg-white text-gray-600 hover:bg-gray-50"
+                    ? `font-semibold ring-1 ring-black/5 ${t.color}`
+                    : "bg-white/70 text-gray-700 ring-1 ring-gray-200 hover:bg-white"
                 }`}
               >
                 {t.icon}
@@ -245,18 +261,20 @@ export default function OrdersListPage() {
       </div>
 
       {/* List */}
-      <div className="rounded-2xl border bg-white/70 p-3 backdrop-blur">
+      <div className="rounded-2xl bg-white/90 p-3 shadow-sm ring-1 ring-black/5 backdrop-blur">
         {loading ? (
-          <div className="py-8 text-center text-gray-500">Đang tải...</div>
+          <div className="py-10 text-center text-gray-500">Đang tải...</div>
         ) : items.length === 0 ? (
-          <div className="py-8 text-center text-gray-500">Không có đơn</div>
+          <div className="py-10 text-center text-gray-500">Không có đơn</div>
         ) : (
           <AnimatePresence mode="popLayout">
-            <div className="space-y-4">
+            <div className="divide-y divide-gray-200">
               {items.map((o) => {
                 const thumb = getThumb(o);
                 const title = getTitle(o);
                 const extra = Math.max(0, (o.items?.length ?? 1) - 1);
+                const isCompleted = activeTabId === "completed";
+                const productLink = getFirstProductLinkById(o);
 
                 return (
                   <motion.div
@@ -265,13 +283,14 @@ export default function OrdersListPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ type: "spring", stiffness: 350, damping: 26 }}
-                    className="flex items-start gap-4 rounded-xl border bg-white/70 p-4 ring-1 ring-black/5"
+                    className="flex flex-col gap-3 rounded-xl bg-white p-4 md:flex-row md:items-start md:gap-4"
                   >
                     <img
                       src={thumb}
                       alt={title}
-                      className="h-24 w-20 flex-shrink-0 rounded-lg border object-cover md:h-28 md:w-24"
+                      className="h-24 w-20 flex-shrink-0 rounded-lg object-cover ring-1 ring-gray-200 md:h-28 md:w-24"
                     />
+
                     <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 md:grid-cols-4 md:gap-4">
                       <div className="col-span-2">
                         <div className="text-sm text-gray-500">Mã đơn</div>
@@ -288,7 +307,9 @@ export default function OrdersListPage() {
                       </div>
 
                       <div>
-                        <div className="text-sm text-gray-500">Ngày tạo</div>
+                        <div className="text-sm text-gray-500">
+                          {isCompleted ? "Ngày hoàn thành" : "Ngày tạo"}
+                        </div>
                         <div className="font-medium">{fmtTime(o.createdAt)}</div>
                       </div>
 
@@ -305,13 +326,31 @@ export default function OrdersListPage() {
                       </div>
                     </div>
 
-                    <div className="hidden md:block">
+                    {/* Actions (right) */}
+                    <div className="flex gap-2 md:flex-col md:items-end">
                       <Link
                         to={`/orders/${o.code}`}
-                        className="inline-flex items-center rounded-xl border px-3.5 py-2.5 transition hover:bg-gray-50"
+                        className="inline-flex items-center rounded-xl bg-white px-3.5 py-2.5 ring-1 ring-gray-200 hover:bg-gray-50"
                       >
                         Chi tiết
                       </Link>
+
+                      {isCompleted && productLink && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => navigate(productLink)}
+                            className="inline-flex cursor-pointer items-center rounded-xl bg-emerald-600 px-3.5 py-2.5 text-white hover:bg-emerald-500"
+                          >
+                            Đánh giá
+                          </button>
+                          <Link
+                            to={productLink.replace("?by=id&action=review", "")}
+                            className="inline-flex cursor-pointer items-center rounded-xl bg-rose-600 px-3.5 py-2.5 text-white hover:bg-rose-500"
+                          >
+                            Mua lại
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 );
@@ -327,7 +366,7 @@ export default function OrdersListPage() {
           <button
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             disabled={page <= 0}
-            className="rounded-lg border px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-lg bg-white px-3 py-1.5 ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-50"
           >
             Trước
           </button>
@@ -337,7 +376,7 @@ export default function OrdersListPage() {
           <button
             onClick={() => setPage((p) => Math.min((data?.totalPages ?? 1) - 1, p + 1))}
             disabled={page >= (data?.totalPages ?? 1) - 1}
-            className="rounded-lg border px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-lg bg-white px-3 py-1.5 ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-50"
           >
             Sau
           </button>
@@ -351,7 +390,7 @@ export default function OrdersListPage() {
               p.set("page", "0");
               setParams(p, { replace: true });
             }}
-            className="rounded-lg border px-2 py-1"
+            className="rounded-lg bg-white px-2 py-1 ring-1 ring-gray-200"
           >
             {[10, 20, 50, 100].map((n) => (
               <option key={n} value={n}>

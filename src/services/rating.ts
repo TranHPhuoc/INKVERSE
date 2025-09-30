@@ -64,11 +64,16 @@ export async function upsertRating(
   bookId: number,
   body: { score: number; content?: string },
 ): Promise<ResRating> {
-  // BE nhận POST /books/{bookId}/ratings
   const res = await api.post(`/api/v1/books/${bookId}/ratings`, body);
   return unwrap<ResRating>(res.data);
 }
 
 export async function deleteRating(id: number): Promise<void> {
   await api.delete(`/api/v1/ratings/${id}`);
+}
+
+/* ------------ NEW: check đủ điều kiện viết đánh giá ------------ */
+export async function canReview(bookId: number): Promise<{ eligible: boolean }> {
+  const res = await api.get(`/api/v1/books/${bookId}/ratings/eligible`);
+  return unwrap<{ eligible: boolean }>(res.data);
 }

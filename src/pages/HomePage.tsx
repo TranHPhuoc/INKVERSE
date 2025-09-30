@@ -17,11 +17,20 @@ import type { BookListItem, HomeFeed, SpringPage } from "../types/books";
 import { getHomeFeed, listBooks } from "../types/books";
 
 import banner1 from "../assets/bannerbooks1.png";
-import banner2 from "../assets/bannerbooks2.jpeg";
+import banner2 from "../assets/BannerFlashsale.jpg";
 import banner3 from "../assets/backgroundbooks.png";
+import banner4 from "../assets/INKVERSE.SITE1.jpg";
+import banner5 from "../assets/INKVERSE.SITE2.png";
 
 /* ───────────────────────── constants ───────────────────────── */
 const BANNERS: string[] = [banner1, banner2, banner3];
+const SHELL = "mx-auto w-full max-w-[1550px] px-4 sm:px-6 lg:px-8";
+const FullBleed: React.FC<React.PropsWithChildren<{ className?: string }>> = ({
+  className = "",
+  children,
+}) => (
+  <div className={`relative right-1/2 left-1/2 -mx-[50vw] w-screen ${className}`}>{children}</div>
+);
 
 const easeOutBezier = [0.22, 1, 0.36, 1] as const;
 const fadeUp: Variants = {
@@ -83,7 +92,6 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000, clas
   const timerRef = useRef<number | null>(null);
   const isHoverRef = useRef(false);
 
-  // đo width thực tế để nội suy 3D theo pixel
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [wrapW, setWrapW] = useState(0);
   useEffect(() => {
@@ -120,7 +128,6 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000, clas
   const next = () => setIndex((i) => i + 1);
   const prev = () => setIndex((i) => i - 1);
 
-  // motion value cho track
   const x = useMotionValue(0);
 
   // reset về slide thật khi đang ở clone
@@ -200,14 +207,14 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000, clas
         <>
           <button
             onClick={prev}
-            className="absolute top-1/2 left-3 -translate-y-1/2 rounded-full bg-white/25 p-2 text-white backdrop-blur transition hover:bg-white/70 hover:text-gray-900"
+            className="absolute top-1/2 left-3 -translate-y-1/2 cursor-pointer rounded-full bg-white/25 p-2 text-white backdrop-blur transition hover:bg-white/70 hover:text-gray-900"
             aria-label="Ảnh trước"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             onClick={next}
-            className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full bg-white/25 p-2 text-white backdrop-blur transition hover:bg-white/70 hover:text-gray-900"
+            className="absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer rounded-full bg-white/25 p-2 text-white backdrop-blur transition hover:bg-white/70 hover:text-gray-900"
             aria-label="Ảnh sau"
           >
             <ChevronRight className="h-5 w-5" />
@@ -235,7 +242,7 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000, clas
 
 /* ───────────────────────── page ───────────────────────── */
 export default function HomePage() {
-  const skeletonCount = 10;
+  // const skeletonCount = 10;
 
   const flashRef = useRef<HTMLDivElement | null>(null);
   const newestRef = useRef<HTMLDivElement | null>(null);
@@ -303,7 +310,7 @@ export default function HomePage() {
   const renderGrid = (items: BookListItem[], loading: boolean) => (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4 md:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
       {loading && (!items || items.length === 0) ? (
-        Array.from({ length: skeletonCount }).map((_, i) => (
+        Array.from({ length: 10 }).map((_, i) => (
           <div key={i} className="h-64 rounded bg-gray-100" />
         ))
       ) : items && items.length > 0 ? (
@@ -324,22 +331,49 @@ export default function HomePage() {
     <div className="flex min-h-screen flex-col bg-white">
       <ErrorBoundary fallback={<div className="p-6 text-rose-600">Có lỗi khi tải trang chủ</div>}>
         <main className="flex-1 bg-gray-50">
-          <div className="w-full px-4 py-4 md:px-6 xl:px-10 2xl:px-14">
-            <div className="mx-auto max-w-[1990px]">
-              <HeroBanner images={BANNERS} intervalMs={3000} />
+          {/* Banner */}
+          <div className="py-4">
+            <div className={SHELL}>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                <div className="min-w-0 lg:col-span-8">
+                  <HeroBanner images={BANNERS} intervalMs={3000} className="aspect-[16/9] w-full" />
+                </div>
+
+                <div className="hidden flex-col gap-4 lg:col-span-4 lg:flex">
+                  <div className="overflow-hidden rounded-xl border bg-gray-100">
+                    <div className="aspect-[1120/540] w-full">
+                      <img
+                        src={banner4}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        draggable={false}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden rounded-xl border bg-gray-100">
+                    <div className="aspect-[1120/540] w-full">
+                      <img
+                        src={banner5}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        draggable={false}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-
           {err && (
-            <div className="w-full px-4 md:px-6 xl:px-10 2xl:px-14">
-              <div className="mx-auto max-w-[1990px] text-rose-600">{err}</div>
+            <div className="py-2">
+              <div className={`${SHELL} text-rose-600`}>{err}</div>
             </div>
           )}
-
           {/* Flash sale */}
           <Reveal>
-            <div className="w-full px-4 py-6 md:px-6 xl:px-10 2xl:px-14" ref={flashRef}>
-              <div className="mx-auto max-w-[1990px]">
+            <div className="py-6" ref={flashRef}>
+              <div className={SHELL}>
                 <ErrorBoundary
                   fallback={<div className="p-4 text-rose-600">Không tải được Flash sale</div>}
                 >
@@ -355,11 +389,10 @@ export default function HomePage() {
               </div>
             </div>
           </Reveal>
-
           {/* Newest */}
           <Reveal>
-            <div className="w-full px-4 py-6 md:px-6 xl:px-10 2xl:px-14" ref={newestRef}>
-              <div className="mx-auto max-w-[1990px]">
+            <div className="py-6" ref={newestRef}>
+              <div className={SHELL}>
                 <ErrorBoundary
                   fallback={<div className="p-4 text-rose-600">Không tải được Sản phẩm mới</div>}
                 >
@@ -380,11 +413,10 @@ export default function HomePage() {
               </div>
             </div>
           </Reveal>
-
           {/* Bestseller */}
           <Reveal>
-            <div className="w-full px-4 py-6 md:px-6 xl:px-10 2xl:px-14" ref={bestRef}>
-              <div className="mx-auto max-w-[1990px]">
+            <div className="py-6" ref={bestRef}>
+              <div className={SHELL}>
                 <ErrorBoundary
                   fallback={<div className="p-4 text-rose-600">Không tải được Bán chạy</div>}
                 >
@@ -400,56 +432,53 @@ export default function HomePage() {
               </div>
             </div>
           </Reveal>
-
           {/* Services */}
-          <div className="border-t bg-white">
-            <div className="w-full px-4 py-8 md:px-6 xl:px-10 2xl:px-14">
-              <div className="mx-auto max-w-[1990px]">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  {[
-                    {
-                      Icon: Truck,
-                      title: "GIAO HÀNG MIỄN PHÍ VÀ NHANH CHÓNG",
-                      sub: "Miễn phí cho đơn hàng trên 500.000đ",
-                      tone: "rose" as const,
-                    },
-                    {
-                      Icon: Headphones,
-                      title: "Dịch vụ chăm sóc khách hàng 24/7",
-                      sub: "Hỗ trợ thân thiện mọi lúc",
-                      tone: "indigo" as const,
-                    },
-                    {
-                      Icon: ShieldCheck,
-                      title: "Thanh toán an toàn",
-                      sub: "Bảo mật thông tin & hoàn tiền",
-                      tone: "rose" as const,
-                    },
-                  ].map(({ Icon, title, sub, tone }, i) => (
-                    <Reveal
-                      key={i}
-                      index={i}
-                      className="flex items-center gap-4 rounded-2xl border bg-white p-5 shadow"
+          <FullBleed className="border-t bg-white">
+            <div className={`${SHELL} py-8`}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                {[
+                  {
+                    Icon: Truck,
+                    title: "GIAO HÀNG MIỄN PHÍ VÀ NHANH CHÓNG",
+                    sub: "Miễn phí cho đơn hàng trên 500.000đ",
+                    tone: "rose" as const,
+                  },
+                  {
+                    Icon: Headphones,
+                    title: "Dịch vụ chăm sóc khách hàng 24/7",
+                    sub: "Hỗ trợ thân thiện mọi lúc",
+                    tone: "indigo" as const,
+                  },
+                  {
+                    Icon: ShieldCheck,
+                    title: "Thanh toán an toàn",
+                    sub: "Bảo mật thông tin & hoàn tiền",
+                    tone: "rose" as const,
+                  },
+                ].map(({ Icon, title, sub, tone }, i) => (
+                  <Reveal
+                    key={i}
+                    index={i}
+                    className="flex items-center gap-4 rounded-2xl border bg-white p-5 shadow"
+                  >
+                    <div
+                      className={`${
+                        tone === "rose"
+                          ? "bg-rose-50 text-rose-600 ring-rose-100"
+                          : "bg-indigo-50 text-indigo-600 ring-indigo-100"
+                      } rounded-xl p-3 ring-1`}
                     >
-                      <div
-                        className={`${
-                          tone === "rose"
-                            ? "bg-rose-50 text-rose-600 ring-rose-100"
-                            : "bg-indigo-50 text-indigo-600 ring-indigo-100"
-                        } rounded-xl p-3 ring-1`}
-                      >
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold">{title}</p>
-                        <p className="text-xs text-gray-500">{sub}</p>
-                      </div>
-                    </Reveal>
-                  ))}
-                </div>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{title}</p>
+                      <p className="text-xs text-gray-500">{sub}</p>
+                    </div>
+                  </Reveal>
+                ))}
               </div>
             </div>
-          </div>
+          </FullBleed>{" "}
         </main>
       </ErrorBoundary>
     </div>

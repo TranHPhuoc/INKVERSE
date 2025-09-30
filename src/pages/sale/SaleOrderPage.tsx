@@ -270,9 +270,6 @@ export default function SaleOrdersPage() {
               );
             })}
           </div>
-          <div className="text-xs text-gray-500">
-            Đang xem: <b>{activeTab.label}</b>
-          </div>
         </div>
       </div>
 

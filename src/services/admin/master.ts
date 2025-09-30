@@ -22,10 +22,10 @@ export type SimpleMaster = {
 
 export type MasterCreate = {
   name: string;
-  slug: string; // FE tự sinh để BE giữ nguyên controller cũ
+  slug: string; // FE tự sinh
 };
 
-/* ---------- calls ---------- */
+/* ========== AUTHORS ========== */
 export async function listAuthors(): Promise<SimpleMaster[]> {
   const res = await api.get(`/api/v1/admin/authors`, { validateStatus: (s) => s < 500 });
   return unwrap<SimpleMaster[]>(res.data) ?? [];
@@ -36,6 +36,18 @@ export async function createAuthor(payload: MasterCreate): Promise<SimpleMaster>
   return unwrap<SimpleMaster>(res.data);
 }
 
+export async function updateAuthor(id: number, payload: MasterCreate): Promise<SimpleMaster> {
+  const res = await api.put(`/api/v1/admin/authors/${id}`, payload, {
+    validateStatus: (s) => s < 500,
+  });
+  return unwrap<SimpleMaster>(res.data);
+}
+
+export async function deleteAuthor(id: number): Promise<void> {
+  await api.delete(`/api/v1/admin/authors/${id}`, { validateStatus: (s) => s < 500 });
+}
+
+/* ========== PUBLISHERS ========== */
 export async function listPublishers(): Promise<SimpleMaster[]> {
   const res = await api.get(`/api/v1/admin/publishers`, { validateStatus: (s) => s < 500 });
   return unwrap<SimpleMaster[]>(res.data) ?? [];
@@ -48,6 +60,18 @@ export async function createPublisher(payload: MasterCreate): Promise<SimpleMast
   return unwrap<SimpleMaster>(res.data);
 }
 
+export async function updatePublisher(id: number, payload: MasterCreate): Promise<SimpleMaster> {
+  const res = await api.put(`/api/v1/admin/publishers/${id}`, payload, {
+    validateStatus: (s) => s < 500,
+  });
+  return unwrap<SimpleMaster>(res.data);
+}
+
+export async function deletePublisher(id: number): Promise<void> {
+  await api.delete(`/api/v1/admin/publishers/${id}`, { validateStatus: (s) => s < 500 });
+}
+
+/* ========== SUPPLIERS ========== */
 export async function listSuppliers(): Promise<SimpleMaster[]> {
   const res = await api.get(`/api/v1/admin/suppliers`, { validateStatus: (s) => s < 500 });
   return unwrap<SimpleMaster[]>(res.data) ?? [];
@@ -58,4 +82,15 @@ export async function createSupplier(payload: MasterCreate): Promise<SimpleMaste
     validateStatus: (s) => s < 500,
   });
   return unwrap<SimpleMaster>(res.data);
+}
+
+export async function updateSupplier(id: number, payload: MasterCreate): Promise<SimpleMaster> {
+  const res = await api.put(`/api/v1/admin/suppliers/${id}`, payload, {
+    validateStatus: (s) => s < 500,
+  });
+  return unwrap<SimpleMaster>(res.data);
+}
+
+export async function deleteSupplier(id: number): Promise<void> {
+  await api.delete(`/api/v1/admin/suppliers/${id}`, { validateStatus: (s) => s < 500 });
 }

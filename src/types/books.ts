@@ -1,6 +1,9 @@
+// src/types/books.ts
 import api from "../services/api.ts";
 
-/* -------------------- helpers -------------------- */
+/* ---------------------------------------------------
+ * Small utilities
+ * --------------------------------------------------- */
 function unwrap<T>(payload: unknown): T {
   if (
     payload !== null &&
@@ -12,6 +15,7 @@ function unwrap<T>(payload: unknown): T {
   return payload as T;
 }
 
+/** Convert 1-based page index (UI) → 0-based (BE) */
 function toZeroBased(page?: number) {
   const p = Number(page ?? 1);
   return Math.max(0, p - 1);
@@ -27,12 +31,15 @@ function compactParams(obj: Record<string, unknown>) {
   for (const [k, v] of Object.entries(obj)) {
     if (v === undefined || v === null) continue;
     if (typeof v === "string" && v.trim() === "") continue;
+    if (Array.isArray(v) && v.length === 0) continue;
     out[k] = v;
   }
   return out;
 }
 
-/* -------------------- Types -------------------- */
+/* ---------------------------------------------------
+ * Types
+ * --------------------------------------------------- */
 export type BookListItem = {
   id: number;
   title: string;
@@ -52,7 +59,7 @@ export type BookListItem = {
 
 export type SpringPage<T> = {
   content: T[];
-  number: number;
+  number: number; // zero-based page index from server
   size: number;
   totalElements: number;
   totalPages: number;
@@ -118,11 +125,13 @@ export type CategoryTree = {
   children: CategoryTree[];
 };
 
-/* --------- Categories (public endpoints) ---------- */
+/* ---------------------------------------------------
+ * Public categories
+ * --------------------------------------------------- */
 export async function getCategoryTree(): Promise<CategoryTree[]> {
   try {
     const res = await api.get("/api/v1/categories/tree", {
-      validateStatus: (s) => s < 500,
+      validateStatus: (s) => s < 500, // let 4xx pass to unwrap
     });
     const data = unwrap<CategoryTree[] | null>(res.data);
     return Array.isArray(data) ? data : [];
@@ -131,12 +140,13 @@ export async function getCategoryTree(): Promise<CategoryTree[]> {
   }
 }
 
-/** Giữ tên cũ để không phải sửa import ở nơi khác */
 export async function getCategories(): Promise<CategoryTree[]> {
   return getCategoryTree();
 }
 
-/* --------------- listing & search ----------------- */
+/* ---------------------------------------------------
+ * Listing & search
+ * --------------------------------------------------- */
 export type ProductStatus = "DRAFT" | "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
 export type LanguageKey = "VI" | "EN" | "JA" | "ZH" | "KO" | string;
 export type AgeBoundKey = "ALL" | "6" | "12" | "16" | "18";
@@ -167,7 +177,7 @@ export type ListParams = {
   categoryId?: number;
   publisherId?: number;
   supplierId?: number;
-  page?: number;
+  page?: number; // 1-based (UI)
   size?: number;
   sort?: string;
   direction?: "ASC" | "DESC";
@@ -175,6 +185,7 @@ export type ListParams = {
 
 export type SearchBookReq = ListParams & { q: string };
 
+/** Catalog theo category slug + filter nâng cao */
 export async function listByCategorySlug(
   catSlug: string,
   page = 1,
@@ -200,6 +211,7 @@ export async function listByCategorySlug(
   return unwrap<SpringPage<BookListItem>>(res.data);
 }
 
+/** Danh sách sách theo filter  */
 export async function listBooks(params: ListParams): Promise<SpringPage<BookListItem>> {
   const {
     page = 1,
@@ -229,6 +241,7 @@ export async function listBooks(params: ListParams): Promise<SpringPage<BookList
   return unwrap<SpringPage<BookListItem>>(res.data);
 }
 
+/** Search theo keyword + filter (fallback về listBooks nếu q rỗng) */
 export async function searchBooks(params: SearchBookReq): Promise<SpringPage<BookListItem>> {
   const {
     q,
@@ -245,7 +258,6 @@ export async function searchBooks(params: SearchBookReq): Promise<SpringPage<Boo
 
   const keyword = sanitizeQ(q);
 
-  // Không có từ khoá → fallback sang listBooks với cùng filter
   if (!keyword) {
     return listBooks({
       page,
@@ -277,6 +289,9 @@ export async function searchBooks(params: SearchBookReq): Promise<SpringPage<Boo
   return unwrap<SpringPage<BookListItem>>(res.data);
 }
 
+/* ---------------------------------------------------
+ * Home feed
+ * --------------------------------------------------- */
 export async function getHomeFeed(opts?: {
   status?: ProductStatus;
   featuredSize?: number;
@@ -298,12 +313,33 @@ export async function getHomeFeed(opts?: {
   return unwrap<HomeFeed>(res.data);
 }
 
+/* ---------------------------------------------------
+ * Detail endpoints
+ * --------------------------------------------------- */
+/**
+ * Lấy chi tiết theo slug.
+ */
 export async function getBookDetailBySlug(bookSlug: string): Promise<BookDetail> {
   const res = await api.get(`/api/v1/books/slug/${encodeURIComponent(bookSlug)}`);
   return unwrap<BookDetail>(res.data);
 }
 
+/** Lấy chi tiết theo ID */
 export async function getBookDetailById(id: number): Promise<BookDetail> {
   const res = await api.get(`/api/v1/books/${id}`);
   return unwrap<BookDetail>(res.data);
+}
+
+export async function getBookDetailSmart(slugOrId: string | number): Promise<BookDetail> {
+  const n = typeof slugOrId === "number" ? slugOrId : Number(slugOrId);
+  if (Number.isFinite(n) && n > 0) {
+    return getBookDetailById(n);
+  }
+  return getBookDetailBySlug(String(slugOrId));
+}
+export async function getRelatedBooks(bookId: number, limit = 12): Promise<BookListItem[]> {
+  const res = await api.get(`/api/v1/books/${bookId}/related`, {
+    params: { limit },
+  });
+  return unwrap<BookListItem[]>(res.data);
 }

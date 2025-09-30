@@ -2,12 +2,14 @@ import React from "react";
 import { motion } from "framer-motion";
 import logo from "../assets/logoweb.png";
 
+const SHELL = "mx-auto w-full max-w-[1550px] px-4 sm:px-6 lg:px-8";
+
 const Footer: React.FC = () => {
   const year = new Date().getFullYear();
 
   return (
     <footer className="mt-auto bg-gray-900 text-white shadow-lg">
-      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-4 py-10 md:grid-cols-4 md:px-6">
+      <div className={`${SHELL} grid grid-cols-2 gap-8 py-10 md:grid-cols-4`}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -39,7 +41,9 @@ const Footer: React.FC = () => {
       </div>
 
       <div className="border-t border-gray-700">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-4 text-xs md:flex-row md:px-6">
+        <div
+          className={`${SHELL} flex flex-col items-center justify-between gap-2 py-4 text-xs md:flex-row`}
+        >
           <p>© {year} INKVERSE. All rights reserved.</p>
         </div>
       </div>

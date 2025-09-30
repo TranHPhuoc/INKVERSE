@@ -1,8 +1,9 @@
-// src/pages/admin/CategoriesPage.tsx
 import React, { useEffect, useState } from "react";
 import {
   listFlatCategories,
   createCategory,
+  updateCategory,
+  deleteCategory,
   type ResCategoryFlat,
   type CategoryCreate,
 } from "../../services/admin/categories";
@@ -14,6 +15,11 @@ export default function CategoriesPage() {
   const [parentId, setParentId] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editParent, setEditParent] = useState<number | "">("");
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -21,7 +27,6 @@ export default function CategoriesPage() {
     setError(null);
     try {
       const rows = await listFlatCategories();
-      // Có thể sort nhẹ theo tên để dễ nhìn
       rows.sort((a, b) => a.name.localeCompare(b.name));
       setData(rows);
     } catch (err) {
@@ -43,12 +48,10 @@ export default function CategoriesPage() {
       setError("Vui lòng nhập tên danh mục");
       return;
     }
-
     const payload: CategoryCreate = {
       name: name.trim(),
       parentId: parentId ? Number(parentId) : null,
     };
-
     try {
       setSubmitting(true);
       await createCategory(payload);
@@ -63,10 +66,51 @@ export default function CategoriesPage() {
     }
   };
 
+  const onStartEdit = (c: ResCategoryFlat) => {
+    setEditingId(c.id);
+    setEditName(c.name);
+    setEditParent(c.parentId ?? "");
+  };
+
+  const onSaveEdit = async () => {
+    if (!editingId || !editName.trim()) return;
+    try {
+      setSaving(true);
+      await updateCategory(editingId, {
+        name: editName.trim(),
+        parentId: editParent ? Number(editParent) : null,
+      });
+      setEditingId(null);
+      setEditName("");
+      setEditParent("");
+      await fetchData();
+    } catch (err) {
+      console.error("Cập nhật category thất bại:", err);
+      setError("Cập nhật category thất bại");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onDelete = async (id: number, name: string) => {
+    if (!window.confirm(`Xoá danh mục "${name}"?`)) return;
+    try {
+      setDeletingId(id);
+      await deleteCategory(id);
+      await fetchData();
+    } catch (err) {
+      console.error("Xoá category thất bại:", err);
+      setError("Xoá category thất bại");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Categories</h2>
 
+      {/* Form Create */}
       <motion.form
         onSubmit={onCreate}
         initial={{ opacity: 0, y: 10 }}
@@ -102,9 +146,9 @@ export default function CategoriesPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="h-10 rounded-lg bg-indigo-600 px-4 text-white transition hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60"
+          className="h-10 cursor-pointer rounded-lg bg-indigo-600 px-4 text-white transition hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60"
         >
-          {submitting ? "Creating..." : "Create"}
+          {submitting ? "Đang tạo..." : "Tạo"}
         </button>
       </motion.form>
 
@@ -114,6 +158,7 @@ export default function CategoriesPage() {
         </div>
       )}
 
+      {/* Table */}
       <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
         {loading ? (
           <div className="p-4 text-sm text-gray-600">Đang tải...</div>
@@ -121,7 +166,7 @@ export default function CategoriesPage() {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50/80 text-gray-600">
               <tr>
-                {["ID", "Name", "Slug", "Parent", "Leaf"].map((h) => (
+                {["ID", "Name", "Slug", "Parent", "Leaf", "Actions"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left font-medium">
                     {h}
                   </th>
@@ -132,19 +177,90 @@ export default function CategoriesPage() {
               {data.map((c) => (
                 <tr key={c.id} className="border-t hover:bg-gray-50/60">
                   <td className="px-4 py-3">{c.id}</td>
-                  <td className="px-4 py-3">{c.name}</td>
+                  <td className="px-4 py-3">
+                    {editingId === c.id ? (
+                      <input
+                        className="w-full rounded-md border px-2 py-1"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        disabled={saving}
+                      />
+                    ) : (
+                      c.name
+                    )}
+                  </td>
                   <td className="px-4 py-3">{c.slug}</td>
                   <td className="px-4 py-3">
-                    {c.parentId
-                      ? (data.find((x) => x.id === c.parentId)?.name ?? `#${c.parentId}`)
-                      : "(root)"}
+                    {editingId === c.id ? (
+                      <select
+                        className="w-full rounded-md border px-2 py-1"
+                        value={editParent}
+                        onChange={(e) =>
+                          setEditParent(e.target.value ? Number(e.target.value) : "")
+                        }
+                        disabled={saving}
+                      >
+                        <option value="">(none)</option>
+                        {data
+                          .filter((x) => x.id !== c.id)
+                          .map((x) => (
+                            <option key={x.id} value={x.id}>
+                              {x.name}
+                            </option>
+                          ))}
+                      </select>
+                    ) : c.parentId ? (
+                      (data.find((x) => x.id === c.parentId)?.name ?? `#${c.parentId}`)
+                    ) : (
+                      "(root)"
+                    )}
                   </td>
                   <td className="px-4 py-3">{c.leaf ? "Yes" : "No"}</td>
+                  <td className="px-4 py-3">
+                    {editingId === c.id ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={onSaveEdit}
+                          disabled={saving}
+                          className="cursor-pointer rounded-md bg-emerald-600 px-3 py-1 text-white hover:bg-emerald-700 disabled:opacity-60"
+                        >
+                          {saving ? "Đang lưu..." : "Lưu"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditName("");
+                            setEditParent("");
+                          }}
+                          className="cursor-pointer rounded-md border px-3 py-1 hover:bg-gray-50"
+                          disabled={saving}
+                        >
+                          Hủy
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => onStartEdit(c)}
+                          className="cursor-pointer rounded-md border px-3 py-1 hover:bg-gray-50"
+                        >
+                          Sửa
+                        </button>
+                        <button
+                          onClick={() => onDelete(c.id, c.name)}
+                          disabled={deletingId === c.id}
+                          className="cursor-pointer rounded-md bg-rose-600 px-3 py-1 text-white hover:bg-rose-700 disabled:opacity-60"
+                        >
+                          {deletingId === c.id ? "Đang xóa..." : "Xóa"}
+                        </button>
+                      </div>
+                    )}
+                  </td>
                 </tr>
               ))}
               {!data.length && (
                 <tr>
-                  <td className="px-4 py-6 text-center text-gray-500" colSpan={5}>
+                  <td className="px-4 py-6 text-center text-gray-500" colSpan={6}>
                     Chưa có danh mục.
                   </td>
                 </tr>

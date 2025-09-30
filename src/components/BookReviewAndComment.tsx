@@ -1,18 +1,34 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import RatingSummaryPanel from "./RatingSummaryPanel";
 import ReviewList from "./ReviewList";
-import ReviewComposer from "./ReviewComposer";
 import CommentThread from "./CommentThread";
 import ErrorBoundary from "./ErrorBoundary";
+import { PenLine } from "lucide-react";
 
 type TabId = "comments" | "reviews";
 
-export default function BookReviewAndComment({ bookId }: { bookId: number }) {
+export default function BookReviewAndComment({
+  bookId,
+  canWrite,
+  onOpenWrite,
+  refreshKey,
+}: {
+  bookId: number;
+  canWrite?: boolean;
+  onOpenWrite?: () => void;
+  refreshKey?: number;
+}) {
   const [reloadKey, setReloadKey] = useState(0);
   const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("reviews");
 
   const refresh = useCallback(() => setReloadKey((v) => v + 1), []);
+
+  useEffect(() => {
+    if (refreshKey !== undefined) {
+      setReloadKey((v) => v + 1);
+    }
+  }, [refreshKey]);
 
   return (
     <section className="mt-8 space-y-6">
@@ -57,29 +73,25 @@ export default function BookReviewAndComment({ bookId }: { bookId: number }) {
               </div>
             </div>
 
-            {/* RIGHT: Viết đánh giá */}
-            <div className="h-full rounded-2xl border border-gray-200 bg-white/90 shadow-sm ring-1 ring-white/50">
-              <div className="border-b px-4 py-3 text-xl font-semibold text-gray-800">
-                Đánh giá của bạn
-              </div>
-              <div className="p-4">
-                <ErrorBoundary
-                  fallback={
-                    <div className="text-sm text-rose-600">Không tải được khung viết đánh giá.</div>
-                  }
-                >
-                  <ReviewComposer
-                    key={`composer-${reloadKey}`}
-                    bookId={bookId}
-                    hiddenWhenRated
-                    onSubmitted={refresh}
-                  />
-                </ErrorBoundary>
-              </div>
+            {/* RIGHT: chỉ còn nút Viết đánh giá ở giữa */}
+            <div className="flex h-full items-center justify-center rounded-2xl border border-gray-200 bg-white/90 shadow-sm ring-1 ring-white/50">
+              <button
+                onClick={onOpenWrite}
+                disabled={!canWrite}
+                className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 font-medium shadow-sm ${
+                  canWrite
+                    ? "cursor-pointer bg-rose-600 text-white hover:bg-rose-500"
+                    : "cursor-not-allowed bg-gray-300 text-gray-500"
+                }`}
+                title={canWrite ? "Viết đánh giá" : "Bạn đã đánh giá rồi hoặc chưa mua sản phẩm"}
+              >
+                <PenLine className="h-5 w-5" />
+                Viết đánh giá
+              </button>
             </div>
           </div>
 
-          {/* Hàng dưới: danh sách đánh giá full width */}
+          {/* Danh sách đánh giá */}
           <ErrorBoundary
             fallback={
               <div className="text-sm text-rose-600">Không tải được danh sách đánh giá.</div>

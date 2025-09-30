@@ -33,6 +33,7 @@ import CheckoutPage from "./pages/CheckoutPage";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import OrderListPage from "./pages/OrderListPage";
 import FavoritesPage from "./pages/FavoritePage.tsx";
+import RelatedAllPage from "./pages/RelatedAllPage";
 
 // Pages – User
 import AccountLayout from "./pages/user/AccountLayout";
@@ -282,6 +283,14 @@ export default function App() {
                 element={
                   <PageTransition>
                     <FavoritesPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/goi-y/:bookId"
+                element={
+                  <PageTransition>
+                    <RelatedAllPage />
                   </PageTransition>
                 }
               />

@@ -55,6 +55,20 @@ const pillByPayment: Record<PaymentStatus, string> = {
   PAID: "bg-green-100 text-green-700",
   REFUNDED: "bg-cyan-100 text-cyan-700",
 };
+const viPaymentStatus = (s?: string) => {
+  switch ((s || "").toUpperCase()) {
+    case "UNPAID":
+      return "Chưa thanh toán";
+    case "PENDING":
+      return "Đang xử lý";
+    case "PAID":
+      return "Đã thanh toán";
+    case "REFUNDED":
+      return "Đã hoàn tiền";
+    default:
+      return s || "—";
+  }
+};
 
 function fmtDate(s?: string | null) {
   if (!s) return "—";
@@ -144,7 +158,7 @@ const OrderDetailPage: React.FC = () => {
             {viStatus(data.status)}
           </span>
           <span className={`rounded-full px-3 py-1 text-sm ${pillByPayment[data.paymentStatus]}`}>
-            {data.paymentStatus}
+            {viPaymentStatus(data.paymentStatus)}
           </span>
 
           {cancelable && (

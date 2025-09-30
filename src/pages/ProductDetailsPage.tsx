@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import type { BookDetail } from "../types/books";
-import { getBookDetailBySlug } from "../types/books";
+import { getBookDetailBySlug, getBookDetailById } from "../types/books";
 import { langVi, ageVi, coverVi } from "../types/labels";
 import { PLACEHOLDER } from "../types/img";
 import { addCartItem, addAndSelectOne } from "../services/cart";
@@ -9,10 +9,12 @@ import { useAuth } from "../context/useAuth";
 import useCheckoutGuard from "../hooks/useCheckoutGuard";
 import BookGallery from "../components/BookGallery";
 import BookReviewAndComment from "../components/BookReviewAndComment";
-import { getRatingSummary } from "../services/rating";
+import { getRatingSummary, canReview } from "../services/rating";
 import FavoriteHeart from "../components/FavoriteHeart";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { isFavorite, getCount as getFavCount } from "../store/favorite-store";
+import ReviewModal from "../components/ReviewModal";
+import RelatedBooksGrid from "../components/RelatedBooksGrid.tsx";
 
 type BookDetailView = BookDetail & {
   likedByMe?: boolean;
@@ -112,6 +114,11 @@ function animateFlyToCart(sourceEl: HTMLElement): Promise<void> {
 /* ================= Page ================= */
 export default function ProductDetailsPage() {
   const { bookSlug = "" } = useParams<{ bookSlug: string }>();
+  const location = useLocation();
+  const sp = new URLSearchParams(location.search);
+  const by = sp.get("by");
+  const action = sp.get("action");
+
   const [data, setData] = useState<BookDetailView | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -127,6 +134,11 @@ export default function ProductDetailsPage() {
   const [toastMsg, setToastMsg] = useState<string>("");
 
   const [summary, setSummary] = useState<{ average?: number; count?: number }>({});
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [canWrite, setCanWrite] = useState(false);
+
+  const [reviewRefreshTick, setReviewRefreshTick] = useState(0);
+  const reviewsRef = useRef<HTMLDivElement | null>(null);
 
   /* Rating summary */
   useEffect(() => {
@@ -145,16 +157,43 @@ export default function ProductDetailsPage() {
     };
   }, [data?.id]);
 
-  /* Load detail by slug */
+  /* Check eligible để bật nút Viết đánh giá */
+  useEffect(() => {
+    let active = true;
+    if (!data?.id) return;
+    canReview(Number(data.id))
+      .then((r) => {
+        if (active) setCanWrite(!!r.eligible);
+      })
+      .catch(() => {
+        if (active) setCanWrite(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [data?.id]);
+
   useEffect(() => {
     let mounted = true;
     setLoading(true);
     setErr(null);
 
-    getBookDetailBySlug(bookSlug)
+    const load = async () => {
+      if (by === "id") {
+        const id = Number(bookSlug);
+        if (!Number.isFinite(id) || id <= 0) throw new Error("ID không hợp lệ");
+        const d = await getBookDetailById(id);
+        return d as BookDetailView;
+      } else {
+        const d = await getBookDetailBySlug(bookSlug);
+        return d as BookDetailView;
+      }
+    };
+
+    load()
       .then((d) => {
         if (!mounted) return;
-        setData(d as BookDetailView);
+        setData(d);
       })
       .catch((e: unknown) => {
         if (!mounted) return;
@@ -165,7 +204,17 @@ export default function ProductDetailsPage() {
     return () => {
       mounted = false;
     };
-  }, [bookSlug]);
+  }, [bookSlug, by]);
+
+  /* Tự mở modal & scroll khi được điều hướng từ OrdersList (action=review) */
+  useEffect(() => {
+    if (action === "review") {
+      setReviewOpen(true);
+      setTimeout(() => {
+        reviewsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    }
+  }, [action]);
 
   const price = useMemo<number>(() => Number(data?.effectivePrice ?? data?.price ?? 0), [data]);
 
@@ -241,7 +290,6 @@ export default function ProductDetailsPage() {
     }
   }
 
-  /* Breadcrumb */
   const firstCat = data.categories?.[0];
   const breadcrumb = (
     <nav className="mb-5 text-sm">
@@ -271,7 +319,6 @@ export default function ProductDetailsPage() {
     </nav>
   );
 
-  /* Seed favorite: chỉ khi login mới check local store */
   const storeLiked = isAuthenticated ? isFavorite(Number(data.id)) : false;
   const storeCount = isAuthenticated ? getFavCount(Number(data.id)) : undefined;
   const initialLiked = isAuthenticated ? storeLiked || Boolean(data.likedByMe) : false;
@@ -280,7 +327,7 @@ export default function ProductDetailsPage() {
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-white via-rose-50/[.35] to-white">
       <main className="flex-1">
-        <div className="mx-auto max-w-[1990px] px-4 py-8 md:px-6">
+        <div className="mx-auto max-w-[1550px] px-4 py-8 md:px-6">
           {breadcrumb}
 
           <div className="grid grid-cols-1 gap-8 md:grid-cols-[520px_minmax(0,1fr)]">
@@ -320,16 +367,15 @@ export default function ProductDetailsPage() {
             <div className="space-y-6">
               {/* Title + meta + favorite */}
               <div className="rounded-2xl border border-gray-100 bg-white/70 p-5 shadow-sm ring-1 ring-white/50 backdrop-blur">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
                   <h1 className="text-2xl leading-snug font-bold text-gray-900">{data.title}</h1>
 
-                  {/* Heart + số lượt thích */}
                   <FavoriteHeart
                     bookId={Number(data.id)}
                     initialLiked={initialLiked}
                     initialCount={initialCount}
-                    size={24}
-                    className="rounded-full border bg-white/80 px-2.5 py-1 backdrop-blur"
+                    size={22}
+                    className="ml-1 translate-y-[1px] rounded-full border bg-white/80 px-2 py-1 backdrop-blur"
                   />
                 </div>
 
@@ -482,7 +528,7 @@ export default function ProductDetailsPage() {
       {data.id ? (
         <section className="bg-gradient-to-b from-white to-rose-50/40">
           <div className="mx-auto max-w-[1990px] px-4 py-10 md:px-6">
-            <div className="mb-6 flex items-center gap-3">
+            <div className="mb-6 flex items-center gap-3" ref={reviewsRef} id="reviews-section">
               <h2 className="text-xl font-semibold tracking-tight">Đánh giá sản phẩm</h2>
               <div className="h-px flex-1 bg-gradient-to-r from-rose-200/80 to-transparent" />
             </div>
@@ -490,12 +536,42 @@ export default function ProductDetailsPage() {
             <ErrorBoundary>
               <div className="group relative animate-[fadeIn_.25s_ease-out] rounded-2xl border border-rose-100/80 bg-white/90 p-5 shadow-[0_6px_30px_-10px_rgba(244,63,94,0.25)] ring-1 ring-white/40 backdrop-blur-sm">
                 <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-rose-100/70" />
-                <BookReviewAndComment bookId={data.id} />
+                <BookReviewAndComment
+                  bookId={data.id}
+                  canWrite={canWrite}
+                  onOpenWrite={() => setReviewOpen(true)}
+                  refreshKey={reviewRefreshTick}
+                />
               </div>
             </ErrorBoundary>
           </div>
+          {data.id ? <RelatedBooksGrid bookId={data.id} /> : null}
         </section>
       ) : null}
+
+      {/* Review Modal */}
+      {data.id && (
+        <ReviewModal
+          bookId={Number(data.id)}
+          open={reviewOpen}
+          onClose={() => setReviewOpen(false)}
+          onSubmitted={async () => {
+            setCanWrite(false); // đã đánh giá xong → khoá nút
+            try {
+              const s = await getRatingSummary(Number(data.id));
+              setSummary({ average: Number(s.average ?? 0), count: s.count ?? 0 });
+            } catch {
+              /**/
+            }
+            // ép refresh danh sách đánh giá
+            setReviewRefreshTick((t) => t + 1);
+            // scroll xuống block đánh giá để thấy review mới
+            setTimeout(() => {
+              reviewsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 60);
+          }}
+        />
+      )}
 
       {/* Mobile bottom action bar */}
       <div className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-2 gap-2 border-t border-gray-200 bg-white/90 p-3 backdrop-blur md:hidden">

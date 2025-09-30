@@ -57,16 +57,18 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <main className="relative flex flex-1 items-center justify-center px-4 py-10 text-white">
-        <div className="absolute inset-0 -z-10">
+        <div className="absolute inset-0 z-0">
           <img
             src={bgPoster}
             alt="Books poster background"
             className="h-full w-full object-cover brightness-50"
+            loading="eager"
+            draggable={false}
           />
           <div className="absolute inset-0 bg-black/40" />
         </div>
 
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/70 p-6 shadow-xl md:p-8">
+        <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/10 bg-black/70 p-6 shadow-xl md:p-8">
           <h2 className="mb-6 text-center text-2xl font-bold md:text-3xl">Tạo Tài Khoản</h2>
 
           <form className="space-y-4" onSubmit={onSubmit}>

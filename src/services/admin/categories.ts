@@ -55,7 +55,12 @@ export async function listFlatLeafCategories(): Promise<ResCategoryFlat[]> {
   return Array.isArray(data) ? data : [];
 }
 
-/* ========== Admin ========= */
+export async function listCategoriesTree(): Promise<ResCategoryTree[]> {
+  const res = await api.get("/api/v1/categories/tree", { validateStatus: (s) => s < 500 });
+  return unwrap<ResCategoryTree[]>(res.data);
+}
+
+/* ========== Admin calls ========== */
 export async function adminListCategories(leaf = false): Promise<ResCategoryFlat[]> {
   const path = leaf ? "/api/v1/categories/flat/leaf" : "/api/v1/categories/flat";
   const res = await api.get(path, { validateStatus: (s) => s < 500 });
@@ -63,14 +68,20 @@ export async function adminListCategories(leaf = false): Promise<ResCategoryFlat
   return Array.isArray(data) ? data : [];
 }
 
-export async function adminListCategoriesTree(): Promise<ResCategoryTree[]> {
-  const res = await api.get("/api/v1/categories/tree", { validateStatus: (s) => s < 500 });
-  return unwrap<ResCategoryTree[]>(res.data);
-}
-
 export async function createCategory(payload: CategoryCreate): Promise<CategoryDTO> {
   const res = await api.post("/api/v1/admin/categories", payload, {
     validateStatus: (s) => s < 500,
   });
   return unwrap<CategoryDTO>(res.data);
+}
+
+export async function updateCategory(id: number, payload: CategoryCreate): Promise<CategoryDTO> {
+  const res = await api.put(`/api/v1/admin/categories/${id}`, payload, {
+    validateStatus: (s) => s < 500,
+  });
+  return unwrap<CategoryDTO>(res.data);
+}
+
+export async function deleteCategory(id: number): Promise<void> {
+  await api.delete(`/api/v1/admin/categories/${id}`, { validateStatus: (s) => s < 500 });
 }

@@ -1,66 +1,122 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 import type { ApiErrorBody } from "../types/http";
 import bgPoster from "../assets/backgroundbooks.png";
 import { useAuth } from "../context/useAuth";
 
+/* ───────── helpers ───────── */
+type RolesLike = { role?: string; roles?: string[] };
+function getRoles(): Set<string> {
+  // Ưu tiên đọc từ context nếu có
+  try {
+    const raw = localStorage.getItem("auth.user");
+    const u = raw ? (JSON.parse(raw) as RolesLike) : null;
+    const list = [u?.role, ...((u?.roles ?? []) as string[])].filter(Boolean) as string[];
+    return new Set(list);
+  } catch {
+    return new Set();
+  }
+}
+
+function isAllowedInternalPath(p: string | null | undefined): string | null {
+  if (!p) return null;
+  try {
+    // chỉ cho phép path nội bộ, không cho origin khác
+    const url = new URL(p, window.location.origin);
+    if (url.origin !== window.location.origin) return null;
+    return url.pathname + url.search + url.hash;
+  } catch {
+    // nếu chỉ là path (không phải URL đầy đủ) thì vẫn ok
+    return p.startsWith("/") ? p : null;
+  }
+}
+
+function pickHomeByRole(roles: Set<string>): string {
+  const has = (r: string) => roles.has(r) || roles.has(r.replace("ROLE_", ""));
+  if (has("ROLE_ADMIN")) return "/admin";
+  if (has("ROLE_SALE")) return "/sale/orders";
+  return "/";
+}
+
+function canAccess(path: string, roles: Set<string>): boolean {
+  const isAdminArea = path.startsWith("/admin");
+  const isSaleArea = path.startsWith("/sale");
+  const has = (r: string) => roles.has(r) || roles.has(r.replace("ROLE_", ""));
+  if (isAdminArea) return has("ROLE_ADMIN");
+  if (isSaleArea) return has("ROLE_SALE");
+  return true;
+}
+
+/* ───────── component ───────── */
 export default function LoginPage() {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
-  const next = new URLSearchParams(location.search).get("next"); // đọc ?next
+
+  const rawNext = useMemo(
+    () => new URLSearchParams(location.search).get("next"),
+    [location.search],
+  );
+  const safeNext = useMemo(() => isAllowedInternalPath(rawNext), [rawNext]);
+
+  // Nếu đã đăng nhập sẵn thì đá khỏi trang login
+  useEffect(() => {
+    const roles = getRoles();
+    // có token thì localStorage thường cũng có user; có thể kiểm tra thêm 'auth.token' nếu muốn
+    if (roles.size > 0) {
+      const target = safeNext && canAccess(safeNext, roles) ? safeNext : pickHomeByRole(roles);
+      navigate(target, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // chạy 1 lần khi mở trang
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setErr(null);
+    setLoading(true);
     try {
-      await login({ username, password });
+      await login({ username, password }); // đảm bảo hàm này set token + auth.user
 
-      let target = "/";
-      if (next) {
-        target = decodeURIComponent(next);
-      } else {
-        const raw = localStorage.getItem("auth.user");
-        const u = raw ? (JSON.parse(raw) as { role?: string; roles?: string[] }) : null;
-        const roles = new Set(
-          [u?.role, ...((u?.roles ?? []) as string[])].filter(Boolean) as string[],
-        );
-        if (roles.has("ROLE_ADMIN") || roles.has("ADMIN")) {
-          target = "/admin";
-        } else if (roles.has("ROLE_SALE") || roles.has("SALE")) {
-          target = "/sale/orders";
-        } else {
-          target = "/";
-        }
-      }
+      const roles = getRoles();
+
+      // Nếu có ?next hợp lệ và user có quyền vào đó → dùng next
+      const target = safeNext && canAccess(safeNext, roles) ? safeNext : pickHomeByRole(roles);
 
       navigate(target, { replace: true });
     } catch (e: unknown) {
       const axiosErr = e as AxiosError<ApiErrorBody>;
       setErr(axiosErr.response?.data?.message ?? "Đăng nhập thất bại.");
+      setLoading(false);
     }
   };
 
   return (
     <div className="flex min-h-screen flex-col">
       <main className="relative flex flex-1 items-center justify-center px-4 py-10 text-white">
-        <div className="absolute inset-0 -z-10">
+        {/* background */}
+        <div className="absolute inset-0 z-0">
           <img
             src={bgPoster}
             alt="Books poster background"
             className="h-full w-full object-cover brightness-50"
+            loading="eager"
+            draggable={false}
           />
+          <div className="absolute inset-0 bg-black/40" />
         </div>
 
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/70 p-6 shadow-xl md:p-8">
+        {/* card */}
+        <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/10 bg-black/70 p-6 shadow-xl md:p-8">
           <h2 className="mb-6 text-center text-2xl font-bold md:text-3xl">Đăng nhập</h2>
 
-          <form className="space-y-4" onSubmit={onSubmit}>
+          <form className="space-y-4" onSubmit={onSubmit} noValidate>
             <input
               type="text"
               placeholder="Tên đăng nhập"
@@ -91,9 +147,10 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="mt-1 w-full cursor-pointer rounded-lg bg-red-500 py-3 text-base font-semibold text-white transition hover:bg-red-600 active:scale-[0.99] md:mt-2 md:py-3.5 md:text-lg"
+              disabled={loading}
+              className="mt-1 w-full cursor-pointer rounded-lg bg-red-500 py-3 text-base font-semibold text-white transition hover:bg-red-600 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 md:mt-2 md:py-3.5 md:text-lg"
             >
-              Đăng nhập
+              {loading ? "Đang xử lý..." : "Đăng nhập"}
             </button>
 
             <p className="text-center text-sm md:text-base">
