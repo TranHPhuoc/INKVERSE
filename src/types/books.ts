@@ -1,9 +1,6 @@
 // src/types/books.ts
 import api from "../services/api.ts";
 
-/* ---------------------------------------------------
- * Small utilities
- * --------------------------------------------------- */
 function unwrap<T>(payload: unknown): T {
   if (
     payload !== null &&
@@ -15,7 +12,6 @@ function unwrap<T>(payload: unknown): T {
   return payload as T;
 }
 
-/** Convert 1-based page index (UI) → 0-based (BE) */
 function toZeroBased(page?: number) {
   const p = Number(page ?? 1);
   return Math.max(0, p - 1);
@@ -177,7 +173,7 @@ export type ListParams = {
   categoryId?: number;
   publisherId?: number;
   supplierId?: number;
-  page?: number; // 1-based (UI)
+  page?: number;
   size?: number;
   sort?: string;
   direction?: "ASC" | "DESC";

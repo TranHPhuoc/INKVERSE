@@ -20,7 +20,7 @@ export default function RelatedBooksGrid({ bookId }: Props) {
     };
   }, [bookId]);
 
-  // ===== Loading skeleton =====
+  // ===== Loading skeleton ===== //
   if (loading) {
     return (
       <section className="relative">

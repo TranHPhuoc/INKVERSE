@@ -28,7 +28,7 @@ export default function ProductCard({ item, catSlug }: Props) {
   return (
     <Link
       to={href}
-      className="group flex h-full flex-col rounded-xl border p-3 transition hover:shadow-md"
+      className="group flex h-full flex-col rounded-xl p-3 transition hover:shadow-md"
       aria-label={item.title}
       title={item.title}
     >

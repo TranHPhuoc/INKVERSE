@@ -148,7 +148,7 @@ export default function CartPage() {
         <button
           onClick={handleToggleAll}
           disabled={working}
-          className="flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2 transition hover:bg-gray-50"
+          className="flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 transition hover:bg-gray-50"
         >
           {allSelected ? <CheckSquare className="h-5 w-5" /> : <Square className="h-5 w-5" />}
           {allSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
@@ -175,15 +175,15 @@ export default function CartPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3 lg:divide-x lg:divide-gray-200">
         {/* List */}
-        <div className="space-y-3 lg:col-span-2">
+        <div className="space-y-3 pr-0 lg:col-span-2 lg:pr-6">
           {data.items.map((it) => (
             <motion.div
               key={it.bookId}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-4 rounded-2xl border p-4 transition hover:bg-gray-50"
+              className="flex items-center gap-4 rounded-2xl p-4 transition hover:bg-gray-50"
             >
               <button
                 onClick={() => handleToggleItem(it)}
@@ -191,7 +191,11 @@ export default function CartPage() {
                 className="p-1"
                 aria-label="toggle selected"
               >
-                {it.selected ? <CheckSquare className="h-5 w-5" /> : <Square className="h-5 w-5" />}
+                {it.selected ? (
+                  <CheckSquare className="h-5 w-5 cursor-pointer" />
+                ) : (
+                  <Square className="h-5 w-5 cursor-pointer" />
+                )}
               </button>
 
               <img
@@ -222,7 +226,7 @@ export default function CartPage() {
                       disabled={working}
                       className="p-1 hover:opacity-80"
                     >
-                      <Minus className="h-4 w-4" />
+                      <Minus className="h-4 w-4 cursor-pointer" />
                     </button>
                     <span className="min-w-6 text-center">{it.qty}</span>
                     <button
@@ -230,16 +234,16 @@ export default function CartPage() {
                       disabled={working || it.qty >= it.stockAvailable || it.qty >= 99}
                       className="p-1 hover:opacity-80"
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-4 w-4 cursor-pointer" />
                     </button>
                   </div>
 
                   <button
                     onClick={() => handleRemove(it.bookId)}
                     disabled={working}
-                    className="flex items-center gap-2 rounded-xl px-3 py-1.5 transition hover:bg-gray-50"
+                    className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-1.5 transition hover:bg-gray-50"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4 cursor-pointer" />
                     Xoá
                   </button>
 
@@ -249,9 +253,8 @@ export default function CartPage() {
             </motion.div>
           ))}
         </div>
-
         {/* Summary */}
-        <div className="h-fit rounded-2xl border p-5">
+        <div className="h-fit px-5">
           <h2 className="mb-4 text-lg font-semibold">Tóm tắt</h2>
           <div className="space-y-2 text-sm">
             <Row label="Tạm tính" value={vnd(data.subtotal)} />
@@ -275,9 +278,6 @@ export default function CartPage() {
           >
             Tiến hành đặt hàng
           </button>
-          <p className="mt-2 text-xs text-gray-400">
-            * Đơn chỉ tạo từ những sản phẩm đang được chọn.
-          </p>
         </div>
       </div>
 

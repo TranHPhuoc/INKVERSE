@@ -80,7 +80,7 @@ export default function SearchPage() {
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <main className="flex-1 bg-gray-50">
-        <div className="mx-auto max-w-[1990px] px-4 py-6 md:px-6">
+        <div className="mx-auto max-w-[1550px] px-4 py-6 md:px-6">
           <div className="mb-4 text-sm text-gray-600">
             Kết quả cho <span className="font-medium">"{q}"</span>
             {pageData && <span> — {pageData.totalElements} sản phẩm</span>}

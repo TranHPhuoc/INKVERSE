@@ -12,7 +12,6 @@ import {
 import ProductCard from "../components/ProductCard";
 import Pagination from "../components/Pagination";
 import ErrorBoundary from "../components/ErrorBoundary";
-
 import type { BookListItem, HomeFeed, SpringPage } from "../types/books";
 import { getHomeFeed, listBooks } from "../types/books";
 
@@ -21,6 +20,7 @@ import banner2 from "../assets/BannerFlashsale.jpg";
 import banner3 from "../assets/backgroundbooks.png";
 import banner4 from "../assets/INKVERSE.SITE1.jpg";
 import banner5 from "../assets/INKVERSE.SITE2.png";
+import FeaturedAuthorsTabs from "../components/FeaturedAuthor";
 
 /* ───────────────────────── constants ───────────────────────── */
 const BANNERS: string[] = [banner1, banner2, banner3];
@@ -155,7 +155,7 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000, clas
   return (
     <div
       ref={wrapRef}
-      className={`relative aspect-[2240/1109] max-h-[820px] w-full overflow-hidden rounded-xl border bg-gray-100 ${className ?? ""}`}
+      className={`relative aspect-[2240/1109] max-h-[820px] w-full overflow-hidden rounded-xl bg-gray-100 ${className ?? ""}`}
       onMouseEnter={() => (isHoverRef.current = true)}
       onMouseLeave={() => (isHoverRef.current = false)}
       tabIndex={0}
@@ -225,7 +225,7 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000, clas
             {images.map((_, i) => (
               <button
                 key={i}
-                className={`h-2.5 w-2.5 rounded-full border transition-colors ${
+                className={`h-2.5 w-2.5 rounded-full transition-colors ${
                   i === real ? "border-white bg-white" : "border-white/70 bg-white/60"
                 }`}
                 onClick={() => setIndex(i + 1)}
@@ -340,7 +340,7 @@ export default function HomePage() {
                 </div>
 
                 <div className="hidden flex-col gap-4 lg:col-span-4 lg:flex">
-                  <div className="overflow-hidden rounded-xl border bg-gray-100">
+                  <div className="overflow-hidden rounded-xl bg-gray-100">
                     <div className="aspect-[1120/540] w-full">
                       <img
                         src={banner4}
@@ -351,7 +351,7 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <div className="overflow-hidden rounded-xl border bg-gray-100">
+                  <div className="overflow-hidden rounded-xl bg-gray-100">
                     <div className="aspect-[1120/540] w-full">
                       <img
                         src={banner5}
@@ -377,12 +377,8 @@ export default function HomePage() {
                 <ErrorBoundary
                   fallback={<div className="p-4 text-rose-600">Không tải được Flash sale</div>}
                 >
-                  <div className="overflow-hidden rounded-2xl border bg-white/80 shadow">
-                    <SectionHeader
-                      label="Flash Sales"
-                      badge={`${flashSale.length} sản phẩm`}
-                      tone="rose"
-                    />
+                  <div className="overflow-hidden rounded-2xl bg-white/80 shadow">
+                    <SectionHeader label="FLASH SALES" bg="bg-[#BE2623]" text="text-white" />
                     <div className="p-4">{renderGrid(flashSale, loadingFeed)}</div>
                   </div>
                 </ErrorBoundary>
@@ -396,8 +392,8 @@ export default function HomePage() {
                 <ErrorBoundary
                   fallback={<div className="p-4 text-rose-600">Không tải được Sản phẩm mới</div>}
                 >
-                  <div className="overflow-hidden rounded-2xl border bg-white/80 shadow">
-                    <SectionHeader label="Sản phẩm mới" badge={`${15} / trang`} tone="indigo" />
+                  <div className="overflow-hidden rounded-2xl bg-white/80 shadow">
+                    <SectionHeader label="SẢN PHẨM MỚI" bg="bg-[#1E3A8A]" text="text-white" />
                     <div className="p-4">
                       {renderGrid(newest, false)}
                       <Pagination
@@ -413,6 +409,17 @@ export default function HomePage() {
               </div>
             </div>
           </Reveal>
+          {/* Featured Authors */}
+          <Reveal>
+            <div className="py-6">
+              <div className={SHELL}>
+                <div className="overflow-hidden rounded-2xl bg-white/80 shadow">
+                  <SectionHeader label="TÁC GIẢ NỔI BẬT" bg="bg-[#0EA5E9]" text="text-white" />
+                  <FeaturedAuthorsTabs />
+                </div>
+              </div>
+            </div>
+          </Reveal>
           {/* Bestseller */}
           <Reveal>
             <div className="py-6" ref={bestRef}>
@@ -420,12 +427,8 @@ export default function HomePage() {
                 <ErrorBoundary
                   fallback={<div className="p-4 text-rose-600">Không tải được Bán chạy</div>}
                 >
-                  <div className="overflow-hidden rounded-2xl border bg-white/80 shadow">
-                    <SectionHeader
-                      label="Sản phẩm bán chạy"
-                      badge={`${feed?.bestSellers?.length ?? 0} sản phẩm`}
-                      tone="rose"
-                    />
+                  <div className="overflow-hidden rounded-2xl bg-white/80 shadow">
+                    <SectionHeader label="SẢN PHẨM BÁN CHẠY" bg="bg-[#047857]" text="text-white" />
                     <div className="p-4">{renderGrid(feed?.bestSellers ?? [], loadingFeed)}</div>
                   </div>
                 </ErrorBoundary>
@@ -433,7 +436,7 @@ export default function HomePage() {
             </div>
           </Reveal>
           {/* Services */}
-          <FullBleed className="border-t bg-white">
+          <FullBleed>
             <div className={`${SHELL} py-8`}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 {[
@@ -445,13 +448,13 @@ export default function HomePage() {
                   },
                   {
                     Icon: Headphones,
-                    title: "Dịch vụ chăm sóc khách hàng 24/7",
+                    title: "DỊCH VỤ CHĂM SÓC KHÁCH HÀNG 24/7",
                     sub: "Hỗ trợ thân thiện mọi lúc",
                     tone: "indigo" as const,
                   },
                   {
                     Icon: ShieldCheck,
-                    title: "Thanh toán an toàn",
+                    title: "THANH TOÁN AN TOÀN",
                     sub: "Bảo mật thông tin & hoàn tiền",
                     tone: "rose" as const,
                   },
@@ -459,7 +462,7 @@ export default function HomePage() {
                   <Reveal
                     key={i}
                     index={i}
-                    className="flex items-center gap-4 rounded-2xl border bg-white p-5 shadow"
+                    className="flex items-center gap-4 rounded-2xl p-5 shadow"
                   >
                     <div
                       className={`${
@@ -486,45 +489,27 @@ export default function HomePage() {
 }
 
 /* ───────────────────── Section Header ───────────────────── */
-const SectionHeader: React.FC<{ label: string; badge?: string; tone?: "rose" | "indigo" }> = ({
-  label,
-  badge,
-  tone = "rose",
-}) => {
-  const color =
-    tone === "rose"
-      ? {
-          bar: "bg-rose-600",
-          chipBg: "bg-rose-50",
-          chipText: "text-rose-700",
-          chipRing: "ring-rose-200",
-          from: "from-rose-50",
-          to: "to-white",
-        }
-      : {
-          bar: "bg-indigo-600",
-          chipBg: "bg-indigo-50",
-          chipText: "text-indigo-700",
-          chipRing: "ring-indigo-200",
-          from: "from-indigo-50",
-          to: "to-white",
-        };
-
+const SectionHeader: React.FC<{
+  label: string;
+  badge?: string;
+  /** Tailwind classes cho nền & chữ. Ví dụ: bg-[#BE2623] text-white */
+  bg?: string;
+  text?: string;
+}> = ({ label, badge, bg = "bg-white", text = "text-gray-900" }) => {
   return (
     <div
-      className={`flex items-center justify-between rounded-t-2xl border-b bg-gradient-to-b px-4 py-3 ${color.from} ${color.to}`}
+      className={[
+        "flex items-center justify-center rounded-t-2xl border-b px-4 py-3",
+        bg,
+        text,
+      ].join(" ")}
     >
-      <div className="flex items-center gap-3">
-        <span aria-hidden className={`h-7 w-2.5 rounded-full md:w-3 ${color.bar}`} />
-        <h2 className="text-lg font-semibold tracking-tight md:text-xl">{label}</h2>
-        {!!badge && (
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] ${color.chipBg} ${color.chipText} ring-1 ${color.chipRing}`}
-          >
-            {badge}
-          </span>
-        )}
-      </div>
+      <h2 className="text-lg font-semibold tracking-tight md:text-xl">{label}</h2>
+      {!!badge && (
+        <span className="ml-3 inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-[11px] font-medium">
+          {badge}
+        </span>
+      )}
     </div>
   );
 };

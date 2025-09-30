@@ -24,9 +24,9 @@ function SideItem({ to, label }: { to: string; label: string }) {
         />
       )}
       <NavLink
-        to={to} // relative -> /tai-khoan/{to}
+        to={to}
         className={`relative z-10 flex h-10 items-center rounded-lg px-4 text-sm leading-[1.2] font-medium transition-colors duration-200 select-none ${
-          active ? "text-gray-900" : "text-gray-700 hover:text-gray-900"
+          active ? "text-gray-900" : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
         }`}
       >
         {label}
@@ -39,7 +39,7 @@ export default function AccountLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // BẮT BUỘC redirect khi đang đứng đúng /tai-khoan
+  // redirect về tab mặc định
   useEffect(() => {
     const base = "/tai-khoan";
     if (location.pathname === base || location.pathname === `${base}/`) {
@@ -49,14 +49,16 @@ export default function AccountLayout() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-      {/* Khung chung: sidebar + content */}
-      <div className="overflow-hidden rounded-2xl border bg-white/90 shadow-sm">
-        <div className="grid gap-0 md:grid-cols-[260px_1fr]">
+      {/* Khung chung: bỏ border dày, dùng ring mờ + divide-x */}
+      <div className="overflow-hidden rounded-2xl bg-white/90 shadow-md ring-1 ring-black/5">
+        <div className="grid gap-0 md:grid-cols-[260px_1fr] md:divide-x md:divide-gray-200">
           {/* Sidebar */}
-          <aside className="relative border-b md:border-r md:border-b-0">
-            <div className="self-start md:sticky md:top-[80px]">
-              <div className="mb-1 px-4 text-sm font-semibold text-black">QUẢN LÝ TÀI KHOẢN</div>
-              <nav className="relative space-y-1 px-2">
+          <aside className="relative bg-white">
+            <div className="md:sticky md:top-[80px] md:p-4">
+              <div className="mb-2 px-3 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+                Quản lý tài khoản
+              </div>
+              <nav className="relative space-y-1 px-2 pb-2">
                 <SideItem to="ho-so-cua-toi" label="Hồ sơ của tôi" />
                 <SideItem to="dia-chi" label="Địa chỉ" />
                 <SideItem to="doi-mat-khau" label="Đổi mật khẩu" />
@@ -64,7 +66,8 @@ export default function AccountLayout() {
             </div>
           </aside>
 
-          <section className="p-4 md:p-6">
+          {/* Content */}
+          <section className="bg-white p-4 md:p-6">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}

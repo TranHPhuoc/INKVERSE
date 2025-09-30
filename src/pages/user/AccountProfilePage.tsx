@@ -62,9 +62,9 @@ export default function AccountProfilePage() {
   const [firstName, setFirstName] = useState("");
   const [phone, setPhone] = useState("");
   const [gender, setGender] = useState<Gender | "">("");
-  const [d, setD] = useState<string>(""); // day
-  const [m, setM] = useState<string>(""); // month
-  const [y, setY] = useState<string>(""); // year
+  const [d, setD] = useState<string>("");
+  const [m, setM] = useState<string>("");
+  const [y, setY] = useState<string>("");
 
   const birthISO = useMemo(() => {
     if (!isValidYMD(y, m, d)) return "";
@@ -90,10 +90,6 @@ export default function AccountProfilePage() {
           setY(yy ?? "");
           setM(mm ?? "");
           setD(dd ?? "");
-        } else {
-          setY("");
-          setM("");
-          setD("");
         }
       } finally {
         setLoading(false);
@@ -127,7 +123,7 @@ export default function AccountProfilePage() {
 
   if (loading) {
     return (
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div className="rounded-2xl bg-white/80 p-6 shadow-md ring-1 ring-black/5">
         <div className="mb-4 h-5 w-40 animate-pulse rounded bg-gray-200" />
         <div className="mb-3 h-10 w-full animate-pulse rounded bg-gray-200" />
         <div className="mb-3 h-10 w-full animate-pulse rounded bg-gray-200" />
@@ -140,22 +136,22 @@ export default function AccountProfilePage() {
     <>
       <motion.form
         onSubmit={onSubmit}
-        className="rounded-2xl border bg-white/80 p-6 shadow-sm backdrop-blur"
+        className="rounded-2xl bg-white/90 p-6 shadow-md ring-1 ring-black/5 backdrop-blur"
         initial={{ opacity: 0.95 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
       >
-        <h2 className="mb-5 text-xl font-semibold">Hồ sơ cá nhân</h2>
+        <h2 className="mb-6 text-xl font-semibold text-gray-800">Hồ sơ cá nhân</h2>
 
         {/* Họ */}
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium">
+          <label className="mb-1 block text-sm font-medium text-gray-600">
             Họ<span className="text-red-500">*</span>
           </label>
           <input
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
-            className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500"
             placeholder="Ví dụ: Trần"
             required
           />
@@ -163,13 +159,13 @@ export default function AccountProfilePage() {
 
         {/* Tên */}
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium">
+          <label className="mb-1 block text-sm font-medium text-gray-600">
             Tên<span className="text-red-500">*</span>
           </label>
           <input
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
-            className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500"
             placeholder="Ví dụ: Hữu Phước"
             required
           />
@@ -177,69 +173,50 @@ export default function AccountProfilePage() {
 
         {/* Số điện thoại */}
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium">Số điện thoại</label>
-          <div className="flex gap-3">
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="flex-1 rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
-              placeholder="Nhập số điện thoại"
-            />
-          </div>
+          <label className="mb-1 block text-sm font-medium text-gray-600">Số điện thoại</label>
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500"
+            placeholder="Nhập số điện thoại"
+          />
         </div>
 
-        {/* Email (chỉ hiển thị) */}
+        {/* Email */}
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium">Email</label>
-          <div className="flex gap-3">
-            <input
-              value={me?.email || ""}
-              disabled
-              className="flex-1 rounded-lg border bg-gray-50 px-3 py-2 text-gray-500"
-            />
-          </div>
+          <label className="mb-1 block text-sm font-medium text-gray-600">Email</label>
+          <input
+            value={me?.email || ""}
+            disabled
+            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-500"
+          />
         </div>
 
         {/* Giới tính */}
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium">
+          <label className="mb-1 block text-sm font-medium text-gray-600">
             Giới tính<span className="text-red-500">*</span>
           </label>
           <div className="flex items-center gap-6">
-            <label className="inline-flex items-center gap-2">
-              <input
-                type="radio"
-                name="gender"
-                checked={gender === "MALE"}
-                onChange={() => setGender("MALE")}
-              />
-              Nam
-            </label>
-            <label className="inline-flex items-center gap-2">
-              <input
-                type="radio"
-                name="gender"
-                checked={gender === "FEMALE"}
-                onChange={() => setGender("FEMALE")}
-              />
-              Nữ
-            </label>
-            <label className="inline-flex items-center gap-2">
-              <input
-                type="radio"
-                name="gender"
-                checked={gender === "OTHER"}
-                onChange={() => setGender("OTHER")}
-              />
-              Khác
-            </label>
+            {(["MALE", "FEMALE", "OTHER"] as Gender[]).map((g) => (
+              <label key={g} className="inline-flex items-center gap-2 text-gray-700">
+                <input
+                  type="radio"
+                  name="gender"
+                  checked={gender === g}
+                  onChange={() => setGender(g)}
+                  className="text-rose-600 focus:ring-rose-500"
+                />
+                {g === "MALE" ? "Nam" : g === "FEMALE" ? "Nữ" : "Khác"}
+              </label>
+            ))}
           </div>
         </div>
 
-        {/* Birthday: dd / mm / yyyy */}
+        {/* Birthday */}
         <div className="mb-6">
-          <label className="mb-1 block text-sm font-medium">
-            Birthday<span className="text-red-500">*</span>
+          <label className="mb-1 block text-sm font-medium text-gray-600">
+            Ngày sinh<span className="text-red-500">*</span>
           </label>
           <div className="grid max-w-xl grid-cols-3 gap-3">
             <input
@@ -248,7 +225,7 @@ export default function AccountProfilePage() {
               maxLength={2}
               value={d}
               onChange={(e) => setD(e.target.value.replace(/\D/g, "").slice(0, 2))}
-              className="rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
+              className="rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500"
               required
             />
             <input
@@ -257,7 +234,7 @@ export default function AccountProfilePage() {
               maxLength={2}
               value={m}
               onChange={(e) => setM(e.target.value.replace(/\D/g, "").slice(0, 2))}
-              className="rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
+              className="rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500"
               required
             />
             <input
@@ -266,7 +243,7 @@ export default function AccountProfilePage() {
               maxLength={4}
               value={y}
               onChange={(e) => setY(e.target.value.replace(/\D/g, "").slice(0, 4))}
-              className="rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-gray-800"
+              className="rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500"
               required
             />
           </div>
@@ -276,19 +253,25 @@ export default function AccountProfilePage() {
             </p>
           ) : null}
         </div>
-
         <div className="pt-2">
-          <button
+          <motion.button
             type="submit"
             disabled={saving}
-            className="w-48 cursor-pointer rounded-xl bg-rose-600 px-4 py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-rose-600 px-5 font-medium text-white shadow-sm hover:opacity-95 disabled:opacity-60"
           >
+            <svg viewBox="0 0 24 24" className="h-5 w-5">
+              <path
+                fill="currentColor"
+                d="M19 21H5a2 2 0 0 1-2-2V7a1 1 0 0 1 1-1h3l1-2h8l1 2h3a1 1 0 0 0 1 1v12a2 2 0 0 1-2 2M6 9v10h12V9z"
+              />
+            </svg>
             {saving ? "Đang lưu..." : "Lưu thay đổi"}
-          </button>
+          </motion.button>
         </div>
       </motion.form>
 
-      {/* Toast */}
       <CartToast
         open={toastOpen}
         text={toastMsg}

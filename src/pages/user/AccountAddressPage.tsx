@@ -205,7 +205,7 @@ export default function AccountAddressPage() {
       <div className="mx-auto max-w-5xl space-y-6 px-4">
         {/* header */}
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600/10 text-indigo-700">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/60">
             <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden>
               <path
                 fill="currentColor"
@@ -218,7 +218,7 @@ export default function AccountAddressPage() {
 
         {/* error */}
         {err && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50/70 px-4 py-3 text-sm text-rose-700 shadow-sm">
+          <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-200/70">
             {err}
           </div>
         )}
@@ -226,13 +226,13 @@ export default function AccountAddressPage() {
         {/* form */}
         <form
           onSubmit={onSubmit}
-          className="space-y-4 rounded-2xl border bg-white/80 p-5 shadow-sm ring-1 ring-black/5 backdrop-blur"
+          className="space-y-4 rounded-2xl bg-white/90 p-6 shadow-md ring-1 ring-black/5 backdrop-blur-sm"
         >
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1.5">
               <span className="text-xs font-medium text-gray-600">Họ và tên</span>
               <input
-                className="w-full rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70"
+                className="w-full rounded-xl bg-gray-50 px-3.5 py-2.5 ring-1 ring-gray-200 transition outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/60"
                 required
                 {...bind("fullName")}
               />
@@ -243,7 +243,7 @@ export default function AccountAddressPage() {
                 type="tel"
                 inputMode="tel"
                 pattern="^[0-9+\-\s]{8,15}$"
-                className="w-full rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70"
+                className="w-full rounded-xl bg-gray-50 px-3.5 py-2.5 ring-1 ring-gray-200 transition outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/60"
                 required
                 {...bind("phone")}
               />
@@ -257,7 +257,7 @@ export default function AccountAddressPage() {
               <label className="space-y-1.5">
                 <span className="text-xs font-medium text-gray-600">Tỉnh/Thành phố</span>
                 <select
-                  className="w-full rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70"
+                  className="w-full rounded-xl bg-gray-50 px-3.5 py-2.5 ring-1 ring-gray-200 transition outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/60"
                   value={provinceCode}
                   onChange={(e) => {
                     const code = e.target.value ? Number(e.target.value) : "";
@@ -280,7 +280,7 @@ export default function AccountAddressPage() {
               <label className="space-y-1.5">
                 <span className="text-xs font-medium text-gray-600">Quận/Huyện</span>
                 <select
-                  className="w-full rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70 disabled:opacity-60"
+                  className="w-full rounded-xl bg-gray-50 px-3.5 py-2.5 ring-1 ring-gray-200 transition outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/60 disabled:opacity-60"
                   value={districtCode}
                   onChange={(e) => {
                     const code = e.target.value ? Number(e.target.value) : "";
@@ -303,7 +303,7 @@ export default function AccountAddressPage() {
               <label className="space-y-1.5">
                 <span className="text-xs font-medium text-gray-600">Phường/Xã</span>
                 <select
-                  className="w-full rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70 disabled:opacity-60"
+                  className="w-full rounded-xl bg-gray-50 px-3.5 py-2.5 ring-1 ring-gray-200 transition outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/60 disabled:opacity-60"
                   value={wardCode}
                   onChange={(e) => setWardCode(e.target.value ? Number(e.target.value) : "")}
                   disabled={!districtCode}
@@ -324,7 +324,7 @@ export default function AccountAddressPage() {
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-gray-600">Địa chỉ (Số nhà, đường…)</span>
             <input
-              className="w-full rounded-xl border px-3.5 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/70"
+              className="w-full rounded-xl bg-gray-50 px-3.5 py-2.5 ring-1 ring-gray-200 transition outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/60"
               required
               {...bind("line1")}
             />
@@ -334,7 +334,7 @@ export default function AccountAddressPage() {
           <label className="inline-flex items-center gap-3 select-none">
             <input
               type="checkbox"
-              className="h-4 w-4 cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 cursor-pointer rounded text-indigo-600 ring-1 ring-gray-300 focus:ring-indigo-500"
               checked={!!form.makeDefault}
               onChange={(e) => setForm((s) => ({ ...s, makeDefault: e.target.checked }))}
             />
@@ -347,7 +347,7 @@ export default function AccountAddressPage() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="h-11 cursor-pointer rounded-xl border bg-white px-4 font-medium text-gray-700 hover:bg-gray-50"
+                className="h-11 cursor-pointer rounded-xl bg-gray-50 px-4 font-medium text-gray-700 hover:bg-gray-100"
               >
                 Hủy
               </button>
@@ -374,12 +374,12 @@ export default function AccountAddressPage() {
         </form>
 
         {/* list */}
-        <div className="overflow-hidden rounded-2xl border bg-white/80 shadow-sm ring-1 ring-black/5 backdrop-blur">
-          <div className="border-b bg-gray-50/60 px-5 py-3">
-            <h2 className="text-sm font-medium text-gray-700">Danh sách địa chỉ</h2>
+        <div className="overflow-hidden rounded-2xl bg-white/90 shadow-md ring-1 ring-black/5 backdrop-blur-sm">
+          <div className="bg-gradient-to-b from-gray-50 to-white px-5 py-3">
+            <h2 className="text-sm font-medium text-gray-700">DANH SÁCH ĐỊA CHỈ </h2>
           </div>
 
-          <div className="divide-y">
+          <div className="divide-y divide-gray-200/60">
             {list.length === 0 && (
               <div className="px-5 py-8 text-center text-gray-500">Chưa có địa chỉ nào</div>
             )}
@@ -387,7 +387,7 @@ export default function AccountAddressPage() {
             {list.map((a) => (
               <div
                 key={a.id}
-                className="grid grid-cols-1 gap-3 px-5 py-4 md:grid-cols-[1fr_140px_1fr_120px_210px] md:items-center"
+                className="gap-1bg-white grid grid-cols-1 px-5 py-4 md:grid-cols-[1fr_140px_1fr_120px_210px] md:items-center"
               >
                 <div className="font-medium text-gray-900">{a.fullName}</div>
                 <div className="text-sm text-gray-600">{a.phone}</div>
@@ -420,7 +420,7 @@ export default function AccountAddressPage() {
                       }}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="h-9 min-w-[110px] cursor-pointer rounded-lg border bg-white px-4 text-sm whitespace-nowrap text-gray-700 hover:bg-gray-50"
+                      className="h-9 min-w-[110px] cursor-pointer rounded-lg bg-gray-50 px-4 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       Đặt mặc định
                     </motion.button>
@@ -441,7 +441,7 @@ export default function AccountAddressPage() {
                     }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="h-9 cursor-pointer rounded-lg border bg-white px-3 text-sm text-gray-700 hover:bg-gray-50"
+                    className="h-9 cursor-pointer rounded-lg bg-gray-50 px-3 text-sm text-gray-700 hover:bg-gray-100"
                   >
                     Sửa
                   </motion.button>
@@ -456,7 +456,7 @@ export default function AccountAddressPage() {
                     }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="h-9 cursor-pointer rounded-lg border border-rose-300 bg-rose-50 px-3 text-sm text-rose-700 hover:bg-rose-100"
+                    className="h-9 cursor-pointer rounded-lg bg-rose-50 px-3 text-sm text-rose-700 hover:bg-rose-100"
                   >
                     Xóa
                   </motion.button>
@@ -466,6 +466,7 @@ export default function AccountAddressPage() {
           </div>
         </div>
       </div>
+
       <CartToast
         open={toastOpen}
         text={toastMsg}
