@@ -133,13 +133,13 @@ function hardRedirect(url: string) {
     window.location.assign(url);
     return;
   } catch {
-    /* ignore */
+    /**/
   }
   try {
     window.location.replace(url);
     return;
   } catch {
-    /* ignore */
+    /**/
   }
   window.location.href = url;
 }
@@ -239,10 +239,11 @@ export default function CheckoutPage() {
       if (!orderCode) throw new Error("Không nhận được mã đơn hàng");
 
       if (payment === "VNPAY") {
-        // Cho trang Intro skip 1 lần sau khi quay về
         sessionStorage.setItem("intro.skip.once", "1");
-        // Return về homepage để tránh 404 (server luôn có index.html ở "/")
-        const returnUrl = `${window.location.origin}/?vnp_cb=1&skipIntro=1`;
+
+        // ✅ Đổi returnUrl về đúng trang return FE
+        const returnUrl = `${window.location.origin}/payment/vnpay/return?vnp_cb=1&skipIntro=1`;
+
         const { checkoutUrl } = await createVnpayCheckout(orderCode, returnUrl);
         hardRedirect(checkoutUrl);
         return;

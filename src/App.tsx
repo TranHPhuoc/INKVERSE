@@ -34,6 +34,7 @@ import OrderDetailPage from "./pages/OrderDetailPage";
 import OrderListPage from "./pages/OrderListPage";
 import FavoritesPage from "./pages/FavoritePage.tsx";
 import RelatedAllPage from "./pages/RelatedAllPage";
+import VNPayReturnPage from "./pages/VNPayReturnPage";
 
 // Pages – User
 import AccountLayout from "./pages/user/AccountLayout";
@@ -291,6 +292,14 @@ export default function App() {
                 element={
                   <PageTransition>
                     <RelatedAllPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/checkout/return"
+                element={
+                  <PageTransition>
+                    <VNPayReturnPage />
                   </PageTransition>
                 }
               />

@@ -16,8 +16,11 @@ RUN npm run build
 # ---- Runtime stage ----
 FROM nginx:1.27
 
-
+# copy file build ra thư mục html
 COPY --from=build /app/dist /usr/share/nginx/html
 
-EXPOSE 3000
+# copy cấu hình nginx custom thay thế default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

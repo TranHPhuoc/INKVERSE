@@ -34,3 +34,6 @@ export async function parseVnpayReturnRaw(rawQuery: string) {
   const res = await api.get<ResVnpReturn>(url);
   return res.data;
 }
+export async function getVnpayReturnInfo(rawQuery: string) {
+  return parseVnpayReturnRaw(rawQuery);
+}

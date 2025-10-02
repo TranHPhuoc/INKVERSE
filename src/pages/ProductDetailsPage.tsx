@@ -469,6 +469,7 @@ export default function ProductDetailsPage() {
               <div className="rounded-2xl border border-gray-100 bg-white/70 p-5 shadow-sm ring-1 ring-white/50 backdrop-blur">
                 <h2 className="mb-3 text-lg font-semibold text-gray-900">Thông tin chi tiết</h2>
                 <div>
+                  {data.isbn13 && <SpecRow label="Mã sách">{data.isbn13}</SpecRow>}
                   {data.supplier && (
                     <SpecRow label="Tên nhà cung cấp">{data.supplier.name}</SpecRow>
                   )}

@@ -1,7 +1,15 @@
 // ================= Enums (match BE) =================
 export type DeliveryMethod = "STANDARD" | "EXPRESS" | "PICKUP";
 export type PaymentMethod = "COD" | "VNPAY" | "MOMO" | "BANK_TRANSFER";
-export type PaymentStatus = "UNPAID" | "PENDING" | "PAID" | "REFUNDED";
+export type PaymentStatus =
+  | "PENDING"
+  | "UNPAID"
+  | "PAID"
+  | "FAILED"
+  | "CANCELED"
+  | "REFUNDED"
+  | "REFUND_PENDING";
+
 export type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
@@ -41,8 +49,8 @@ export type ResOrderItem = {
   title: string;
   imageUrl: string | null;
   sku: string | null;
-  price: string | number; // priceSnapshot
-  discount: string | number; // discountSnapshot
+  price: string | number;
+  discount: string | number;
   qty: number;
   lineTotal: string | number;
 };

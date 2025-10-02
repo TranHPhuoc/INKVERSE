@@ -12,6 +12,7 @@ import {
 import ProductCard from "../components/ProductCard";
 import Pagination from "../components/Pagination";
 import ErrorBoundary from "../components/ErrorBoundary";
+import ProductCarousel from "../components/ProductCarousel";
 import type { BookListItem, HomeFeed, SpringPage } from "../types/books";
 import { getHomeFeed, listBooks } from "../types/books";
 
@@ -80,7 +81,7 @@ const isSaleActive = (b: BookListItem) => {
   return startOK && endOK;
 };
 
-/* ───────────────────────── components ───────────────────────── */
+/* ───────────────────────── Banner ───────────────────────── */
 type HeroBannerProps = { images: string[]; intervalMs?: number; className?: string };
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -103,10 +104,8 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000, clas
     return () => ro.disconnect();
   }, []);
 
-  // clone đầu/cuối để loop mượt
   const slides = images.length >= 1 ? [images.at(-1)!, ...images, images[0]!] : [];
 
-  // autoplay + hover pause
   useEffect(() => {
     if (images.length < 2) return;
     const start = () => {
@@ -130,13 +129,13 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000, clas
 
   const x = useMotionValue(0);
 
-  // reset về slide thật khi đang ở clone
   const onTransitionSettled = () => {
     if (images.length < 1) return;
     if (index === slides.length - 1) {
       setWithTransition(false);
       setIndex(1);
-      x.set(-wrapW * 1);
+      // x.set(wrapW) không cần * 1
+      x.set(-wrapW);
       requestAnimationFrame(() => setWithTransition(true));
     } else if (index === 0) {
       setWithTransition(false);
@@ -168,11 +167,7 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000, clas
     >
       <motion.div
         className="flex h-full will-change-transform"
-        style={{
-          x,
-          perspective: 1200,
-          transformStyle: "preserve-3d",
-        }}
+        style={{ x, perspective: 1200, transformStyle: "preserve-3d" }}
         animate={{ x: -index * wrapW }}
         transition={trackTransition}
         onAnimationComplete={onTransitionSettled}
@@ -242,8 +237,6 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ images, intervalMs = 3000, clas
 
 /* ───────────────────────── page ───────────────────────── */
 export default function HomePage() {
-  // const skeletonCount = 10;
-
   const flashRef = useRef<HTMLDivElement | null>(null);
   const newestRef = useRef<HTMLDivElement | null>(null);
   const bestRef = useRef<HTMLDivElement | null>(null);
@@ -253,7 +246,7 @@ export default function HomePage() {
   const [err, setErr] = useState<string | null>(null);
 
   const [newPage, setNewPage] = useState(1);
-  const [newSize] = useState(15);
+  const [newSize] = useState(18);
   const [newest, setNewest] = useState<BookListItem[]>([]);
   const [newTotalPages, setNewTotalPages] = useState(1);
 
@@ -306,7 +299,7 @@ export default function HomePage() {
     };
   }, [newPage, newSize]);
 
-  // Grid tự fill cột
+  // Grid cho "Sản phẩm mới"
   const renderGrid = (items: BookListItem[], loading: boolean) => (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4 md:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
       {loading && (!items || items.length === 0) ? (
@@ -326,6 +319,7 @@ export default function HomePage() {
   );
 
   const flashSale = useMemo(() => (feed?.featuredSale ?? []).filter(isSaleActive), [feed]);
+  const bestSellers = feed?.bestSellers ?? [];
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
@@ -344,6 +338,7 @@ export default function HomePage() {
                     <div className="aspect-[1120/540] w-full">
                       <img
                         src={banner4}
+                        alt="Inkverse side banner 1"
                         className="h-full w-full object-cover"
                         loading="lazy"
                         draggable={false}
@@ -355,6 +350,7 @@ export default function HomePage() {
                     <div className="aspect-[1120/540] w-full">
                       <img
                         src={banner5}
+                        alt="Inkverse side banner 2"
                         className="h-full w-full object-cover"
                         loading="lazy"
                         draggable={false}
@@ -365,12 +361,14 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+
           {err && (
             <div className="py-2">
               <div className={`${SHELL} text-rose-600`}>{err}</div>
             </div>
           )}
-          {/* Flash sale */}
+
+          {/* Flash sale – carousel 1 hàng × 6, step 1 */}
           <Reveal>
             <div className="py-6" ref={flashRef}>
               <div className={SHELL}>
@@ -379,13 +377,16 @@ export default function HomePage() {
                 >
                   <div className="overflow-hidden rounded-2xl bg-white/80 shadow">
                     <SectionHeader label="FLASH SALES" bg="bg-[#BE2623]" text="text-white" />
-                    <div className="p-4">{renderGrid(flashSale, loadingFeed)}</div>
+                    <div className="p-4">
+                      <ProductCarousel items={flashSale} rows={1} cols={6} loading={loadingFeed} />
+                    </div>
                   </div>
                 </ErrorBoundary>
               </div>
             </div>
           </Reveal>
-          {/* Newest */}
+
+          {/* Newest – giữ dạng lưới + phân trang */}
           <Reveal>
             <div className="py-6" ref={newestRef}>
               <div className={SHELL}>
@@ -409,6 +410,7 @@ export default function HomePage() {
               </div>
             </div>
           </Reveal>
+
           {/* Featured Authors */}
           <Reveal>
             <div className="py-6">
@@ -420,7 +422,8 @@ export default function HomePage() {
               </div>
             </div>
           </Reveal>
-          {/* Bestseller */}
+
+          {/* Best Sellers – carousel 2 hàng × 6, step 1 cột */}
           <Reveal>
             <div className="py-6" ref={bestRef}>
               <div className={SHELL}>
@@ -429,12 +432,20 @@ export default function HomePage() {
                 >
                   <div className="overflow-hidden rounded-2xl bg-white/80 shadow">
                     <SectionHeader label="SẢN PHẨM BÁN CHẠY" bg="bg-[#047857]" text="text-white" />
-                    <div className="p-4">{renderGrid(feed?.bestSellers ?? [], loadingFeed)}</div>
+                    <div className="p-4">
+                      <ProductCarousel
+                        items={bestSellers}
+                        rows={2}
+                        cols={6}
+                        loading={loadingFeed}
+                      />
+                    </div>
                   </div>
                 </ErrorBoundary>
               </div>
             </div>
           </Reveal>
+
           {/* Services */}
           <FullBleed>
             <div className={`${SHELL} py-8`}>
@@ -481,7 +492,7 @@ export default function HomePage() {
                 ))}
               </div>
             </div>
-          </FullBleed>{" "}
+          </FullBleed>
         </main>
       </ErrorBoundary>
     </div>

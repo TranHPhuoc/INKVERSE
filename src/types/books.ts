@@ -185,7 +185,7 @@ export type SearchBookReq = ListParams & { q: string };
 export async function listByCategorySlug(
   catSlug: string,
   page = 1,
-  size = 12,
+  size = 15,
   filters?: CatalogFilters,
 ): Promise<SpringPage<BookListItem>> {
   const qp = compactParams({
@@ -211,7 +211,7 @@ export async function listByCategorySlug(
 export async function listBooks(params: ListParams): Promise<SpringPage<BookListItem>> {
   const {
     page = 1,
-    size = 12,
+    size = 15,
     sort = "createdAt",
     direction = "DESC",
     status,
@@ -242,7 +242,7 @@ export async function searchBooks(params: SearchBookReq): Promise<SpringPage<Boo
   const {
     q,
     page = 1,
-    size = 12,
+    size = 15,
     sort = "createdAt",
     direction = "DESC",
     status,
