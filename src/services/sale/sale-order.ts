@@ -1,5 +1,4 @@
-import axios from "axios";
-import type { AxiosInstance } from "axios";
+import axios, { type AxiosInstance } from "axios";
 import api from "../api";
 import type {
   Page,
@@ -45,7 +44,6 @@ type SaleQuery = {
   to?: string;
 };
 
-// unwrap payload dạng { statusCode, data }
 function unwrap<T>(resp: { data: ApiResp<T> }): T {
   return resp.data.data;
 }
@@ -65,7 +63,7 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-/* -------------------- Calls -------------------- */
+/* -------------------- Calls (named exports) -------------------- */
 export async function saleSearchOrders(params: SearchParams): Promise<Page<ResOrderAdmin>> {
   const query: SaleQuery = {
     page: params.page ?? 0,
@@ -73,14 +71,12 @@ export async function saleSearchOrders(params: SearchParams): Promise<Page<ResOr
     sort: params.sort ?? "createdAt,desc",
   };
   if (params.q) query.q = params.q;
-  if (params.status) query.status = params.status; // gửi status để BE lọc & phân trang
+  if (params.status) query.status = params.status;
   if (params.paymentStatus) query.paymentStatus = params.paymentStatus;
   if (params.from) query.from = params.from;
   if (params.to) query.to = params.to;
 
-  const r = await client.get<ApiResp<Page<ResOrderAdmin>>>("/api/v1/sales/orders", {
-    params: query,
-  });
+  const r = await client.get<ApiResp<Page<ResOrderAdmin>>>("/api/v1/sales/orders", { params: query });
   return unwrap(r);
 }
 
@@ -127,10 +123,10 @@ export async function saleCancelOrder(id: number, body: ReqCancelOrder): Promise
   return unwrap(r);
 }
 
-export async function saleRefundManual(id: number, body: ReqRefundManual): Promise<ResOrderAdmin> {
-  const r = await client.post<ApiResp<ResOrderAdmin>>(
-    `/api/v1/sales/orders/${id}/refund-manual`,
-    body,
-  );
+export async function saleRefundManual(
+  id: number,
+  body: ReqRefundManual,
+): Promise<ResOrderAdmin> {
+  const r = await client.post<ApiResp<ResOrderAdmin>>(`/api/v1/sales/orders/${id}/refund-manual`, body);
   return unwrap(r);
 }

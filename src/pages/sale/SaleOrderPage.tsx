@@ -1,16 +1,15 @@
-// pages/sale/SaleOrderPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Clock, ClipboardCheck, Box, Truck, CheckCircle2, BadgeCheck, XCircle } from "lucide-react";
 
-import type { OrderStatus, ResOrderAdmin } from "../../types/sale-order";
+import type { OrderStatus, ResOrderAdmin, PaymentMethod } from "../../types/sale-order";
+import { PaymentStatusBadge } from "../../components/sale/StatusBadge";
 import {
   saleSearchOrders,
   saleUpdateStatus,
   type SearchParams,
 } from "../../services/sale/sale-order";
-import { PaymentStatusBadge } from "../../components/sale/StatusBadge";
 
 const nf = new Intl.NumberFormat("vi-VN");
 
@@ -36,6 +35,35 @@ const statusLabel: Record<OrderStatus, string> = {
   CANCELED: "Đã huỷ",
   CANCEL_REQUESTED: "Yêu cầu huỷ",
 };
+
+const payMethodLabel: Record<PaymentMethod, string> = {
+  COD: "Tiền mặt",
+  VNPAY: "VNPay",
+};
+const payMethodColor: Record<PaymentMethod, string> = {
+  COD: "bg-gray-100 text-gray-800 border-gray-300",
+  VNPAY: "bg-teal-100 text-teal-800 border-teal-300",
+};
+function normalizeMethod(v: unknown): PaymentMethod | null {
+  if (v == null) return null;
+  const s = String(v)
+    .toUpperCase()
+    .replace(/[^A-Z_]/g, "");
+  if (s === "COD" || s === "CASH" || s === "CASHONDELIVERY") return "COD";
+  if (s === "VNPAY" || s === "VN_PAY" || s === "VNPAYQR" || s === "VNPAY_QR") return "VNPAY";
+  return null;
+}
+function getPaymentMethod(o: ResOrderAdmin): PaymentMethod | null {
+  return (
+    normalizeMethod(o.paymentMethod) ??
+    normalizeMethod(o.payment?.paymentMethod) ??
+    normalizeMethod((o as Record<string, unknown>)["paymentType"]) ??
+    normalizeMethod((o as Record<string, unknown>)["payment_method"]) ??
+    normalizeMethod((o as Record<string, unknown>)["method"]) ??
+    normalizeMethod(o.payment && (o.payment as Record<string, unknown>)["method"]) ??
+    null
+  );
+}
 
 /* =================== Tabs =================== */
 type TabId =
@@ -117,16 +145,6 @@ const TAB_STATUS_MAP: Record<TabId, OrderStatus[]> = {
   canceled: ["CANCELED", "CANCEL_REQUESTED"],
 };
 
-function tabIdFromStatus(s: OrderStatus): TabId {
-  if (s === "PENDING") return "pending";
-  if (s === "CONFIRMED") return "confirmed";
-  if (s === "PROCESSING") return "processing";
-  if (s === "SHIPPED") return "shipping";
-  if (s === "DELIVERED") return "delivered";
-  if (s === "COMPLETED") return "completed";
-  return "canceled";
-}
-
 /* =================== Status machine =================== */
 const NEXT_ALLOWED: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ["CONFIRMED", "CANCEL_REQUESTED", "CANCELED"],
@@ -138,7 +156,6 @@ const NEXT_ALLOWED: Record<OrderStatus, OrderStatus[]> = {
   CANCEL_REQUESTED: ["CANCELED"],
   CANCELED: [],
 };
-
 const getSelectableStatuses = (cur: OrderStatus) => [cur, ...NEXT_ALLOWED[cur]];
 const isTransitionAllowed = (cur: OrderStatus, next: OrderStatus) =>
   cur === next || NEXT_ALLOWED[cur]?.includes(next) === true;
@@ -148,23 +165,19 @@ export default function SaleOrdersPage() {
   const [params, setParams] = useSearchParams();
 
   const activeTabId = (params.get("tab") as TabId) || "pending";
-
   const activeTab = useMemo<Tab>(() => {
     const i = TABS.findIndex((t) => t.id === activeTabId);
     return TABS[i === -1 ? 0 : i]!;
   }, [activeTabId]);
 
-  // Paging state (mirror URL)
   const [page, setPage] = useState<number>(Number(params.get("page") ?? 0));
   const [size, setSize] = useState<number>(Number(params.get("size") ?? 10));
 
-  // Filters từ URL
   const q = params.get("q") ?? "";
   const from = params.get("from") ?? "";
   const to = params.get("to") ?? "";
   const sort = params.get("sort") ?? "createdAt,desc";
 
-  // Đồng bộ page/size về URL
   useEffect(() => {
     const p = new URLSearchParams(params);
     p.set("page", String(page));
@@ -185,15 +198,7 @@ export default function SaleOrdersPage() {
       const statuses = TAB_STATUS_MAP[activeTabId];
       const singleStatus = statuses.length === 1 ? statuses[0] : undefined;
 
-      // === Cách A: KHÔNG gán undefined (hợp lệ với exactOptionalPropertyTypes) ===
-      const base: SearchParams = {
-        q, // luôn là string (có thể rỗng)
-        from,
-        to,
-        page, // number
-        size, // number
-        sort, // string "createdAt,desc"...
-      };
+      const base: SearchParams = { q, from, to, page, size, sort };
       const query: SearchParams = singleStatus ? { ...base, status: singleStatus } : base;
 
       const res = await saleSearchOrders(query);
@@ -245,6 +250,16 @@ export default function SaleOrdersPage() {
     }
   }
 
+  function tabIdFromStatus(s: OrderStatus): TabId {
+    if (s === "PENDING") return "pending";
+    if (s === "CONFIRMED") return "confirmed";
+    if (s === "PROCESSING") return "processing";
+    if (s === "SHIPPED") return "shipping";
+    if (s === "DELIVERED") return "delivered";
+    if (s === "COMPLETED") return "completed";
+    return "canceled";
+  }
+
   return (
     <div className="space-y-4">
       {/* Tabs */}
@@ -282,6 +297,7 @@ export default function SaleOrdersPage() {
                 <th className="px-3 py-2 text-left text-white">Mã</th>
                 <th className="px-3 py-2 text-center text-white">Trạng thái</th>
                 <th className="px-3 py-2 text-center text-white">Thanh toán</th>
+                <th className="px-3 py-2 text-center text-white">Hình thức</th>
                 <th className="px-3 py-2 text-right text-white">Tổng</th>
                 <th className="px-3 py-2 text-center text-white">Ngày tạo</th>
                 <th className="px-3 py-2 text-center text-white">Phụ trách</th>
@@ -291,21 +307,21 @@ export default function SaleOrdersPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center">
+                  <td colSpan={8} className="py-6 text-center">
                     Đang tải...
                   </td>
                 </tr>
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center">
+                  <td colSpan={8} className="py-6 text-center">
                     Không có đơn
                   </td>
                 </tr>
               ) : (
                 data.map((o) => {
-                  const isPending = o.status === "PENDING";
                   const options = getSelectableStatuses(o.status);
                   const isLocked = options.length <= 1;
+                  const m = getPaymentMethod(o);
 
                   return (
                     <tr key={o.id} className="transition hover:bg-gray-50">
@@ -313,7 +329,7 @@ export default function SaleOrdersPage() {
 
                       {/* STATUS */}
                       <td className="px-3 py-2 text-center">
-                        {isPending ? (
+                        {o.status === "PENDING" ? (
                           <div className="flex items-center justify-center gap-2">
                             <span
                               className={`inline-flex items-center rounded-xl border px-2 py-1 text-xs ${statusColor[o.status]}`}
@@ -355,9 +371,25 @@ export default function SaleOrdersPage() {
                         )}
                       </td>
 
+                      {/* Payment status */}
                       <td className="px-3 py-2 text-center">
                         <PaymentStatusBadge value={o.paymentStatus} />
                       </td>
+
+                      {/* Payment method */}
+                      <td className="px-3 py-2 text-center">
+                        {m ? (
+                          <span
+                            className={`inline-flex items-center rounded-xl border px-2 py-1 text-xs ${payMethodColor[m]}`}
+                            title={m}
+                          >
+                            {payMethodLabel[m]}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+
                       <td className="px-3 py-2 text-right">{nf.format(Number(o.total))}</td>
                       <td className="px-3 py-2 text-center">
                         {new Date(o.createdAt).toLocaleString()}
