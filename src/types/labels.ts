@@ -1,5 +1,4 @@
-// src/components/sale/statusLabels.ts
-import type { OrderStatus, PaymentStatus } from "../types/sale-order";
+import type { OrderStatus, PaymentStatus } from "./sale-order";
 
 /** Nhãn tiếng Việt cho OrderStatus */
 export const viStatusLabel: Record<OrderStatus, string> = {
@@ -13,14 +12,18 @@ export const viStatusLabel: Record<OrderStatus, string> = {
   CANCEL_REQUESTED: "Yêu cầu huỷ",
 };
 
-/** Nhãn tiếng Việt cho PaymentStatus */
+/** Nhãn tiếng Việt cho PaymentStatus (đủ 7 trạng thái) */
 export const viPaymentLabel: Record<PaymentStatus, string> = {
+  PENDING: "Chờ thanh toán",
   UNPAID: "Chưa thanh toán",
   PAID: "Đã thanh toán",
+  FAILED: "Thất bại",
+  CANCELED: "Đã huỷ",
   REFUND_PENDING: "Chờ hoàn tiền",
   REFUNDED: "Đã hoàn tiền",
 };
 
+/* ====== Các label khác đang dùng chung ====== */
 export const LANGUAGE_VI: Record<string, string> = {
   VI: "Tiếng Việt",
   EN: "Tiếng Anh",

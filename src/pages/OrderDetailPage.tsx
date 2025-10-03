@@ -2,19 +2,12 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { getOrderByCode } from "../services/order";
-import type { ResOrderDetail, OrderStatus, PaymentStatus } from "../types/order";
+import type { ResOrderDetail, OrderStatus, PaymentStatus } from "../types/sale-order";
 import { vnd } from "../utils/currency";
-import {
-  Loader2,
-  ArrowLeft,
-  Package,
-  Truck,
-  CheckCircle2,
-  CircleX,
-  CreditCard,
-} from "lucide-react";
+import { Loader2, ArrowLeft, Package, Truck, CheckCircle2, CircleX, CreditCard } from "lucide-react";
 import CancelOrderDialog from "../components/CancelOrderDialog";
 
+/* ===== Style map for OrderStatus ===== */
 const pillByStatus: Record<OrderStatus, string> = {
   PENDING: "bg-amber-100 text-amber-700",
   CONFIRMED: "bg-sky-100 text-sky-700",
@@ -49,20 +42,31 @@ const viStatus = (s?: string) => {
   }
 };
 
+/* ===== Style + label map for PaymentStatus (đủ 7) ===== */
 const pillByPayment: Record<PaymentStatus, string> = {
-  UNPAID: "bg-gray-100 text-gray-700",
   PENDING: "bg-amber-100 text-amber-700",
+  UNPAID: "bg-gray-100 text-gray-700",
   PAID: "bg-green-100 text-green-700",
+  FAILED: "bg-rose-100 text-rose-700",
+  CANCELED: "bg-rose-100 text-rose-700",
+  REFUND_PENDING: "bg-orange-100 text-orange-800",
   REFUNDED: "bg-cyan-100 text-cyan-700",
 };
+
 const viPaymentStatus = (s?: string) => {
   switch ((s || "").toUpperCase()) {
+    case "PENDING":
+      return "Chờ thanh toán";
     case "UNPAID":
       return "Chưa thanh toán";
-    case "PENDING":
-      return "Đang xử lý";
     case "PAID":
       return "Đã thanh toán";
+    case "FAILED":
+      return "Thanh toán thất bại";
+    case "CANCELED":
+      return "Đã huỷ";
+    case "REFUND_PENDING":
+      return "Chờ hoàn tiền";
     case "REFUNDED":
       return "Đã hoàn tiền";
     default:
@@ -73,7 +77,7 @@ const viPaymentStatus = (s?: string) => {
 function fmtDate(s?: string | null) {
   if (!s) return "—";
   const d = new Date(s);
-  return isNaN(d.getTime()) ? s : d.toLocaleString("vi-VN");
+  return Number.isNaN(d.getTime()) ? s : d.toLocaleString("vi-VN");
 }
 
 function extractErr(e: unknown, fallback: string) {
@@ -124,13 +128,8 @@ const OrderDetailPage: React.FC = () => {
         <div className="mx-auto max-w-2xl rounded-xl border p-8 text-center">
           <CircleX className="mx-auto mb-3 h-10 w-10 text-rose-600" />
           <h1 className="mb-2 text-xl font-semibold">Không tìm thấy đơn hàng</h1>
-          <p className="mb-6 text-gray-500">
-            {error ?? "Mã đơn không tồn tại hoặc bạn không có quyền xem."}
-          </p>
-          <Link
-            to="/don-hang"
-            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 hover:bg-gray-50"
-          >
+          <p className="mb-6 text-gray-500">{error ?? "Mã đơn không tồn tại hoặc bạn không có quyền xem."}</p>
+          <Link to="/don-hang" className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 hover:bg-gray-50">
             <ArrowLeft className="h-4 w-4" /> Về danh sách đơn
           </Link>
         </div>
@@ -146,10 +145,7 @@ const OrderDetailPage: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Link
-          to="/don-hang"
-          className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 hover:bg-gray-50"
-        >
+        <Link to="/don-hang" className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 hover:bg-gray-50">
           <ArrowLeft className="h-4 w-4" /> Đơn hàng của tôi
         </Link>
 
@@ -175,11 +171,7 @@ const OrderDetailPage: React.FC = () => {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left: items */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-3 lg:col-span-2"
-        >
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 lg:col-span-2">
           {data.items.map((it) => (
             <div key={`${it.bookId}-${it.sku ?? "_"}`} className="flex gap-4 rounded-xl border p-4">
               <img
@@ -192,9 +184,7 @@ const OrderDetailPage: React.FC = () => {
                 <div className="mt-1 text-sm text-gray-500">SKU: {it.sku ?? "—"}</div>
                 <div className="mt-2 flex items-center gap-2">
                   <span className="font-semibold">{vnd(it.price)}</span>
-                  {Number(it.discount) > 0 && (
-                    <span className="text-xs text-emerald-600">- {vnd(it.discount)} /sp</span>
-                  )}
+                  {Number(it.discount) > 0 && <span className="text-xs text-emerald-600">- {vnd(it.discount)} /sp</span>}
                   <span className="text-sm text-gray-500">× {it.qty}</span>
                 </div>
               </div>
@@ -212,36 +202,21 @@ const OrderDetailPage: React.FC = () => {
             <Row label="Phí vận chuyển" value={vnd(data.shippingFee)} />
             <Row label="Thuế" value={vnd(data.taxTotal)} />
             <div className="my-2 border-t" />
-            <Row
-              label={<span className="font-semibold">Tổng cộng</span>}
-              value={<span className="font-semibold">{vnd(data.grandTotal)}</span>}
-            />
+            <Row label={<span className="font-semibold">Tổng cộng</span>} value={<span className="font-semibold">{vnd(data.grandTotal)}</span>} />
           </div>
 
           <div className="rounded-xl border p-5">
             <h3 className="mb-4 text-lg font-semibold">Giao hàng & Thanh toán</h3>
             <div className="space-y-1 text-sm">
-              <div>
-                Người nhận: <b>{data.receiverName ?? "—"}</b>
-              </div>
-              <div>
-                SĐT: <b>{data.receiverPhone ?? "—"}</b>
-              </div>
+              <div>Người nhận: <b>{data.receiverName ?? "—"}</b></div>
+              <div>SĐT: <b>{data.receiverPhone ?? "—"}</b></div>
               <div>Địa chỉ: {data.addressLine ?? "—"}</div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4" /> Tạo: <b>{fmtDate(data.createdAt)}</b>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4" /> Xác nhận: <b>{fmtDate(data.confirmedAt)}</b>
-              </div>
-              <div className="flex items-center gap-2">
-                <Truck className="h-4 w-4" /> Giao: <b>{fmtDate(data.shippedAt)}</b>
-              </div>
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" /> Hoàn tất: <b>{fmtDate(data.completedAt)}</b>
-              </div>
+              <div className="flex items-center gap-2"><Package className="h-4 w-4" /> Tạo: <b>{fmtDate(data.createdAt)}</b></div>
+              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> Xác nhận: <b>{fmtDate(data.confirmedAt)}</b></div>
+              <div className="flex items-center gap-2"><Truck className="h-4 w-4" /> Giao: <b>{fmtDate(data.shippedAt)}</b></div>
+              <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Hoàn tất: <b>{fmtDate(data.completedAt)}</b></div>
             </div>
           </div>
         </div>

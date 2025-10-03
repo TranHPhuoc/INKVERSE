@@ -1,6 +1,5 @@
-// src/types/sale-order.ts
 
-/* =================== Enums =================== */
+
 export type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
@@ -11,21 +10,21 @@ export type OrderStatus =
   | "CANCELED"
   | "CANCEL_REQUESTED";
 
-export const PAYMENT_STATUS = {
-  PENDING: "PENDING",
-  UNPAID: "UNPAID",
-  PAID: "PAID",
-  FAILED: "FAILED",
-  CANCELED: "CANCELED",
-  REFUNDED: "REFUNDED",
-  REFUND_PENDING: "REFUND_PENDING",
-} as const;
-export type PaymentStatus = keyof typeof PAYMENT_STATUS;
+export type PaymentStatus =
+  | "PENDING"
+  | "UNPAID"
+  | "PAID"
+  | "FAILED"
+  | "CANCELED"
+  | "REFUNDED"
+  | "REFUND_PENDING";
 
-export type PaymentMethod = "COD" | "VNPAY";
+/** Delivery & Payment methods */
+export type DeliveryMethod = "STANDARD" | "EXPRESS" | "PICKUP";
+export type PaymentMethod = "COD" | "VNPAY" | "MOMO" | "BANK_TRANSFER";
 
-/* =================== Pagination =================== */
-export type Page<T> = {
+/* =================== Pagination helpers =================== */
+export type SpringPage<T> = {
   content: T[];
   number: number;
   size: number;
@@ -33,7 +32,57 @@ export type Page<T> = {
   totalPages: number;
 };
 
-/* =================== Order DTOs =================== */
+/* =================== Response DTOs =================== */
+export type ResOrderItem = {
+  bookId: number;
+  title: string;
+  imageUrl: string | null;
+  sku: string | null;
+  price: string | number;
+  discount: string | number;
+  qty: number;
+  lineTotal: string | number;
+};
+
+export type ResOrderDetail = {
+  code: string;
+
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+
+  subtotal: string | number;
+  discountTotal: string | number;
+  shippingFee: string | number;
+  taxTotal: string | number;
+  grandTotal: string | number;
+
+  receiverName: string | null;
+  receiverPhone: string | null;
+  receiverEmail: string | null;
+  addressLine: string | null;
+  wardCode: string | null;
+  districtCode: string | null;
+  provinceCode: string | null;
+  postalCode: string | null;
+
+  createdAt: string; // ISO
+  confirmedAt: string | null;
+  shippedAt: string | null;
+  completedAt: string | null;
+  canceledAt: string | null;
+
+  items: ResOrderItem[];
+};
+
+export type ResOrderCreated = {
+  code: string;
+  grandTotal: string | number;
+  currency: string; // "VND"
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+};
+
+/* =================== Admin/Listing DTOs =================== */
 export type ResOrderAdmin = {
   id: number;
   code: string;
@@ -76,8 +125,25 @@ export type ResOrderAdmin = {
 };
 
 /* =================== Request DTOs =================== */
+export type ReqCreateOrder = {
+  deliveryMethod: DeliveryMethod;
+  paymentMethod: PaymentMethod;
+  note?: string | null;
+  addressId?: number | null;
+  receiverName?: string | null;
+  receiverPhone?: string | null;
+  line1?: string | null;
+  line2?: string | null;
+  ward?: string | null;
+  district?: string | null;
+  province?: string | null;
+};
+
 export type ReqUpdateOrderStatus = { status: OrderStatus };
 export type ReqUpdatePayment = { paymentStatus: PaymentStatus; paidAt?: string };
+export type ReqAssignOrder = { assigneeId: number };
+export type ReqCreateNote = { note: string };
+export type ReqCancelOrder = { reason: string };
 
 /** strict mode: exactOptionalPropertyTypes=true → dùng `string | undefined` */
 export type ReqUpdateShipping = {
@@ -87,7 +153,7 @@ export type ReqUpdateShipping = {
   shippedAt?: string | undefined;
 };
 
-/* ===== Refund types (export để import ở page) ===== */
+/* ===== Refund (manual) ===== */
 export type RefundMethod = "CASH" | "BANK_TRANSFER" | "MOMO" | "OTHER";
 export const REFUND_METHODS: ReadonlyArray<RefundMethod> = [
   "CASH",
@@ -95,8 +161,4 @@ export const REFUND_METHODS: ReadonlyArray<RefundMethod> = [
   "MOMO",
   "OTHER",
 ];
-
-export type ReqAssignOrder = { assigneeId: number };
-export type ReqCreateNote = { note: string };
-export type ReqCancelOrder = { reason: string };
 export type ReqRefundManual = { amount: string; method: RefundMethod };
