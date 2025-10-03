@@ -93,13 +93,15 @@ export type ReqUpdatePayment = {
 export type ReqUpdateShipping = {
   carrier?: string | null;
   trackingCode?: string | null;
-  shippedAt?: string | null;    // ISO
-  deliveredAt?: string | null;  // ISO
+  shippedAt?: string | null; // ISO
+  deliveredAt?: string | null; // ISO
   fee?: string | number | null;
   note?: string | null;
 };
 
 export type ReqAssignOrder = { assigneeId: number | null };
-export type ReqCreateNote = { content: string };
+export type ReqCreateNote = {
+  note: string;
+};
 export type ReqCancelOrder = { reason: string };
 export type ReqRefundManual = { amount?: number; currency?: string; note?: string | null };
