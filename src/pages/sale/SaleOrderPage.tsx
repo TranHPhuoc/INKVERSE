@@ -3,18 +3,25 @@ import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Clock, ClipboardCheck, Box, Truck, CheckCircle2, BadgeCheck, XCircle } from "lucide-react";
 
-import type { OrderStatus, ResOrderAdmin, PaymentMethod } from "../../types/sale-order";
+import type {
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  ResOrderAdmin,
+} from "../../types/sale-order";
 import { PaymentStatusBadge } from "../../components/sale/StatusBadge";
-import {
-  saleSearchOrders,
-  saleUpdateStatus,
-  type SearchParams,
-} from "../../services/sale/sale-order";
+import { saleSearchOrders, type SearchParams } from "../../services/sale/sale-order";
 
+/* ================= helpers ================= */
 const nf = new Intl.NumberFormat("vi-VN");
 
-/* =================== Labels & styles =================== */
-const statusColor: Record<OrderStatus, string> = {
+const PAY_LABEL: Record<PaymentMethod, string> = { COD: "Tiền mặt", VNPAY: "VNPay" };
+const PAY_COLOR: Record<PaymentMethod, string> = {
+  COD: "bg-gray-100 text-gray-800 border-gray-300",
+  VNPAY: "bg-teal-100 text-teal-800 border-teal-300",
+};
+
+const STATUS_COLOR: Record<OrderStatus, string> = {
   PENDING: "bg-yellow-100 text-yellow-800 border-yellow-300",
   CONFIRMED: "bg-blue-100 text-blue-800 border-blue-300",
   PROCESSING: "bg-indigo-100 text-indigo-800 border-indigo-300",
@@ -24,8 +31,7 @@ const statusColor: Record<OrderStatus, string> = {
   CANCELED: "bg-rose-100 text-rose-800 border-rose-300",
   CANCEL_REQUESTED: "bg-orange-100 text-orange-800 border-orange-300",
 };
-
-const statusLabel: Record<OrderStatus, string> = {
+const STATUS_LABEL: Record<OrderStatus, string> = {
   PENDING: "Chờ xử lý",
   CONFIRMED: "Đã xác nhận",
   PROCESSING: "Đang xử lý",
@@ -36,36 +42,7 @@ const statusLabel: Record<OrderStatus, string> = {
   CANCEL_REQUESTED: "Yêu cầu huỷ",
 };
 
-const payMethodLabel: Record<PaymentMethod, string> = {
-  COD: "Tiền mặt",
-  VNPAY: "VNPay",
-};
-const payMethodColor: Record<PaymentMethod, string> = {
-  COD: "bg-gray-100 text-gray-800 border-gray-300",
-  VNPAY: "bg-teal-100 text-teal-800 border-teal-300",
-};
-function normalizeMethod(v: unknown): PaymentMethod | null {
-  if (v == null) return null;
-  const s = String(v)
-    .toUpperCase()
-    .replace(/[^A-Z_]/g, "");
-  if (s === "COD" || s === "CASH" || s === "CASHONDELIVERY") return "COD";
-  if (s === "VNPAY" || s === "VN_PAY" || s === "VNPAYQR" || s === "VNPAY_QR") return "VNPAY";
-  return null;
-}
-function getPaymentMethod(o: ResOrderAdmin): PaymentMethod | null {
-  return (
-    normalizeMethod(o.paymentMethod) ??
-    normalizeMethod(o.payment?.paymentMethod) ??
-    normalizeMethod((o as Record<string, unknown>)["paymentType"]) ??
-    normalizeMethod((o as Record<string, unknown>)["payment_method"]) ??
-    normalizeMethod((o as Record<string, unknown>)["method"]) ??
-    normalizeMethod(o.payment && (o.payment as Record<string, unknown>)["method"]) ??
-    null
-  );
-}
-
-/* =================== Tabs =================== */
+/* ================= Tabs ================= */
 type TabId =
   | "pending"
   | "confirmed"
@@ -78,7 +55,7 @@ type TabId =
 type Tab = {
   id: TabId;
   label: string;
-  statuses: OrderStatus[];
+  statuses: [OrderStatus, ...OrderStatus[]];
   icon: React.ReactNode;
   color: string;
 };
@@ -135,40 +112,35 @@ const TABS: Tab[] = [
   },
 ];
 
-const TAB_STATUS_MAP: Record<TabId, OrderStatus[]> = {
-  pending: ["PENDING"],
-  confirmed: ["CONFIRMED"],
-  processing: ["PROCESSING"],
-  shipping: ["SHIPPED"],
-  delivered: ["DELIVERED"],
-  completed: ["COMPLETED"],
-  canceled: ["CANCELED", "CANCEL_REQUESTED"],
+const DEFAULT_TAB: Tab = TABS[0]!;
+
+/* ================= Row type ================= */
+type Row = {
+  id: number;
+  code: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod | null;
+  total: number; // ✅ dùng total
+  createdAt: string;
+  assigneeName?: string | null;
 };
 
-/* =================== Status machine =================== */
-const NEXT_ALLOWED: Record<OrderStatus, OrderStatus[]> = {
-  PENDING: ["CONFIRMED", "CANCEL_REQUESTED", "CANCELED"],
-  CONFIRMED: ["PROCESSING", "CANCELED"],
-  PROCESSING: ["SHIPPED", "CANCELED"],
-  SHIPPED: ["DELIVERED"],
-  DELIVERED: ["COMPLETED"],
-  COMPLETED: [],
-  CANCEL_REQUESTED: ["CANCELED"],
-  CANCELED: [],
-};
-const getSelectableStatuses = (cur: OrderStatus) => [cur, ...NEXT_ALLOWED[cur]];
-const isTransitionAllowed = (cur: OrderStatus, next: OrderStatus) =>
-  cur === next || NEXT_ALLOWED[cur]?.includes(next) === true;
+function readPaymentMethod(x: unknown): PaymentMethod | null {
+  if (typeof x === "object" && x !== null && "paymentMethod" in x) {
+    const raw = (x as { paymentMethod?: unknown }).paymentMethod;
+    if (raw === "COD" || raw === "VNPAY") return raw;
+  }
+  return null;
+}
+const getActiveTab = (id: TabId) => TABS.find((t) => t.id === id) ?? DEFAULT_TAB;
 
-/* =================== Page =================== */
+/* ================= Page ================= */
 export default function SaleOrdersPage() {
   const [params, setParams] = useSearchParams();
 
   const activeTabId = (params.get("tab") as TabId) || "pending";
-  const activeTab = useMemo<Tab>(() => {
-    const i = TABS.findIndex((t) => t.id === activeTabId);
-    return TABS[i === -1 ? 0 : i]!;
-  }, [activeTabId]);
+  const activeTab = useMemo<Tab>(() => getActiveTab(activeTabId), [activeTabId]);
 
   const [page, setPage] = useState<number>(Number(params.get("page") ?? 0));
   const [size, setSize] = useState<number>(Number(params.get("size") ?? 10));
@@ -186,7 +158,7 @@ export default function SaleOrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, size]);
 
-  const [data, setData] = useState<ResOrderAdmin[]>([]);
+  const [data, setData] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
 
@@ -195,33 +167,32 @@ export default function SaleOrdersPage() {
     setLoading(true);
 
     (async () => {
-      const statuses = TAB_STATUS_MAP[activeTabId];
-      const singleStatus = statuses.length === 1 ? statuses[0] : undefined;
-
-      const base: SearchParams = { q, from, to, page, size, sort };
-      const query: SearchParams = singleStatus ? { ...base, status: singleStatus } : base;
-
+      const status = activeTab.statuses[0]!;
+      const query: SearchParams = { q, from, to, page, size, sort, status };
       const res = await saleSearchOrders(query);
+      if (!mounted) return;
 
-      let content: ResOrderAdmin[] = res?.content ?? [];
-      let totalEl = res?.totalElements ?? content.length;
+      const content: Row[] = (res?.content ?? []).map((o: ResOrderAdmin) => ({
+        id: o.id,
+        code: o.code,
+        status: o.status,
+        paymentStatus: o.paymentStatus,
+        paymentMethod: readPaymentMethod(o),
+        total: Number(o.total ?? 0), // ✅ lấy total từ BE
+        createdAt: o.createdAt,
+        assigneeName: o.assigneeName ?? null,
+      }));
 
-      if (!singleStatus) {
-        const wanted = new Set<OrderStatus>(statuses);
-        content = content.filter((o) => wanted.has(o.status));
-        totalEl = content.length;
-      }
-
-      if (mounted) {
-        setData(content);
-        setTotal(totalEl);
-      }
+      setData(content);
+      setTotal(res?.totalElements ?? content.length);
     })().finally(() => mounted && setLoading(false));
 
     return () => {
       mounted = false;
     };
-  }, [q, from, to, page, size, sort, activeTabId]);
+  }, [q, from, to, page, size, sort, activeTab]);
+
+  const totalPages = Math.max(1, Math.ceil(Math.max(total, 0) / Math.max(size, 1)));
 
   function switchTab(id: TabId) {
     const p = new URLSearchParams(params);
@@ -231,60 +202,29 @@ export default function SaleOrdersPage() {
     setPage(0);
   }
 
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(Math.max(total, 0) / Math.max(size, 1))),
-    [total, size],
-  );
-
-  async function handleChangeStatus(orderId: number, current: OrderStatus, next: OrderStatus) {
-    if (!isTransitionAllowed(current, next)) {
-      alert("Không thể chuyển trạng thái này do không đúng quy trình.");
-      return;
-    }
-    if (current === next) return;
-    try {
-      await saleUpdateStatus(orderId, { status: next });
-      switchTab(tabIdFromStatus(next));
-    } catch {
-      alert("Đổi trạng thái thất bại.");
-    }
-  }
-
-  function tabIdFromStatus(s: OrderStatus): TabId {
-    if (s === "PENDING") return "pending";
-    if (s === "CONFIRMED") return "confirmed";
-    if (s === "PROCESSING") return "processing";
-    if (s === "SHIPPED") return "shipping";
-    if (s === "DELIVERED") return "delivered";
-    if (s === "COMPLETED") return "completed";
-    return "canceled";
-  }
-
   return (
     <div className="space-y-4">
       {/* Tabs */}
       <div className="rounded-2xl border bg-white/70 p-2 backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-2">
-            {TABS.map((t) => {
-              const active = t.id === activeTab.id;
-              return (
-                <motion.button
-                  key={t.id}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => switchTab(t.id)}
-                  className={`flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2 ${
-                    active
-                      ? `${t.color} font-semibold ring-2 ring-gray-300`
-                      : "bg-white text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  {t.icon}
-                  <span>{t.label}</span>
-                </motion.button>
-              );
-            })}
-          </div>
+        <div className="flex flex-wrap gap-2">
+          {TABS.map((t) => {
+            const active = t.id === activeTab.id;
+            return (
+              <motion.button
+                key={t.id}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => switchTab(t.id)}
+                className={`flex items-center gap-2 rounded-xl border px-4 py-2 ${
+                  active
+                    ? `${t.color} font-semibold ring-2 ring-gray-300`
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {t.icon}
+                <span>{t.label}</span>
+              </motion.button>
+            );
+          })}
         </div>
       </div>
 
@@ -292,16 +232,16 @@ export default function SaleOrdersPage() {
       <div className="rounded-2xl border bg-white/70 p-3 backdrop-blur">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-[#1a2954]">
+            <thead className="bg-[#1a2954] text-white">
               <tr>
-                <th className="px-3 py-2 text-left text-white">Mã</th>
-                <th className="px-3 py-2 text-center text-white">Trạng thái</th>
-                <th className="px-3 py-2 text-center text-white">Thanh toán</th>
-                <th className="px-3 py-2 text-center text-white">Hình thức</th>
-                <th className="px-3 py-2 text-right text-white">Tổng</th>
-                <th className="px-3 py-2 text-center text-white">Ngày tạo</th>
-                <th className="px-3 py-2 text-center text-white">Phụ trách</th>
-                <th></th>
+                <th className="px-3 py-2 text-left">Mã</th>
+                <th className="px-3 py-2 text-center">Trạng thái</th>
+                <th className="px-3 py-2 text-center">Thanh toán</th>
+                <th className="px-3 py-2 text-center">Hình thức</th>
+                <th className="px-3 py-2 text-right">Tổng</th>
+                <th className="px-3 py-2 text-center">Ngày tạo</th>
+                <th className="px-3 py-2 text-center">Phụ trách</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -318,96 +258,45 @@ export default function SaleOrdersPage() {
                   </td>
                 </tr>
               ) : (
-                data.map((o) => {
-                  const options = getSelectableStatuses(o.status);
-                  const isLocked = options.length <= 1;
-                  const m = getPaymentMethod(o);
-
-                  return (
-                    <tr key={o.id} className="transition hover:bg-gray-50">
-                      <td className="px-3 py-2 font-medium">{o.code}</td>
-
-                      {/* STATUS */}
-                      <td className="px-3 py-2 text-center">
-                        {o.status === "PENDING" ? (
-                          <div className="flex items-center justify-center gap-2">
-                            <span
-                              className={`inline-flex items-center rounded-xl border px-2 py-1 text-xs ${statusColor[o.status]}`}
-                            >
-                              {statusLabel[o.status]}
-                            </span>
-                            <motion.button
-                              whileTap={{ scale: 0.98 }}
-                              onClick={() => handleChangeStatus(o.id, o.status, "CONFIRMED")}
-                              className="cursor-pointer rounded-lg border bg-white px-2 py-1 text-xs hover:border-blue-300 hover:bg-blue-100"
-                              title="Xác nhận đơn"
-                            >
-                              Xác nhận
-                            </motion.button>
-                            <motion.button
-                              whileTap={{ scale: 0.98 }}
-                              onClick={() => handleChangeStatus(o.id, o.status, "CANCELED")}
-                              className="cursor-pointer rounded-lg border border-rose-200 bg-white px-2 py-1 text-xs text-rose-600 hover:border-rose-300 hover:bg-rose-100"
-                              title="Huỷ đơn"
-                            >
-                              Huỷ
-                            </motion.button>
-                          </div>
-                        ) : (
-                          <select
-                            disabled={isLocked}
-                            className={`rounded-xl border px-2 py-1 text-xs ${statusColor[o.status]} ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
-                            value={o.status}
-                            onChange={(e) =>
-                              handleChangeStatus(o.id, o.status, e.target.value as OrderStatus)
-                            }
-                          >
-                            {options.map((s) => (
-                              <option key={s} value={s}>
-                                {statusLabel[s] ?? s}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </td>
-
-                      {/* Payment status */}
-                      <td className="px-3 py-2 text-center">
-                        <PaymentStatusBadge value={o.paymentStatus} />
-                      </td>
-
-                      {/* Payment method */}
-                      <td className="px-3 py-2 text-center">
-                        {m ? (
-                          <span
-                            className={`inline-flex items-center rounded-xl border px-2 py-1 text-xs ${payMethodColor[m]}`}
-                            title={m}
-                          >
-                            {payMethodLabel[m]}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-
-                      <td className="px-3 py-2 text-right">{nf.format(Number(o.total))}</td>
-                      <td className="px-3 py-2 text-center">
-                        {new Date(o.createdAt).toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        {o.assigneeName ?? (o.assigneeId ? `#${o.assigneeId}` : "-")}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <Link
-                          to={`/sale/orders/${o.id}`}
-                          className="rounded-lg border px-3 py-1 hover:bg-gray-100"
+                data.map((o) => (
+                  <tr key={o.id} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 font-medium">{o.code}</td>
+                    <td className="px-3 py-2 text-center">
+                      <span
+                        className={`inline-flex rounded-xl border px-2 py-1 text-xs ${STATUS_COLOR[o.status]}`}
+                      >
+                        {STATUS_LABEL[o.status]}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <PaymentStatusBadge value={o.paymentStatus} />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {o.paymentMethod ? (
+                        <span
+                          className={`inline-flex rounded-xl border px-2 py-1 text-xs ${PAY_COLOR[o.paymentMethod]}`}
                         >
-                          Chi tiết
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })
+                          {PAY_LABEL[o.paymentMethod]}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right">{nf.format(o.total)}</td>
+                    <td className="px-3 py-2 text-center">
+                      {new Date(o.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 text-center">{o.assigneeName ?? "-"}</td>
+                    <td className="px-3 py-2 text-right">
+                      <Link
+                        to={`/sale/orders/${o.id}`}
+                        className="rounded-lg border px-3 py-1 hover:bg-gray-100"
+                      >
+                        Chi tiết
+                      </Link>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

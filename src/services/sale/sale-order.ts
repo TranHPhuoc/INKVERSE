@@ -56,7 +56,6 @@ const client: AxiosInstance =
     withCredentials: true,
   });
 
-// attach bearer token nếu có
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken");
   if (token) config.headers.Authorization = `Bearer ${token}`;

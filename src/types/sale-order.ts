@@ -1,5 +1,4 @@
-
-
+/* ====== Status & Enums ====== */
 export type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
@@ -10,6 +9,8 @@ export type OrderStatus =
   | "CANCELED"
   | "CANCEL_REQUESTED";
 
+export type PaymentMethod = "COD" | "VNPAY";
+
 export type PaymentStatus =
   | "PENDING"
   | "UNPAID"
@@ -19,146 +20,86 @@ export type PaymentStatus =
   | "REFUNDED"
   | "REFUND_PENDING";
 
-/** Delivery & Payment methods */
-export type DeliveryMethod = "STANDARD" | "EXPRESS" | "PICKUP";
-export type PaymentMethod = "COD" | "VNPAY" | "MOMO" | "BANK_TRANSFER";
-
-/* =================== Pagination helpers =================== */
-export type SpringPage<T> = {
+/* ====== Pagination ====== */
+export type Page<T> = {
   content: T[];
-  number: number;
+  number: number; // zero-based
   size: number;
   totalElements: number;
   totalPages: number;
 };
+export type SpringPage<T> = Page<T>;
 
-/* =================== Response DTOs =================== */
+/* ====== Shared DTOs ====== */
 export type ResOrderItem = {
   bookId: number;
   title: string;
   imageUrl: string | null;
   sku: string | null;
-  price: string | number;
-  discount: string | number;
+  price: number | string;
+  discount: number | string;
   qty: number;
-  lineTotal: string | number;
+  lineTotal: number | string;
 };
 
-export type ResOrderDetail = {
+/** ====== SALE/ADMIN Order DTO  ====== */
+export type ResOrderAdmin = {
+  id: number;
   code: string;
 
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod;
+  total: number;
 
-  subtotal: string | number;
-  discountTotal: string | number;
-  shippingFee: string | number;
-  taxTotal: string | number;
-  grandTotal: string | number;
+  createdAt: string;
+  updatedAt?: string | null;
 
-  receiverName: string | null;
-  receiverPhone: string | null;
-  receiverEmail: string | null;
-  addressLine: string | null;
-  wardCode: string | null;
-  districtCode: string | null;
-  provinceCode: string | null;
-  postalCode: string | null;
+  // phụ trách (nếu có)
+  assigneeId?: number | null;
+  assigneeName?: string | null;
+  shippingAddress?: ShippingAddress | null;
 
-  createdAt: string; // ISO
-  confirmedAt: string | null;
-  shippedAt: string | null;
-  completedAt: string | null;
-  canceledAt: string | null;
+  // người nhận (optional)
+  receiverName?: string | null;
+  receiverPhone?: string | null;
+  addressLine?: string | null;
 
   items: ResOrderItem[];
 };
 
-export type ResOrderCreated = {
-  code: string;
-  grandTotal: string | number;
-  currency: string; // "VND"
-  paymentMethod: PaymentMethod;
-  paymentStatus: PaymentStatus;
-};
-
-/* =================== Admin/Listing DTOs =================== */
-export type ResOrderAdmin = {
-  id: number;
-  code: string;
-  status: OrderStatus;
-
-  paymentStatus: PaymentStatus;
-  paymentMethod?: PaymentMethod | null;
-  payment?: { paymentMethod?: PaymentMethod | null } | null;
-
-  subtotal?: string | number | null;
-  shippingFee?: string | number | null;
-  discount?: string | number | null;
-  total: string | number;
-
-  createdAt: string;
-  paidAt?: string | null;
-
-  assigneeId?: number | null;
-  assigneeName?: string | null;
-
-  items?: Array<{
-    id: number;
-    bookId: number;
-    title: string;
-    imageUrl?: string | null;
-    price: string | number;
-    qty: number;
-  }>;
-
-  shippingAddress?: {
-    receiverName?: string | null;
-    receiverPhone?: string | null;
-    receiverEmail?: string | null;
-    line1?: string | null;
-    line2?: string | null;
-    ward?: string | null;
-    district?: string | null;
-    province?: string | null;
-  } | null;
-};
-
-/* =================== Request DTOs =================== */
-export type ReqCreateOrder = {
-  deliveryMethod: DeliveryMethod;
-  paymentMethod: PaymentMethod;
-  note?: string | null;
-  addressId?: number | null;
-  receiverName?: string | null;
-  receiverPhone?: string | null;
+export type ShippingAddress = {
+  receiverName: string | null;
+  receiverPhone: string | null;
+  receiverEmail: string | null;
   line1?: string | null;
-  line2?: string | null;
   ward?: string | null;
   district?: string | null;
   province?: string | null;
+  addressLine?: string | null;
 };
 
+/* ====== Request DTOs ====== */
 export type ReqUpdateOrderStatus = { status: OrderStatus };
-export type ReqUpdatePayment = { paymentStatus: PaymentStatus; paidAt?: string };
-export type ReqAssignOrder = { assigneeId: number };
-export type ReqCreateNote = { note: string };
-export type ReqCancelOrder = { reason: string };
 
-/** strict mode: exactOptionalPropertyTypes=true → dùng `string | undefined` */
-export type ReqUpdateShipping = {
-  fee?: string | undefined;
-  shippingCarrier?: string | undefined;
-  trackingCode?: string | undefined;
-  shippedAt?: string | undefined;
+export type ReqUpdatePayment = {
+  paymentStatus?: PaymentStatus;
+  paymentMethod?: PaymentMethod;
+  transactionId?: string | null;
+  paidAt?: string | null; // ISO
+  note?: string | null;
 };
 
-/* ===== Refund (manual) ===== */
-export type RefundMethod = "CASH" | "BANK_TRANSFER" | "MOMO" | "OTHER";
-export const REFUND_METHODS: ReadonlyArray<RefundMethod> = [
-  "CASH",
-  "BANK_TRANSFER",
-  "MOMO",
-  "OTHER",
-];
-export type ReqRefundManual = { amount: string; method: RefundMethod };
+export type ReqUpdateShipping = {
+  carrier?: string | null;
+  trackingCode?: string | null;
+  shippedAt?: string | null;    // ISO
+  deliveredAt?: string | null;  // ISO
+  fee?: string | number | null;
+  note?: string | null;
+};
+
+export type ReqAssignOrder = { assigneeId: number | null };
+export type ReqCreateNote = { content: string };
+export type ReqCancelOrder = { reason: string };
+export type ReqRefundManual = { amount?: number; currency?: string; note?: string | null };

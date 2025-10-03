@@ -129,7 +129,7 @@ const CategoryNavCard: React.FC<{ tree: CatNode[] }> = ({ tree }) => {
   );
 };
 
-/* ───────── Price slider ───────── */
+/* ───────── Price slider (fixed alignment) ───────── */
 type PriceSliderProps = {
   min?: number;
   max?: number;
@@ -138,30 +138,38 @@ type PriceSliderProps = {
   valueMax: number | null;
   onChange: (lo: number | null, hi: number | null) => void;
 };
+
 function PriceSlider({
-  min = 0,
-  max = 2_000_000,
-  step = 1000,
-  valueMin,
-  valueMax,
-  onChange,
-}: PriceSliderProps) {
-  const lo = valueMin ?? min,
-    hi = valueMax ?? max;
-  const left = ((lo - min) / (max - min)) * 100,
-    right = 100 - ((hi - min) / (max - min)) * 100;
+                       min = 0,
+                       max = 2_000_000,
+                       step = 1000,
+                       valueMin,
+                       valueMax,
+                       onChange,
+                     }: PriceSliderProps) {
+  const lo = valueMin ?? min;
+  const hi = valueMax ?? max;
+
+  const leftPct = ((lo - min) / (max - min)) * 100;
+  const rightPct = 100 - ((hi - min) / (max - min)) * 100;
+
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-xs text-gray-600">
         <span>{valueMin != null ? `${fmtVND(lo)} ₫` : `Từ ${fmtVND(min)} ₫`}</span>
         <span>{valueMax != null ? `${fmtVND(hi)} ₫` : `Đến ${fmtVND(max)} ₫`}</span>
       </div>
-      <div className="relative h-8">
-        <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded bg-gray-200" />
+
+      <div className="relative h-9 select-none">
+        {/* track */}
+        <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-gray-200" />
+        {/* active range */}
         <div
-          className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded bg-rose-500"
-          style={{ left: `${left}%`, right: `${right}%` }}
+          className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-rose-500"
+          style={{ left: `${leftPct}%`, right: `${rightPct}%` }}
         />
+
+        {/* ranges (low / high) */}
         <input
           type="range"
           min={min}
@@ -172,7 +180,8 @@ function PriceSlider({
             const v = clamp(Number(e.target.value), min, hi);
             onChange(v <= min ? null : v, valueMax);
           }}
-          className="pointer-events-none absolute inset-x-0 h-8 w-full appearance-none bg-transparent [-webkit-appearance:none]"
+          className="price-thumb pointer-events-none absolute inset-x-0 top-1/2 h-0 w-full -translate-y-1/2 appearance-none bg-transparent"
+          style={{ zIndex: lo === hi ? 50 : 40 }}
         />
         <input
           type="range"
@@ -184,13 +193,59 @@ function PriceSlider({
             const v = clamp(Number(e.target.value), lo, max);
             onChange(valueMin, v >= max ? null : v);
           }}
-          className="pointer-events-none absolute inset-x-0 h-8 w-full appearance-none bg-transparent [-webkit-appearance:none]"
+          className="price-thumb pointer-events-none absolute inset-x-0 top-1/2 h-0 w-full -translate-y-1/2 appearance-none bg-transparent"
+          style={{ zIndex: 45 }}
         />
       </div>
+
       <style>{`
-        input[type="range"]::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:9999px; background:#ef4444; border:2px solid #fff; box-shadow:0 0 0 1px #ef4444; cursor:pointer; margin-top:-8px; pointer-events:auto; }
-        input[type="range"]::-moz-range-thumb{ width:18px; height:18px; border-radius:9999px; background:#ef4444; border:2px solid #fff; box-shadow:0 0 0 1px #ef4444; cursor:pointer; }
+        /* base: cho phép kéo được trên thumb */
+        .price-thumb::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 16px;
+          height: 16px;
+          border-radius: 9999px;
+          background: #ef4444; /* rose-500 */
+          border: 2px solid #fff;
+          box-shadow: 0 0 0 1px #ef4444;
+          cursor: pointer;
+          /* input đang top-50% translate-y-1/2, thumb không cần margin-top,
+             nhưng WebKit cần đẩy lên đúng tâm một chút cho track 4px: */
+          margin-top: 0;
+          pointer-events: auto;
+        }
+        .price-thumb:focus-visible::-webkit-slider-thumb {
+          outline: 2px solid #fb7185; /* rose-400 */
+          outline-offset: 2px;
+        }
+
+        /* Firefox */
+        .price-thumb::-moz-range-track {
+          background: transparent;
+          height: 4px;
+        }
+        .price-thumb::-moz-range-thumb {
+          width: 16px;
+          height: 16px;
+          border-radius: 9999px;
+          background: #ef4444;
+          border: 2px solid #fff;
+          box-shadow: 0 0 0 1px #ef4444;
+          cursor: pointer;
+          pointer-events: auto;
+        }
+        .price-thumb::-moz-focus-outer { border: 0; }
+
+        /* Edge/Chromium track reset */
+        .price-thumb::-ms-track {
+          background: transparent;
+          border-color: transparent;
+          color: transparent;
+          height: 4px;
+        }
       `}</style>
+
       {(valueMin != null || valueMax != null) && (
         <button
           type="button"
@@ -204,13 +259,14 @@ function PriceSlider({
   );
 }
 
+
 /* ───────── Page ───────── */
 export default function CategoryPage() {
   const { catSlug = "" } = useParams<{ catSlug: string }>();
   const [sp, setSp] = useSearchParams();
 
   const page = Number(sp.get("page")) > 0 ? Number(sp.get("page")) : 1;
-  const size = Number(sp.get("size")) > 0 ? Number(sp.get("size")) : 12;
+  const size = Number(sp.get("size")) > 0 ? Number(sp.get("size")) : 15;
   const sortKey = (sp.get("sort") as "NEWEST" | "BEST" | "PRICE_DESC" | "PRICE_ASC") || "NEWEST";
 
   const publisher = sp.get("publisher") || "";

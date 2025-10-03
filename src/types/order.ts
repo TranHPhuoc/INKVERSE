@@ -1,6 +1,6 @@
-// ================= Enums (match BE) =================
+//src/types/order.ts
 export type DeliveryMethod = "STANDARD" | "EXPRESS" | "PICKUP";
-export type PaymentMethod = "COD" | "VNPAY" | "MOMO" | "BANK_TRANSFER";
+export type PaymentMethod = "COD" | "VNPAY";
 export type PaymentStatus =
   | "PENDING"
   | "UNPAID"

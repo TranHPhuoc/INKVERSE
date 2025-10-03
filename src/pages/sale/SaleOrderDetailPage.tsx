@@ -17,9 +17,7 @@ import type {
   PaymentStatus,
   ReqUpdatePayment,
   ReqUpdateShipping,
-  RefundMethod,
 } from "../../types/sale-order";
-import { PAYMENT_STATUS } from "../../types/sale-order";
 
 import { OrderStatusBadge, PaymentStatusBadge } from "../../components/sale/StatusBadge";
 import OrderItemsTable from "../../components/sale/OrderItemsTable";
@@ -34,9 +32,9 @@ import {
   UserCheck,
 } from "lucide-react";
 
+/* ---------- helpers ---------- */
 const nf = new Intl.NumberFormat("vi-VN");
 
-/* ===================== helpers ===================== */
 const payMethodLabel: Record<PaymentMethod, string> = {
   COD: "Tiền mặt (COD)",
   VNPAY: "VNPay",
@@ -46,32 +44,47 @@ const payMethodColor: Record<PaymentMethod, string> = {
   VNPAY: "bg-teal-100 text-teal-800 border-teal-300",
 };
 
-/** chuẩn hoá đủ kiểu BE có thể trả về → COD/VNPAY */
+/** Chuẩn hoá string → COD/VNPAY */
 function normalizeMethod(v: unknown): PaymentMethod | null {
   if (v == null) return null;
-  const s = String(v)
-    .toUpperCase()
-    .replace(/[^A-Z_]/g, "");
+  const s = String(v).toUpperCase().replace(/[^A-Z_]/g, "");
   if (s === "COD" || s === "CASH" || s === "CASHONDELIVERY") return "COD";
   if (s === "VNPAY" || s === "VN_PAY" || s === "VNPAYQR" || s === "VNPAY_QR") return "VNPAY";
   return null;
 }
 
-const getPaymentMethod = (o: ResOrderAdmin): PaymentMethod | null =>
-  normalizeMethod(o.paymentMethod) ??
-  normalizeMethod(o.payment?.paymentMethod) ??
-  normalizeMethod((o as Record<string, unknown>)["paymentType"]) ??
-  normalizeMethod((o as Record<string, unknown>)["payment_method"]) ??
-  normalizeMethod((o as Record<string, unknown>)["method"]) ??
-  normalizeMethod(o.payment && (o.payment as Record<string, unknown>)["method"]) ??
-  null;
+/** Lấy paymentMethod từ nhiều key có thể có */
+function getPaymentMethod(o: ResOrderAdmin): PaymentMethod | null {
+  const obj = o as unknown as Record<string, unknown>;
+  return (
+    normalizeMethod(obj.paymentMethod) ??
+    normalizeMethod(obj.paymentType) ??
+    normalizeMethod(obj.payment_method) ??
+    normalizeMethod(obj.method) ??
+    null
+  );
+}
+
+/** đọc shippingAddress an toàn không dùng any */
+type ShippingAddressLocal = {
+  receiverName?: string | null;
+  receiverPhone?: string | null;
+  receiverEmail?: string | null;
+  line1?: string | null;
+  ward?: string | null;
+  district?: string | null;
+  province?: string | null;
+  addressLine?: string | null;
+};
+function getShippingAddress(o: ResOrderAdmin): ShippingAddressLocal | null {
+  const obj = o as unknown as Record<string, unknown>;
+  const sa = obj.shippingAddress;
+  return sa && typeof sa === "object" ? (sa as ShippingAddressLocal) : null;
+}
 
 function extractErr(e: unknown, fallback = "Load lỗi"): string {
-  if (typeof e === "object" && e !== null && "response" in (e as Record<string, unknown>)) {
-    const msg =
-      (e as { response?: { data?: { message?: string } } }).response?.data?.message ?? null;
-    if (typeof msg === "string" && msg.trim()) return msg;
-  }
+  const maybeResp = e as { response?: { data?: { message?: string } } };
+  if (maybeResp?.response?.data?.message) return maybeResp.response.data.message;
   if (e instanceof Error && e.message) return e.message;
   return fallback;
 }
@@ -83,25 +96,35 @@ function fdStr(fd: FormData, key: string): string | undefined {
   return s ? s : undefined;
 }
 
-/* Refund helpers */
-const REFUND_METHODS: ReadonlyArray<RefundMethod> = ["CASH", "BANK_TRANSFER", "MOMO", "OTHER"];
-function parseRefundMethod(v: unknown): RefundMethod | undefined {
+/** local options cho PaymentStatus */
+const PAYMENT_STATUS_OPTIONS: PaymentStatus[] = [
+  "UNPAID",
+  "PENDING",
+  "PAID",
+  "FAILED",
+  "CANCELED",
+  "REFUND_PENDING",
+  "REFUNDED",
+];
+
+/** local RefundMethod (khỏi lệ thuộc types nếu chưa export) */
+type RefundMethodLocal = "CASH" | "BANK_TRANSFER" | "MOMO" | "OTHER";
+const REFUND_METHODS: ReadonlyArray<RefundMethodLocal> = [
+  "CASH",
+  "BANK_TRANSFER",
+  "MOMO",
+  "OTHER",
+];
+function parseRefundMethod(v: unknown): RefundMethodLocal | undefined {
   if (typeof v !== "string") return undefined;
-  switch (v) {
-    case "CASH":
-    case "BANK_TRANSFER":
-    case "MOMO":
-    case "OTHER":
-      return v;
-    default:
-      return undefined;
-  }
+  return REFUND_METHODS.includes(v as RefundMethodLocal) ? (v as RefundMethodLocal) : undefined;
 }
 
-/* ===================== component ===================== */
+/* ---------- Page ---------- */
 export default function SaleOrderDetailPage() {
   const { id } = useParams();
   const orderId = Number(id);
+
   const [o, setO] = useState<ResOrderAdmin | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -124,12 +147,18 @@ export default function SaleOrderDetailPage() {
   }, [refresh]);
 
   async function onUpdatePayment(paymentStatus: PaymentStatus, paidAt?: string) {
-    const body: ReqUpdatePayment = paidAt ? { paymentStatus, paidAt } : { paymentStatus };
+    const body: ReqUpdatePayment = paidAt && paidAt.trim() ? { paymentStatus, paidAt } : { paymentStatus };
     await saleUpdatePayment(orderId, body);
     await refresh();
   }
 
-  async function onUpdateShipping(payload: ReqUpdateShipping) {
+  async function onUpdateShipping(fd: FormData) {
+    const payload: ReqUpdateShipping = {
+      ...(fdStr(fd, "fee") ? { fee: fdStr(fd, "fee")! } : {}),
+      ...(fdStr(fd, "carrier") ? { carrier: fdStr(fd, "carrier")! } : {}),
+      ...(fdStr(fd, "tracking") ? { trackingCode: fdStr(fd, "tracking")! } : {}),
+      ...(fdStr(fd, "shippedAt") ? { shippedAt: fdStr(fd, "shippedAt")! } : {}),
+    };
     await saleUpdateShipping(orderId, payload);
     await refresh();
   }
@@ -140,18 +169,20 @@ export default function SaleOrderDetailPage() {
   }
 
   async function onAddNote(note: string) {
-    if (note.trim()) await saleAddNote(orderId, { note });
+    if (!note.trim()) return;
+    // nếu FE types của mày đang là {content:string} thì giữ nguyên cast này
+    await saleAddNote(orderId, ({ note } as unknown) as { content: string });
   }
 
   async function onCancel(reason: string) {
-    if (reason.trim()) {
-      await saleCancelOrder(orderId, { reason });
-      await refresh();
-    }
+    if (!reason.trim()) return;
+    await saleCancelOrder(orderId, { reason });
+    await refresh();
   }
 
-  async function onRefundManual(amount: string, method: RefundMethod) {
-    await saleRefundManual(orderId, { amount, method });
+  async function onRefundManual(amount: string, method: RefundMethodLocal) {
+    if (!amount.trim()) return;
+    await saleRefundManual(orderId, ({ amount: Number(amount), method } as unknown) as Record<string, never>);
     await refresh();
   }
 
@@ -160,6 +191,7 @@ export default function SaleOrderDetailPage() {
   if (!o) return null;
 
   const method = getPaymentMethod(o);
+  const sa = getShippingAddress(o);
 
   return (
     <div className="space-y-6">
@@ -183,27 +215,12 @@ export default function SaleOrderDetailPage() {
       <div className="grid gap-4 md:grid-cols-3">
         {/* LEFT */}
         <div className="space-y-4 md:col-span-2">
-          <Card
-            title="Thông tin giao hàng"
-            icon={<MapPin className="h-4 w-4" />}
-            color="from-pink-50 to-rose-100"
-          >
+          <Card title="Thông tin giao hàng" icon={<MapPin className="h-4 w-4" />} color="from-pink-50 to-rose-100">
             <div className="text-sm">
-              <div>
-                {o.shippingAddress?.receiverName} — {o.shippingAddress?.receiverPhone}
-              </div>
-              <div>{o.shippingAddress?.receiverEmail}</div>
-              <div>
-                {[
-                  o.shippingAddress?.line1,
-                  o.shippingAddress?.line2,
-                  o.shippingAddress?.ward,
-                  o.shippingAddress?.district,
-                  o.shippingAddress?.province,
-                ]
-                  .filter(Boolean)
-                  .join(", ")}
-              </div>
+              <div>{sa?.receiverName ?? "—"} — {sa?.receiverPhone ?? "—"}</div>
+              <div>{sa?.receiverEmail ?? "—"}</div>
+              <div>{sa?.addressLine ?? sa?.line1 ?? "—"}</div>
+              <div>Phụ trách: {o.assigneeName ?? (o.assigneeId ? `#${o.assigneeId}` : "—")}</div>
             </div>
           </Card>
 
@@ -215,91 +232,47 @@ export default function SaleOrderDetailPage() {
         {/* RIGHT */}
         <div className="space-y-4">
           {/* Payment */}
-          <Card
-            title="Cập nhật thanh toán"
-            icon={<CreditCard className="h-4 w-4" />}
-            color="from-indigo-50 to-blue-100"
-          >
+          <Card title="Cập nhật thanh toán" icon={<CreditCard className="h-4 w-4" />} color="from-indigo-50 to-blue-100">
             <form
               onSubmit={async (e: FormEvent<HTMLFormElement>) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
-                const status = fd.get("paymentStatus") as PaymentStatus;
+                const status = (fd.get("paymentStatus") as PaymentStatus) ?? o.paymentStatus;
                 const paidAt = fdStr(fd, "paidAt");
                 await onUpdatePayment(status, paidAt);
               }}
               className="space-y-2"
             >
-              <select
-                name="paymentStatus"
-                className="w-full rounded-xl border px-3 py-2"
-                defaultValue={o.paymentStatus}
-              >
-                {Object.values(PAYMENT_STATUS).map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
+              <select name="paymentStatus" className="w-full rounded-xl border px-3 py-2" defaultValue={o.paymentStatus}>
+                {PAYMENT_STATUS_OPTIONS.map((p) => (
+                  <option key={p} value={p}>{p}</option>
                 ))}
               </select>
-              <input
-                name="paidAt"
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="ISO paidAt"
-              />
+              <input name="paidAt" className="w-full rounded-xl border px-3 py-2" placeholder="ISO paidAt (tuỳ chọn)" />
               <StyledButton type="submit">Cập nhật</StyledButton>
             </form>
           </Card>
 
           {/* Shipping */}
-          <Card
-            title="Thông tin vận chuyển"
-            icon={<Truck className="h-4 w-4" />}
-            color="from-sky-50 to-cyan-100"
-          >
+          <Card title="Thông tin vận chuyển" icon={<Truck className="h-4 w-4" />} color="from-sky-50 to-cyan-100">
             <form
               onSubmit={async (e: FormEvent<HTMLFormElement>) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
-                const payload: ReqUpdateShipping = {
-                  fee: fdStr(fd, "fee"),
-                  shippingCarrier: fdStr(fd, "carrier"),
-                  trackingCode: fdStr(fd, "tracking"),
-                  shippedAt: fdStr(fd, "shippedAt"),
-                };
-                await onUpdateShipping(payload);
+                await onUpdateShipping(fd);
               }}
               className="space-y-2"
             >
-              <input
-                name="fee"
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="Phí ship"
-              />
-              <input
-                name="carrier"
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="Hãng vận chuyển"
-              />
-              <input
-                name="tracking"
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="Mã vận đơn"
-              />
-              <input
-                name="shippedAt"
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="ISO shippedAt"
-              />
+              <input name="fee" className="w-full rounded-xl border px-3 py-2" placeholder="Phí ship" />
+              <input name="carrier" className="w-full rounded-xl border px-3 py-2" placeholder="Hãng vận chuyển" />
+              <input name="tracking" className="w-full rounded-xl border px-3 py-2" placeholder="Mã vận đơn" />
+              <input name="shippedAt" className="w-full rounded-xl border px-3 py-2" placeholder="ISO shippedAt" />
               <StyledButton type="submit">Lưu</StyledButton>
             </form>
           </Card>
 
           {/* Assign */}
-          <Card
-            title="Giao nhân viên phụ trách"
-            icon={<UserCheck className="h-4 w-4" />}
-            color="from-amber-50 to-yellow-100"
-          >
+          <Card title="Giao nhân viên phụ trách" icon={<UserCheck className="h-4 w-4" />} color="from-amber-50 to-yellow-100">
             <form
               onSubmit={async (e: FormEvent<HTMLFormElement>) => {
                 e.preventDefault();
@@ -309,14 +282,8 @@ export default function SaleOrderDetailPage() {
               }}
               className="flex gap-2"
             >
-              <input
-                name="assigneeId"
-                className="flex-1 rounded-xl border px-3 py-2"
-                placeholder="UserId nhân viên"
-              />
-              <StyledButton type="submit" className="w-auto">
-                Giao
-              </StyledButton>
+              <input name="assigneeId" className="flex-1 rounded-xl border px-3 py-2" placeholder="UserId nhân viên" />
+              <StyledButton type="submit" className="w-auto">Giao</StyledButton>
             </form>
             <div className="mt-1 text-sm text-gray-600">
               Hiện tại: {o.assigneeName ?? (o.assigneeId ? `#${o.assigneeId}` : "Chưa có")}
@@ -324,11 +291,7 @@ export default function SaleOrderDetailPage() {
           </Card>
 
           {/* Note */}
-          <Card
-            title="Thêm ghi chú"
-            icon={<StickyNote className="h-4 w-4" />}
-            color="from-purple-50 to-fuchsia-100"
-          >
+          <Card title="Thêm ghi chú" icon={<StickyNote className="h-4 w-4" />} color="from-purple-50 to-fuchsia-100">
             <form
               onSubmit={async (e: FormEvent<HTMLFormElement>) => {
                 e.preventDefault();
@@ -337,11 +300,7 @@ export default function SaleOrderDetailPage() {
               }}
               className="space-y-2"
             >
-              <textarea
-                name="note"
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="Nội dung ghi chú..."
-              />
+              <textarea name="note" className="w-full rounded-xl border px-3 py-2" placeholder="Nội dung ghi chú..." />
               <StyledButton type="submit">Thêm</StyledButton>
             </form>
           </Card>
@@ -356,45 +315,27 @@ export default function SaleOrderDetailPage() {
               }}
               className="space-y-2"
             >
-              <input
-                name="reason"
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="Lý do huỷ"
-              />
-              <StyledButton type="submit" className="text-rose-600 hover:bg-rose-50">
-                Huỷ đơn
-              </StyledButton>
+              <input name="reason" className="w-full rounded-xl border px-3 py-2" placeholder="Lý do huỷ" />
+              <StyledButton type="submit" className="text-rose-600 hover:bg-rose-50">Huỷ đơn</StyledButton>
             </form>
           </Card>
 
-          {/* Refund */}
-          <Card
-            title="Hoàn tiền thủ công"
-            icon={<RotateCcw className="h-4 w-4" />}
-            color="from-lime-50 to-green-100"
-          >
+          {/* Refund manual */}
+          <Card title="Hoàn tiền thủ công" icon={<RotateCcw className="h-4 w-4" />} color="from-lime-50 to-green-100">
             <form
               onSubmit={async (e: FormEvent<HTMLFormElement>) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
                 const amount = fdStr(fd, "amount") ?? "";
                 const method = parseRefundMethod(fd.get("method"));
-                if (amount && method) {
-                  await onRefundManual(amount, method);
-                }
+                if (amount && method) await onRefundManual(amount, method);
               }}
               className="space-y-2"
             >
-              <input
-                name="amount"
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="Số tiền"
-              />
+              <input name="amount" className="w-full rounded-xl border px-3 py-2" placeholder="Số tiền" />
               <select name="method" className="w-full rounded-xl border px-3 py-2">
                 {REFUND_METHODS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
+                  <option key={m} value={m}>{m}</option>
                 ))}
               </select>
               <StyledButton type="submit">Hoàn tiền</StyledButton>
@@ -405,10 +346,10 @@ export default function SaleOrderDetailPage() {
 
       {/* Totals */}
       <div className="grid gap-3 rounded-2xl border bg-white/60 p-4 sm:grid-cols-2 md:grid-cols-4">
-        <Money label="Tạm tính" value={nf.format(Number(o.subtotal ?? 0))} />
-        <Money label="Phí ship" value={nf.format(Number(o.shippingFee ?? 0))} />
-        <Money label="Giảm" value={nf.format(Number(o.discount ?? 0))} />
-        <Money label="Tổng" value={nf.format(Number(o.total))} strong />
+        <Money label="Tạm tính" value={nf.format(Number(((o as unknown as Record<string, unknown>).subtotal) ?? 0))} />
+        <Money label="Phí ship" value={nf.format(Number(((o as unknown as Record<string, unknown>).shippingFee) ?? 0))} />
+        <Money label="Giảm" value={nf.format(Number(((o as unknown as Record<string, unknown>).discount) ?? 0))} />
+        <Money label="Tổng" value={nf.format(Number(o.total ?? ((o as unknown as Record<string, unknown>).grandTotal ?? 0)))} strong />
       </div>
     </div>
   );
@@ -416,11 +357,11 @@ export default function SaleOrderDetailPage() {
 
 /* ---------- UI helpers ---------- */
 function Card({
-  title,
-  icon,
-  children,
-  color = "from-white to-gray-50",
-}: {
+                title,
+                icon,
+                children,
+                color = "from-white to-gray-50",
+              }: {
   title: string;
   icon?: React.ReactNode;
   children: React.ReactNode;

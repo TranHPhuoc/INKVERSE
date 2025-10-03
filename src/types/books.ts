@@ -33,6 +33,23 @@ function compactParams(obj: Record<string, unknown>) {
   return out;
 }
 
+const SORT_MAP: Record<string, string> = {
+  sold: "inventory.sold",
+  "inventory.sold": "inventory.sold",
+
+  price: "price",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+
+};
+
+function mapSort(sort?: string): string | undefined {
+  if (!sort) return undefined;
+  return SORT_MAP[sort] ?? sort;
+}
+
+
+
 /* ---------------------------------------------------
  * Types
  * --------------------------------------------------- */
@@ -200,7 +217,7 @@ export async function listByCategorySlug(
     priceMax: filters?.priceMax,
     ageMinYears: ageKeyToYears(filters?.ageMin),
     ageMaxYears: ageKeyToYears(filters?.ageMax),
-    sort: filters?.sort,
+    sort: mapSort(filters?.sort),
     direction: filters?.direction,
   });
   const res = await api.get("/api/v1/books/catalog", { params: qp });
@@ -224,7 +241,7 @@ export async function listBooks(params: ListParams): Promise<SpringPage<BookList
   const qp = compactParams({
     page: toZeroBased(page),
     size,
-    sort,
+    sort: mapSort(sort),
     direction,
     status,
     authorId,
@@ -272,7 +289,7 @@ export async function searchBooks(params: SearchBookReq): Promise<SpringPage<Boo
     q: keyword,
     page: toZeroBased(page),
     size,
-    sort,
+    sort: mapSort(sort),
     direction,
     status,
     authorId,
