@@ -3,7 +3,12 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    exclude: ['vite/modulepreload-polyfill'],
+  },
   build: {
-    modulePreload: { polyfill: false }
-  }
+    rollupOptions: {
+      external: ['vite/modulepreload-polyfill'],
+    },
+  },
 })
