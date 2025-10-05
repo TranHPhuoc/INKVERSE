@@ -1,6 +1,5 @@
-// src/pages/CheckoutPage.tsx
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import useEnsureAddress from "../hooks/useEnsureAddress";
 import { listMyAddresses, type Address } from "../services/account-address";
 import { placeOrder, type PaymentMethod, type DeliveryMethod } from "../services/checkout";
@@ -11,6 +10,7 @@ import { createVnpayCheckout } from "../services/payment";
 
 /* =============== helpers =============== */
 const formatVND = (n: number) => (Number.isFinite(n) ? n.toLocaleString("vi-VN") : "0");
+const num = (v: unknown, d = 0): number => (typeof v === "number" && Number.isFinite(v) ? v : d);
 
 type CartItem = {
   id: number;
@@ -19,6 +19,7 @@ type CartItem = {
   thumbnail?: string | null;
   price: number;
   qty: number;
+  selected?: boolean;
 };
 
 type ApiResp<T> = { statusCode?: number; data: T };
@@ -42,6 +43,12 @@ function toNumber(v: unknown): number | undefined {
     const n = Number(v.replace(/[^\d.-]/g, ""));
     return Number.isFinite(n) ? n : undefined;
   }
+  return undefined;
+}
+function toBool(v: unknown): boolean | undefined {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v === 1;
+  if (typeof v === "string") return v === "true" || v === "1";
   return undefined;
 }
 
@@ -99,6 +106,8 @@ function normalizeCart(payload: unknown): CartItem[] {
       {}) as Record<string, unknown>;
     const qty = Number(read(x, "qty") ?? read(x, "quantity") ?? 1) || 1;
 
+    const maybeSelected = toBool(read(x, "selected"));
+
     return {
       id: Number(read(x, "id") ?? idx + 1),
       bookId: Number(read(x, "bookId") ?? read(b, "id") ?? read(x, "productId") ?? 0),
@@ -110,6 +119,7 @@ function normalizeCart(payload: unknown): CartItem[] {
         null,
       price: pickUnitPrice(x, b, qty),
       qty,
+      ...(typeof maybeSelected === "boolean" ? { selected: maybeSelected } : {}),
     };
   });
 }
@@ -132,15 +142,11 @@ function hardRedirect(url: string) {
   try {
     window.location.assign(url);
     return;
-  } catch {
-    /**/
-  }
+  } catch {}
   try {
     window.location.replace(url);
     return;
-  } catch {
-    /**/
-  }
+  } catch {}
   window.location.href = url;
 }
 
@@ -162,6 +168,12 @@ function getCodeFromPlaceOrder(res: unknown): string | null {
 /* =============== component =============== */
 export default function CheckoutPage() {
   const { checking, ready } = useEnsureAddress("/checkout");
+  const location = useLocation();
+  const selectedIdsFromCart = (location.state?.selectedIds as number[] | undefined) ?? undefined;
+  const selectedIdSet = useMemo(
+    () => (selectedIdsFromCart && selectedIdsFromCart.length ? new Set(selectedIdsFromCart) : null),
+    [selectedIdsFromCart],
+  );
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressId, setAddressId] = useState<number | null>(null);
@@ -174,7 +186,6 @@ export default function CheckoutPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loadingCart, setLoadingCart] = useState<boolean>(true);
 
-  /* -------- Reset payment về COD nếu state cũ != COD/VNPAY -------- */
   useEffect(() => {
     if (payment !== "COD" && payment !== "VNPAY") setPayment("COD");
   }, [payment]);
@@ -195,28 +206,37 @@ export default function CheckoutPage() {
     })();
   }, [ready]);
 
-  /* -------- Giỏ hàng -------- */
+  /* -------- Giỏ hàng (lọc theo selectedIds/flag) -------- */
   useEffect(() => {
     if (!ready) return;
     (async () => {
       setLoadingCart(true);
       try {
-        const res = await api.get("/api/v1/cart", { validateStatus: (s: number) => s < 500 });
+        const res = await api.get("/api/v1/cart");
         const payload = unwrap<unknown>(res.data);
-        setItems(normalizeCart(payload));
+        const all = normalizeCart(payload);
+
+        let filtered: CartItem[] | null = null;
+        if (selectedIdSet) filtered = all.filter((it) => selectedIdSet.has(it.bookId));
+        if (!filtered || filtered.length === 0) {
+          const byFlag = all.filter((it) => it.selected === true);
+          if (byFlag.length > 0) filtered = byFlag;
+        }
+        setItems(filtered && filtered.length > 0 ? filtered : all);
       } catch {
         setItems([]);
       } finally {
         setLoadingCart(false);
       }
     })();
-  }, [ready]);
+  }, [ready, selectedIdSet]);
 
-  const subTotal = useMemo(() => items.reduce((s, it) => s + it.price * it.qty, 0), [items]);
-  const shippingFee = useMemo(
-    () => (delivery === "EXPRESS" ? 35_000 : 30_000),
-    [delivery, items.length],
+  /* -------- totals -------- */
+  const subTotal = useMemo(
+    () => items.reduce((s, it) => s + num(it.price) * num(it.qty), 0),
+    [items],
   );
+  const shippingFee = delivery === "EXPRESS" ? 35_000 : 30_000;
   const grandTotal = subTotal + shippingFee;
   const canPlace = addressId !== null && !!payment && !!delivery && items.length > 0 && !submitting;
 
@@ -240,10 +260,7 @@ export default function CheckoutPage() {
 
       if (payment === "VNPAY") {
         sessionStorage.setItem("intro.skip.once", "1");
-
-        // ✅ Đổi returnUrl về đúng trang return FE
         const returnUrl = `${window.location.origin}/payment/vnpay/return?vnp_cb=1&skipIntro=1`;
-
         const { checkoutUrl } = await createVnpayCheckout(orderCode, returnUrl);
         hardRedirect(checkoutUrl);
         return;
@@ -268,19 +285,20 @@ export default function CheckoutPage() {
   if (!ready) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-        <h1 className="mb-5 text-2xl font-semibold">Thanh toán</h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+      <div className="mx-auto max-w-7xl px-4 py-10 md:px-8">
+        <h1 className="mb-8 text-3xl font-semibold text-gray-800">Thanh toán</h1>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
           {/* LEFT */}
-          <section className="flex h-full flex-col rounded-2xl border bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold">Sản phẩm</h2>
+          <section className="self-start rounded-2xl bg-white p-6 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+            <h2 className="mb-5 text-xl font-semibold text-gray-800">Sản phẩm</h2>
+
             {loadingCart ? (
               <div className="flex flex-col gap-4">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="flex animate-pulse gap-4">
-                    <div className="h-28 w-20 rounded bg-gray-200" />
+                    <div className="h-28 w-20 rounded-xl bg-gray-200" />
                     <div className="flex-1 space-y-2">
                       <div className="h-4 w-2/3 rounded bg-gray-200" />
                       <div className="h-4 w-1/2 rounded bg-gray-200" />
@@ -289,17 +307,20 @@ export default function CheckoutPage() {
                 ))}
               </div>
             ) : items.length === 0 ? (
-              <div className="flex-1 py-14 text-center text-base text-gray-500">
+              <div className="flex h-40 items-center justify-center rounded-xl bg-gray-50 text-gray-500">
                 Không có sản phẩm nào để thanh toán.
               </div>
             ) : (
-              <div className="flex-1 divide-y">
+              <div className="divide-y divide-gray-100">
                 {items.map((it) => (
-                  <div key={it.id} className="flex items-start gap-5 py-4">
+                  <div
+                    key={`${it.bookId}-${it.id}`}
+                    className="flex items-start gap-5 rounded-xl px-2 py-5 transition hover:bg-gray-50"
+                  >
                     <img
                       src={it.thumbnail || "/placeholder.svg"}
                       alt={it.title}
-                      className="h-28 w-20 rounded-lg border object-cover md:h-36 md:w-28"
+                      className="h-28 w-20 rounded-lg border border-gray-100 object-cover shadow-sm"
                       loading="lazy"
                       onError={(e) => {
                         const t = e.currentTarget;
@@ -307,14 +328,18 @@ export default function CheckoutPage() {
                       }}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="line-clamp-2 text-base font-semibold">{it.title}</div>
-                      <div className="mt-1 text-sm text-gray-500">SL: {it.qty}</div>
+                      <div className="line-clamp-2 text-base font-semibold text-gray-800">
+                        {it.title}
+                      </div>
+                      <div className="mt-1 text-sm text-gray-500">Số lượng: {it.qty}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-base font-semibold text-rose-600">
-                        {formatVND(it.price * it.qty)} ₫
+                        {formatVND(num(it.price) * num(it.qty))} ₫
                       </div>
-                      <div className="text-xs text-gray-500">{formatVND(it.price)} ₫ / sp</div>
+                      <div className="text-xs text-gray-500">
+                        {formatVND(num(it.price))} ₫ / sản phẩm
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -323,100 +348,101 @@ export default function CheckoutPage() {
           </section>
 
           {/* RIGHT */}
-          <aside className="space-y-4">
-            <section className="space-y-5 rounded-2xl border bg-white p-5 shadow-sm">
-              {/* Địa chỉ */}
-              <div>
-                <div className="flex items-center justify-between">
-                  <label className="mb-2 block text-base font-medium">Địa chỉ nhận hàng</label>
-                  <Link
-                    className="text-xs text-indigo-600 hover:underline"
-                    to="/tai-khoan/dia-chi?return=/checkout"
-                  >
-                    Quản lý địa chỉ
-                  </Link>
-                </div>
-                <select
-                  className="w-full rounded-lg border px-3 py-2.5"
-                  value={addressId ?? ""}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setAddressId(v ? Number(v) : null);
-                  }}
+          <aside className="space-y-5 rounded-2xl bg-white p-6 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+            {/* Địa chỉ */}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="text-base font-medium text-gray-800">Địa chỉ nhận hàng</label>
+                <Link
+                  className="text-sm text-indigo-600 hover:underline"
+                  to="/tai-khoan/dia-chi?return=/checkout"
                 >
-                  <option value="" disabled>
-                    -- Chọn địa chỉ --
-                  </option>
-                  {addresses.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.fullName} • {a.phone} — {a.line1}, {a.ward}, {a.district}, {a.province}
-                      {a.isDefault ? " (mặc định)" : ""}
-                    </option>
-                  ))}
-                </select>
+                  Quản lý
+                </Link>
               </div>
-
-              {/* Payment & Delivery */}
-              <div className="grid gap-4">
-                <div>
-                  <label className="mb-2 block text-base font-medium">Phương thức thanh toán</label>
-                  <PaymentMethodGrid value={payment} onChange={setPayment} className="mt-1" />
-                </div>
-                <div>
-                  <label className="mb-2 block text-base font-medium">Phương thức vận chuyển</label>
-                  <select
-                    className="w-full rounded-lg border px-3 py-2.5"
-                    value={delivery}
-                    onChange={(e) => setDelivery(e.target.value as DeliveryMethod)}
-                  >
-                    <option value="STANDARD">Tiêu chuẩn</option>
-                    <option value="EXPRESS">Hỏa tốc</option>
-                  </select>
-                  <div className="mt-1 text-xs text-gray-500">
-                    Phí ước tính: {formatVND(shippingFee)} ₫
-                  </div>
-                </div>
-              </div>
-
-              {/* Note */}
-              <div>
-                <label className="mb-2 block text-base font-medium">Ghi chú</label>
-                <textarea
-                  className="w-full rounded-lg border px-3 py-2.5"
-                  rows={3}
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                />
-              </div>
-
-              {/* Summary */}
-              <div className="space-y-2 border-t pt-4">
-                <div className="flex justify-between">
-                  <span>Tạm tính</span>
-                  <span className="font-medium">{formatVND(subTotal)} ₫</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Phí vận chuyển</span>
-                  <span className="font-medium">{formatVND(shippingFee)} ₫</span>
-                </div>
-                <div className="flex justify-between text-lg font-semibold">
-                  <span>Tổng thanh toán</span>
-                  <span className="text-rose-600">{formatVND(grandTotal)} ₫</span>
-                </div>
-              </div>
-
-              {err && <div className="text-sm text-rose-600">{err}</div>}
-
-              <motion.button
-                disabled={!canPlace}
-                onClick={onPlaceOrder}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="h-12 w-full cursor-pointer rounded-lg bg-rose-600 text-base font-semibold text-white hover:opacity-90 disabled:opacity-60"
+              <select
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-gray-700 focus:border-indigo-500 focus:ring focus:ring-indigo-100"
+                value={addressId ?? ""}
+                onChange={(e) => setAddressId(e.target.value ? Number(e.target.value) : null)}
               >
-                {submitting ? "Đang đặt..." : "Đặt hàng"}
-              </motion.button>
-            </section>
+                <option value="" disabled>
+                  -- Chọn địa chỉ --
+                </option>
+                {addresses.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.fullName} • {a.phone} — {a.line1}, {a.ward}, {a.district}, {a.province}
+                    {a.isDefault ? " (mặc định)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Thanh toán */}
+            <div>
+              <label className="mb-2 block text-base font-medium text-gray-800">
+                Phương thức thanh toán
+              </label>
+              <PaymentMethodGrid value={payment} onChange={setPayment} />
+            </div>
+
+            {/* Giao hàng */}
+            <div>
+              <label className="mb-2 block text-base font-medium text-gray-800">
+                Phương thức vận chuyển
+              </label>
+              <select
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-gray-700 focus:border-indigo-500 focus:ring focus:ring-indigo-100"
+                value={delivery}
+                onChange={(e) => setDelivery(e.target.value as DeliveryMethod)}
+              >
+                <option value="STANDARD">Tiêu chuẩn</option>
+                <option value="EXPRESS">Hỏa tốc</option>
+              </select>
+              <div className="mt-1 text-xs text-gray-500">
+                Phí ước tính: {formatVND(shippingFee)} ₫
+              </div>
+            </div>
+
+            {/* Ghi chú */}
+            <div>
+              <label className="mb-2 block text-base font-medium text-gray-800">Ghi chú</label>
+              <textarea
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-gray-700 focus:border-indigo-500 focus:ring focus:ring-indigo-100"
+                rows={3}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Nhập ghi chú cho đơn hàng..."
+              />
+            </div>
+
+            {/* Tổng */}
+            <div className="rounded-xl bg-gray-50 p-4">
+              <div className="flex justify-between text-sm">
+                <span>Tạm tính</span>
+                <span>{formatVND(subTotal)} ₫</span>
+              </div>
+              <div className="mt-1 flex justify-between text-sm">
+                <span>Phí vận chuyển</span>
+                <span>{formatVND(shippingFee)} ₫</span>
+              </div>
+              <div className="mt-3 flex justify-between border-t pt-3 text-lg font-semibold text-gray-800">
+                <span>Tổng thanh toán</span>
+                <span className="text-rose-600">{formatVND(grandTotal)} ₫</span>
+              </div>
+            </div>
+
+            {err && <div className="text-sm text-rose-600">{err}</div>}
+
+            <motion.button
+              disabled={!canPlace}
+              onClick={onPlaceOrder}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="h-12 w-full cursor-pointer rounded-lg bg-rose-600 text-base font-semibold text-white hover:opacity-90 disabled:opacity-60"
+            >
+              {" "}
+              {submitting ? "Đang đặt..." : "Đặt hàng"}{" "}
+            </motion.button>
           </aside>
         </div>
       </div>

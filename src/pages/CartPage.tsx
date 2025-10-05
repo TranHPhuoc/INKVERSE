@@ -13,19 +13,67 @@ import { vnd } from "../utils/currency";
 import { Link, useNavigate } from "react-router-dom";
 import useCheckoutGuard from "../hooks/useCheckoutGuard.tsx";
 
+/* ================= helpers ================= */
+const num = (v: unknown, d = 0): number => (typeof v === "number" && Number.isFinite(v) ? v : d);
+
+function sortByStableOrder<T extends { bookId: number }>(items: T[], order: number[]) {
+  if (!order.length) return items;
+  const pos = new Map(order.map((id, i) => [id, i]));
+  return [...items].sort(
+    (a, b) =>
+      (pos.has(a.bookId) ? (pos.get(a.bookId) as number) : Number.MAX_SAFE_INTEGER) -
+      (pos.has(b.bookId) ? (pos.get(b.bookId) as number) : Number.MAX_SAFE_INTEGER),
+  );
+}
+
+/** Kiểu nhìn cho UI (không dùng any) */
+type CartItemView = ResCartItem & {
+  title?: string;
+  slug?: string;
+  thumbnail?: string | null;
+  onSale?: boolean;
+  originalUnitPrice?: number;
+  unitPrice: number; // ResCartItem đã có
+  lineTotal?: number;
+  stockAvailable?: number;
+};
+
+const getTitle = (it: CartItemView): string => it.title ?? "Sản phẩm";
+const getSlug = (it: CartItemView): string => it.slug ?? String(it.bookId);
+const getThumb = (it: CartItemView): string => it.thumbnail ?? "/placeholder-160x240.png";
+const getStock = (it: CartItemView): number => num(it.stockAvailable, 0);
+const getLineTotal = (it: CartItemView): number =>
+  num(it.lineTotal, num(it.unitPrice) * num(it.qty));
+const getOriginal = (it: CartItemView): number | undefined =>
+  typeof it.originalUnitPrice === "number" ? it.originalUnitPrice : undefined;
+
+/* ================= component ================= */
 export default function CartPage() {
   const [data, setData] = useState<ResCartSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
 
+  /** giữ thứ tự hiển thị ổn định */
+  const [itemOrder, setItemOrder] = useState<number[]>([]);
+
   const navigate = useNavigate();
   const guard = useCheckoutGuard("/checkout");
 
-  const anySelected = useMemo(() => (data?.items ?? []).some((i) => i.selected), [data]);
-  const allSelected = useMemo(() => {
-    const items = data?.items ?? [];
-    return items.length > 0 && items.every((i) => i.selected);
-  }, [data]);
+  /** Map sang kiểu view (chỉ là annotation type, không phải any) */
+  const items: CartItemView[] = useMemo(() => {
+    if (!data) return [];
+    const ordered = sortByStableOrder<CartItemView>(data.items as CartItemView[], itemOrder);
+    return ordered;
+  }, [data, itemOrder]);
+
+  const anySelected = useMemo(() => items.some((i) => i.selected), [items]);
+  const allSelected = useMemo(() => items.length > 0 && items.every((i) => i.selected), [items]);
+
+  const selectedItems = useMemo(() => items.filter((i) => i.selected), [items]);
+  const selectedQty = useMemo(
+    () => selectedItems.reduce((s, i) => s + num(i.qty), 0),
+    [selectedItems],
+  );
 
   useEffect(() => {
     (async () => {
@@ -33,6 +81,7 @@ export default function CartPage() {
         setLoading(true);
         const res = await getCart();
         setData(res);
+        setItemOrder(res.items.map((i) => i.bookId));
       } catch (e) {
         console.error(e);
       } finally {
@@ -41,12 +90,27 @@ export default function CartPage() {
     })();
   }, []);
 
+  const applyServerCart = (next: ResCartSummary) => {
+    setData({
+      ...next,
+      items: sortByStableOrder(
+        next.items,
+        itemOrder.length ? itemOrder : next.items.map((i) => i.bookId),
+      ),
+    });
+    setItemOrder((prev) => {
+      const known = new Set(prev);
+      const append = next.items.map((i) => i.bookId).filter((id) => !known.has(id));
+      return append.length ? [...prev, ...append] : prev;
+    });
+  };
+
   async function handleToggleAll() {
     if (!data) return;
     setWorking(true);
     try {
       const next = await selectAllCart({ selected: !allSelected });
-      setData(next);
+      applyServerCart(next);
     } catch (e) {
       console.error(e);
     } finally {
@@ -58,7 +122,7 @@ export default function CartPage() {
     setWorking(true);
     try {
       const next = await updateCartItem(it.bookId, { selected: !it.selected });
-      setData(next);
+      applyServerCart(next);
     } catch (e) {
       console.error(e);
     } finally {
@@ -67,14 +131,14 @@ export default function CartPage() {
   }
 
   async function handleQty(it: ResCartItem, delta: number) {
-    const nextQty = it.qty + delta;
+    const nextQty = num(it.qty) + delta;
     setWorking(true);
     try {
       const next =
         nextQty <= 0
           ? await updateCartItem(it.bookId, { qty: 0 })
           : await updateCartItem(it.bookId, { qty: nextQty });
-      setData(next);
+      applyServerCart(next);
     } catch (e) {
       console.error(e);
     } finally {
@@ -86,7 +150,7 @@ export default function CartPage() {
     setWorking(true);
     try {
       const next = await removeCartItem(bookId);
-      setData(next);
+      applyServerCart(next);
     } catch (e) {
       console.error(e);
     } finally {
@@ -98,7 +162,7 @@ export default function CartPage() {
     setWorking(true);
     try {
       const next = await clearCart(all ? { onlyUnselected: false } : { onlyUnselected: true });
-      setData(next);
+      applyServerCart(next);
     } catch (e) {
       console.error(e);
     } finally {
@@ -109,9 +173,13 @@ export default function CartPage() {
   async function handleCheckout() {
     if (!anySelected || !data) return;
     const ok = await guard.ensureReady();
-    if (ok) navigate("/checkout");
+    if (!ok) return;
+
+    const selectedIds = items.filter((i) => i.selected).map((i) => i.bookId);
+    navigate("/checkout", { state: { selectedIds } });
   }
 
+  /* ================= render ================= */
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-12 text-center text-gray-300">
@@ -121,7 +189,7 @@ export default function CartPage() {
     );
   }
 
-  if (!data || data.items.length === 0) {
+  if (!data || items.length === 0) {
     return (
       <div className="flex min-h-screen flex-col bg-white">
         <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 p-10 text-center backdrop-blur">
@@ -135,7 +203,6 @@ export default function CartPage() {
             Về trang chủ
           </Link>
         </div>
-
         {guard.modal}
       </div>
     );
@@ -175,110 +242,115 @@ export default function CartPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3 lg:divide-x lg:divide-gray-200">
-        {/* List */}
-        <div className="space-y-3 pr-0 lg:col-span-2 lg:pr-6">
-          {data.items.map((it) => (
-            <motion.div
-              key={it.bookId}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-4 rounded-2xl p-4 transition hover:bg-gray-50"
-            >
-              <button
-                onClick={() => handleToggleItem(it)}
-                disabled={working}
-                className="p-1"
-                aria-label="toggle selected"
-              >
-                {it.selected ? (
-                  <CheckSquare className="h-5 w-5 cursor-pointer" />
-                ) : (
-                  <Square className="h-5 w-5 cursor-pointer" />
-                )}
-              </button>
-
-              <img
-                src={it.thumbnail ?? "/placeholder-160x240.png"}
-                alt={it.title}
-                className="h-20 w-14 rounded-lg object-cover"
-              />
-
-              <div className="flex-1">
-                <Link to={`/books/${it.slug}`} className="line-clamp-2 font-medium hover:underline">
-                  {it.title}
-                </Link>
-
-                <div className="mt-1 flex items-center gap-2">
-                  {it.onSale && (
-                    <span className="text-sm text-gray-400 line-through">
-                      {vnd(it.originalUnitPrice)}
-                    </span>
-                  )}
-                  <span className="font-semibold">{vnd(it.unitPrice)}</span>
-                  <span className="text-sm text-gray-400">• Còn {it.stockAvailable}</span>
-                </div>
-
-                <div className="mt-3 flex items-center gap-3">
-                  <div className="inline-flex items-center gap-2 rounded-xl border px-2 py-1">
-                    <button
-                      onClick={() => handleQty(it, -1)}
-                      disabled={working}
-                      className="p-1 hover:opacity-80"
-                    >
-                      <Minus className="h-4 w-4 cursor-pointer" />
-                    </button>
-                    <span className="min-w-6 text-center">{it.qty}</span>
-                    <button
-                      onClick={() => handleQty(it, +1)}
-                      disabled={working || it.qty >= it.stockAvailable || it.qty >= 99}
-                      className="p-1 hover:opacity-80"
-                    >
-                      <Plus className="h-4 w-4 cursor-pointer" />
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => handleRemove(it.bookId)}
-                    disabled={working}
-                    className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-1.5 transition hover:bg-gray-50"
-                  >
-                    <Trash2 className="h-4 w-4 cursor-pointer" />
-                    Xoá
-                  </button>
-
-                  <div className="ml-auto font-semibold">{vnd(it.lineTotal)}</div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-        {/* Summary */}
-        <div className="h-fit px-5">
-          <h2 className="mb-4 text-lg font-semibold">Tóm tắt</h2>
-          <div className="space-y-2 text-sm">
-            <Row label="Tạm tính" value={vnd(data.subtotal)} />
-            <Row label="Giảm giá" value={vnd(data.discountTotal)} />
-            <Row label="Phí vận chuyển" value={vnd(data.shippingFee)} />
-            <Row label="Thuế" value={vnd(data.taxTotal)} />
-            <div className="my-2 border-t" />
-            <Row
-              label={<span className="font-semibold">Tổng cộng</span>}
-              value={<span className="font-semibold">{vnd(data.grandTotal)}</span>}
-            />
-            <div className="text-xs text-gray-500">
-              Đã chọn: <b>{data.totalSelected}</b> / Tổng số lượng: <b>{data.totalItems}</b>
-            </div>
-          </div>
-
-          <button
-            onClick={handleCheckout}
-            disabled={!anySelected || working}
-            className="mt-5 w-full cursor-pointer rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
+      {/* List */}
+      <div className="space-y-3">
+        {items.map((it) => (
+          <motion.div
+            key={it.bookId}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-4 rounded-2xl p-4 transition hover:bg-gray-50"
           >
-            Tiến hành đặt hàng
-          </button>
+            <button
+              onClick={() => handleToggleItem(it)}
+              disabled={working}
+              className="p-1"
+              aria-label="toggle selected"
+            >
+              {it.selected ? (
+                <CheckSquare className="h-5 w-5 cursor-pointer" />
+              ) : (
+                <Square className="h-5 w-5 cursor-pointer" />
+              )}
+            </button>
+
+            <img
+              src={getThumb(it)}
+              alt={getTitle(it)}
+              className="h-20 w-14 rounded-lg object-cover"
+              onError={(e) => {
+                e.currentTarget.src = "/placeholder-160x240.png";
+              }}
+            />
+
+            <div className="flex-1">
+              <Link
+                to={`/books/${getSlug(it)}`}
+                className="line-clamp-2 font-medium hover:underline"
+              >
+                {getTitle(it)}
+              </Link>
+
+              <div className="mt-1 flex items-center gap-2">
+                {it.onSale && typeof getOriginal(it) === "number" && (
+                  <span className="text-sm text-gray-400 line-through">
+                    {vnd(getOriginal(it)!)}
+                  </span>
+                )}
+                <span className="font-semibold">{vnd(num(it.unitPrice))}</span>
+                <span className="text-sm text-gray-400">• Còn {getStock(it)}</span>
+              </div>
+
+              <div className="mt-3 flex items-center gap-3">
+                <div className="inline-flex items-center gap-2 rounded-xl border px-2 py-1">
+                  <button
+                    onClick={() => handleQty(it, -1)}
+                    disabled={working}
+                    className="p-1 hover:opacity-80"
+                  >
+                    <Minus className="h-4 w-4 cursor-pointer" />
+                  </button>
+                  <span className="min-w-6 text-center">{num(it.qty)}</span>
+                  <button
+                    onClick={() => handleQty(it, +1)}
+                    disabled={working || num(it.qty) >= getStock(it) || num(it.qty) >= 99}
+                    className="p-1 hover:opacity-80"
+                  >
+                    <Plus className="h-4 w-4 cursor-pointer" />
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => handleRemove(it.bookId)}
+                  disabled={working}
+                  className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-1.5 transition hover:bg-gray-50"
+                >
+                  <Trash2 className="h-4 w-4 cursor-pointer" />
+                  Xoá
+                </button>
+
+                <div className="ml-auto font-semibold">{vnd(getLineTotal(it))}</div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Summary  */}
+      <div className="mt-8 w-[400px] h-[220px] border p-5 bg-white shadow-sm">
+        <h2 className="mb-4 text-lg font-semibold">Tóm tắt</h2>
+        <div className="space-y-2 text-sm">
+          <div className="my-2 border-t" />
+          <Row
+            label={<span className="font-semibold">Tổng cộng (tất cả)</span>}
+            value={
+              <span className="font-semibold">{vnd(num((data as ResCartSummary).grandTotal))}</span>
+            }
+          />
+
+          <div className="text-xs text-gray-500">
+            Đã chọn: <b>{selectedQty}</b> / Tổng số lượng:{" "}
+            <b>{num((data as ResCartSummary).totalItems)}</b>
+          </div>
         </div>
+
+        <button
+          onClick={handleCheckout}
+          disabled={!anySelected || working}
+          className="mt-5 w-full cursor-pointer rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
+        >
+          Tiến hành đặt hàng
+        </button>
       </div>
 
       {guard.modal}
