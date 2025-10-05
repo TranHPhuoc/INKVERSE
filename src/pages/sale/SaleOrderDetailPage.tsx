@@ -1,5 +1,17 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { useParams } from "react-router-dom";
+// src/pages/sale/SaleOrderDetailPage.tsx
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  CornerUpLeft,
+  MapPin,
+  Package,
+  CreditCard,
+  Truck,
+  UserCheck,
+  StickyNote,
+  Ban,
+  RotateCcw,
+} from "lucide-react";
 
 import {
   saleAddNote,
@@ -17,88 +29,24 @@ import type {
   PaymentStatus,
   ReqUpdatePayment,
   ReqUpdateShipping,
-  ReqCreateNote,
+  RefundMethod,
 } from "../../types/sale-order";
 
 import { OrderStatusBadge, PaymentStatusBadge } from "../../components/sale/StatusBadge";
 import OrderItemsTable from "../../components/sale/OrderItemsTable";
-import {
-  Ban,
-  CreditCard,
-  MapPin,
-  Package,
-  RotateCcw,
-  StickyNote,
-  Truck,
-  UserCheck,
-} from "lucide-react";
 
-/* ---------- helpers ---------- */
+/* ================= helpers ================= */
 const nf = new Intl.NumberFormat("vi-VN");
 
-const payMethodLabel: Record<PaymentMethod, string> = {
+const PAY_LABEL: Record<PaymentMethod, string> = {
   COD: "Tiền mặt (COD)",
   VNPAY: "VNPay",
 };
-const payMethodColor: Record<PaymentMethod, string> = {
+const PAY_COLOR: Record<PaymentMethod, string> = {
   COD: "bg-gray-100 text-gray-800 border-gray-300",
   VNPAY: "bg-teal-100 text-teal-800 border-teal-300",
 };
 
-/** Chuẩn hoá string → COD/VNPAY */
-function normalizeMethod(v: unknown): PaymentMethod | null {
-  if (v == null) return null;
-  const s = String(v).toUpperCase().replace(/[^A-Z_]/g, "");
-  if (s === "COD" || s === "CASH" || s === "CASHONDELIVERY") return "COD";
-  if (s === "VNPAY" || s === "VN_PAY" || s === "VNPAYQR" || s === "VNPAY_QR") return "VNPAY";
-  return null;
-}
-
-/** Lấy paymentMethod từ nhiều key có thể có */
-function getPaymentMethod(o: ResOrderAdmin): PaymentMethod | null {
-  const obj = o as unknown as Record<string, unknown>;
-  return (
-    normalizeMethod(obj.paymentMethod) ??
-    normalizeMethod(obj.paymentType) ??
-    normalizeMethod(obj.payment_method) ??
-    normalizeMethod(obj.method) ??
-    null
-  );
-}
-
-/** đọc shippingAddress an toàn (tuỳ BE có field này hay không) */
-type ShippingAddressLocal = {
-  receiverName?: string | null;
-  receiverPhone?: string | null;
-  receiverEmail?: string | null;
-  line1?: string | null;
-  line2?: string | null;
-  ward?: string | null;
-  district?: string | null;
-  province?: string | null;
-  addressLine?: string | null;
-};
-function getShippingAddress(o: ResOrderAdmin): ShippingAddressLocal | null {
-  const obj = o as unknown as Record<string, unknown>;
-  const sa = obj.shippingAddress;
-  return sa && typeof sa === "object" ? (sa as ShippingAddressLocal) : null;
-}
-
-function extractErr(e: unknown, fallback = "Load lỗi"): string {
-  const maybeResp = e as { response?: { data?: { message?: string } } };
-  if (maybeResp?.response?.data?.message) return maybeResp.response.data.message;
-  if (e instanceof Error && e.message) return e.message;
-  return fallback;
-}
-
-function fdStr(fd: FormData, key: string): string | undefined {
-  const v = fd.get(key);
-  if (typeof v !== "string") return undefined;
-  const s = v.trim();
-  return s ? s : undefined;
-}
-
-/** local options cho PaymentStatus (đủ enum) */
 const PAYMENT_STATUS_OPTIONS: readonly PaymentStatus[] = [
   "UNPAID",
   "PENDING",
@@ -109,31 +57,36 @@ const PAYMENT_STATUS_OPTIONS: readonly PaymentStatus[] = [
   "REFUNDED",
 ];
 
-/** RefundMethod theo BE (không phụ thuộc types nếu chưa export) */
-type RefundMethodBE = "CASH" | "BANK_TRANSFER" | "MOMO" | "OTHER";
-const REFUND_METHODS: readonly RefundMethodBE[] = ["CASH", "BANK_TRANSFER", "MOMO", "OTHER"];
-function parseRefundMethod(v: unknown): RefundMethodBE | undefined {
-  return typeof v === "string" && (REFUND_METHODS as readonly string[]).includes(v)
-    ? (v as RefundMethodBE)
-    : undefined;
+function extractErr(e: unknown, fallback = "Có lỗi xảy ra"): string {
+  const maybe = e as { response?: { data?: { message?: string } } };
+  if (maybe?.response?.data?.message) return maybe.response.data.message;
+  if (e instanceof Error && e.message) return e.message;
+  return fallback;
+}
+function fdStr(fd: FormData, key: string): string | undefined {
+  const v = fd.get(key);
+  if (typeof v !== "string") return undefined;
+  const s = v.trim();
+  return s || undefined;
+}
+function toNum(n: number | string | null | undefined): number {
+  const x = Number(n);
+  return Number.isFinite(x) ? x : 0;
+}
+function joinParts(parts: Array<string | null | undefined>): string {
+  return parts.filter(Boolean).join(", ");
 }
 
-/** đọc số an toàn từ object (tránh any) */
-function pickNum(obj: unknown, key: string): number {
-  if (!obj || typeof obj !== "object") return 0;
-  const val = (obj as Record<string, unknown>)[key];
-  const n = Number(val);
-  return Number.isFinite(n) ? n : 0;
-}
-
-/* ---------- Page ---------- */
+/* ================= Page ================= */
 export default function SaleOrderDetailPage() {
   const { id } = useParams();
   const orderId = Number(id);
+  const navigate = useNavigate();
 
   const [o, setO] = useState<ResOrderAdmin | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -141,8 +94,8 @@ export default function SaleOrderDetailPage() {
     try {
       const data = await saleGetOrder(orderId);
       setO(data);
-    } catch (e: unknown) {
-      setErr(extractErr(e));
+    } catch (e) {
+      setErr(extractErr(e, "Tải đơn hàng thất bại"));
     } finally {
       setLoading(false);
     }
@@ -152,69 +105,136 @@ export default function SaleOrderDetailPage() {
     void refresh();
   }, [refresh]);
 
+  const method = o?.paymentMethod ?? null;
+  const sa = o?.shippingAddress ?? null;
+
+  const addressJoined = useMemo(() => {
+    const line = sa?.addressLine?.trim() || "";
+    if (line) return line;
+    const alt = joinParts([
+      sa?.line1 ?? "",
+      sa?.ward ?? "",
+      sa?.district ?? "",
+      sa?.province ?? "",
+    ]);
+    return alt || "—";
+  }, [sa?.addressLine, sa?.line1, sa?.ward, sa?.district, sa?.province]);
+
   async function onUpdatePayment(paymentStatus: PaymentStatus, paidAt?: string) {
-    const body: ReqUpdatePayment =
-      paidAt && paidAt.trim() ? { paymentStatus, paidAt } : { paymentStatus };
-    await saleUpdatePayment(orderId, body);
-    await refresh();
+    if (!o) return;
+    setBusy(true);
+    try {
+      const body: ReqUpdatePayment = paidAt ? { paymentStatus, paidAt } : { paymentStatus };
+      await saleUpdatePayment(o.id, body);
+      await refresh();
+    } catch (e) {
+      alert(extractErr(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function onUpdateShipping(fd: FormData) {
-    const payload: ReqUpdateShipping = {
-      ...(fdStr(fd, "fee") ? { fee: fdStr(fd, "fee")! } : {}),
-      ...(fdStr(fd, "carrier") ? { carrier: fdStr(fd, "carrier")! } : {}),
-      ...(fdStr(fd, "tracking") ? { trackingCode: fdStr(fd, "tracking")! } : {}),
-      ...(fdStr(fd, "shippedAt") ? { shippedAt: fdStr(fd, "shippedAt")! } : {}),
-    };
-    await saleUpdateShipping(orderId, payload);
-    await refresh();
+    if (!o) return;
+    setBusy(true);
+    try {
+      const payload: ReqUpdateShipping = {
+        ...(fdStr(fd, "fee") ? { fee: fdStr(fd, "fee")! } : {}),
+        ...(fdStr(fd, "shippingCarrier") ? { shippingCarrier: fdStr(fd, "shippingCarrier")! } : {}),
+        ...(fdStr(fd, "trackingCode") ? { trackingCode: fdStr(fd, "trackingCode")! } : {}),
+        ...(fdStr(fd, "shippedAt") ? { shippedAt: fdStr(fd, "shippedAt")! } : {}),
+      };
+      await saleUpdateShipping(o.id, payload);
+      await refresh();
+    } catch (e) {
+      alert(extractErr(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function onAssign(assigneeId: number) {
-    await saleAssignOrder(orderId, { assigneeId });
-    await refresh();
+    if (!o) return;
+    setBusy(true);
+    try {
+      await saleAssignOrder(o.id, { assigneeId });
+      await refresh();
+    } catch (e) {
+      alert(extractErr(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function onAddNote(note: string) {
-    if (!note.trim()) return;
-    await saleAddNote(orderId, { note } as ReqCreateNote);
-    await refresh();
+    if (!o || !note.trim()) return;
+    setBusy(true);
+    try {
+      await saleAddNote(o.id, { note });
+      await refresh();
+    } catch (e) {
+      alert(extractErr(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function onCancel(reason: string) {
-    if (!reason.trim()) return;
-    await saleCancelOrder(orderId, { reason });
-    await refresh();
+    if (!o || !reason.trim()) return;
+    if (!window.confirm("Xác nhận huỷ đơn này?")) return;
+    setBusy(true);
+    try {
+      await saleCancelOrder(o.id, { reason });
+      await refresh();
+    } catch (e) {
+      alert(extractErr(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function onRefundManual(amount: string, method: RefundMethodBE) {
-    if (!amount.trim()) return;
-    await saleRefundManual(orderId, { amount: Number(amount), method } as unknown as {
-      amount: number;
-      method: RefundMethodBE;
-    });
-    await refresh();
+  async function onRefundManual(amount: string, method: RefundMethod) {
+    if (!o) return;
+    const val = Number(amount);
+    if (!Number.isFinite(val) || val <= 0) return;
+    setBusy(true);
+    try {
+      await saleRefundManual(o.id, { amount: val, method });
+      await refresh();
+    } catch (e) {
+      alert(extractErr(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
-  if (loading) return <div>Đang tải...</div>;
-  if (err) return <div className="text-red-600">{err}</div>;
+  if (loading) return <div className="p-4">Đang tải...</div>;
+  if (err) return <div className="p-4 text-red-600">{err}</div>;
   if (!o) return null;
 
-  const method = getPaymentMethod(o);
-  const sa = getShippingAddress(o);
-
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1550px] space-y-6 p-4">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Đơn hàng #{o.code}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 shadow-sm hover:bg-gray-100 active:scale-95"
+          >
+            <CornerUpLeft className="h-4 w-4" />
+            Quay lại
+          </button>
+
+          <h1 className="text-xl font-semibold">Đơn hàng #{o.code}</h1>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           {method ? (
             <span
-              className={`inline-flex items-center rounded-xl border px-2 py-1 text-xs ${payMethodColor[method]}`}
+              className={`inline-flex items-center rounded-xl border px-2 py-1 text-xs ${PAY_COLOR[method]}`}
               title={method}
             >
-              {payMethodLabel[method]}
+              {PAY_LABEL[method]}
             </span>
           ) : null}
           <PaymentStatusBadge value={o.paymentStatus} />
@@ -228,30 +248,46 @@ export default function SaleOrderDetailPage() {
           <Card
             title="Thông tin giao hàng"
             icon={<MapPin className="h-4 w-4" />}
-            color="from-pink-50 to-rose-100"
+            accent="from-rose-50 to-pink-50"
           >
-            <div className="text-sm">
-              <div>
-                {sa?.receiverName ?? "—"} — {sa?.receiverPhone ?? "—"}
+            <div className="grid grid-cols-2 gap-x-10 gap-y-2 text-sm">
+              <Row label="Khách hàng" value={o.customerName ?? "—"} />
+              <Row label="Số điện thoại" value={o.customerPhone ?? "—"} />
+              <Row label="Email" value={o.customerEmail ?? sa?.receiverEmail ?? "—"} />
+              <Row label="Địa chỉ" value={addressJoined} />
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 text-xs text-gray-500">
+              <div>Ngày tạo: {new Date(o.createdAt).toLocaleString()}</div>
+              <div className="text-right">
+                Cập nhật: {o.updatedAt ? new Date(o.updatedAt).toLocaleString() : "—"}
               </div>
-              <div>{sa?.receiverEmail ?? "—"}</div>
-              <div>{sa?.addressLine ?? sa?.line1 ?? "—"}</div>
-              <div>Phụ trách: {o.assigneeName ?? (o.assigneeId ? `#${o.assigneeId}` : "—")}</div>
             </div>
           </Card>
 
-          <Card title="Sản phẩm" icon={<Package className="h-4 w-4" />}>
+          <Card
+            title="Sản phẩm"
+            icon={<Package className="h-4 w-4" />}
+            accent="from-slate-50 to-slate-100"
+          >
             <OrderItemsTable items={o.items ?? []} />
           </Card>
+
+          <div className="grid gap-3 rounded-2xl bg-white/80 p-4 shadow-sm">
+            <Totals label="Tạm tính" value={nf.format(toNum(o.subtotal))} />
+            <Totals label="Phí ship" value={nf.format(toNum(o.shippingFee))} />
+            <Totals label="Giảm" value={nf.format(toNum(o.discount))} />
+            <Totals label="Tổng" strong value={nf.format(toNum(o.total))} />
+          </div>
         </div>
 
         {/* RIGHT */}
         <div className="space-y-4">
-          {/* Payment */}
+          {/* Thanh toán */}
           <Card
             title="Cập nhật thanh toán"
             icon={<CreditCard className="h-4 w-4" />}
-            color="from-indigo-50 to-blue-100"
+            accent="from-indigo-50 to-blue-50"
           >
             <form
               onSubmit={async (e: FormEvent<HTMLFormElement>) => {
@@ -263,53 +299,48 @@ export default function SaleOrderDetailPage() {
               }}
               className="space-y-2"
             >
-              <select
-                name="paymentStatus"
-                className="w-full rounded-xl border px-3 py-2"
-                defaultValue={o.paymentStatus}
-              >
+              <Select name="paymentStatus" defaultValue={o.paymentStatus}>
                 {PAYMENT_STATUS_OPTIONS.map((p) => (
                   <option key={p} value={p}>
                     {p}
                   </option>
                 ))}
-              </select>
-              <input
-                name="paidAt"
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="ISO paidAt (tuỳ chọn)"
-              />
-              <StyledButton type="submit">Cập nhật</StyledButton>
+              </Select>
+              <Input name="paidAt" placeholder="ISO paidAt (tuỳ chọn)" />
+              <Btn variant="primary" type="submit" disabled={busy}>
+                Cập nhật
+              </Btn>
             </form>
           </Card>
 
-          {/* Shipping */}
+          {/* Vận chuyển */}
           <Card
             title="Thông tin vận chuyển"
             icon={<Truck className="h-4 w-4" />}
-            color="from-sky-50 to-cyan-100"
+            accent="from-cyan-50 to-sky-50"
           >
             <form
               onSubmit={async (e: FormEvent<HTMLFormElement>) => {
                 e.preventDefault();
-                const fd = new FormData(e.currentTarget);
-                await onUpdateShipping(fd);
+                await onUpdateShipping(new FormData(e.currentTarget));
               }}
               className="space-y-2"
             >
-              <input name="fee" className="w-full rounded-xl border px-3 py-2" placeholder="Phí ship" />
-              <input name="carrier" className="w-full rounded-xl border px-3 py-2" placeholder="Hãng vận chuyển" />
-              <input name="tracking" className="w-full rounded-xl border px-3 py-2" placeholder="Mã vận đơn" />
-              <input name="shippedAt" className="w-full rounded-xl border px-3 py-2" placeholder="ISO shippedAt" />
-              <StyledButton type="submit">Lưu</StyledButton>
+              <Input name="fee" placeholder="Phí ship" />
+              <Input name="shippingCarrier" placeholder="Hãng vận chuyển" />
+              <Input name="trackingCode" placeholder="Mã vận đơn" />
+              <Input name="shippedAt" placeholder="ISO shippedAt" />
+              <Btn variant="primary" type="submit" disabled={busy}>
+                Lưu
+              </Btn>
             </form>
           </Card>
 
-          {/* Assign */}
+          {/* Giao phụ trách */}
           <Card
             title="Giao nhân viên phụ trách"
             icon={<UserCheck className="h-4 w-4" />}
-            color="from-amber-50 to-yellow-100"
+            accent="from-amber-50 to-yellow-50"
           >
             <form
               onSubmit={async (e: FormEvent<HTMLFormElement>) => {
@@ -320,45 +351,40 @@ export default function SaleOrderDetailPage() {
               }}
               className="flex gap-2"
             >
-              <input
-                name="assigneeId"
-                className="flex-1 rounded-xl border px-3 py-2"
-                placeholder="UserId nhân viên"
-              />
-              <StyledButton type="submit" className="w-auto">
+              <Input name="assigneeId" placeholder="UserId nhân viên" className="flex-1" />
+              <Btn variant="outline" type="submit" disabled={busy} className="w-auto">
                 Giao
-              </StyledButton>
+              </Btn>
             </form>
-            <div className="mt-1 text-sm text-gray-600">
+            <div className="mt-2 text-sm text-gray-600">
               Hiện tại: {o.assigneeName ?? (o.assigneeId ? `#${o.assigneeId}` : "Chưa có")}
             </div>
           </Card>
 
-          {/* Note */}
+          {/* Ghi chú */}
           <Card
             title="Thêm ghi chú"
             icon={<StickyNote className="h-4 w-4" />}
-            color="from-purple-50 to-fuchsia-100"
+            accent="from-fuchsia-50 to-purple-50"
           >
             <form
               onSubmit={async (e: FormEvent<HTMLFormElement>) => {
                 e.preventDefault();
                 const note = fdStr(new FormData(e.currentTarget), "note") ?? "";
                 await onAddNote(note);
+                e.currentTarget.reset();
               }}
               className="space-y-2"
             >
-              <textarea
-                name="note"
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="Nội dung ghi chú..."
-              />
-              <StyledButton type="submit">Thêm</StyledButton>
+              <Textarea name="note" placeholder="Nội dung ghi chú…" />
+              <Btn variant="outline" type="submit" disabled={busy}>
+                Thêm
+              </Btn>
             </form>
           </Card>
 
-          {/* Cancel */}
-          <Card title="Huỷ đơn" icon={<Ban className="h-4 w-4" />} color="from-rose-50 to-red-100">
+          {/* Huỷ */}
+          <Card title="Huỷ đơn" icon={<Ban className="h-4 w-4" />} accent="from-rose-50 to-red-50">
             <form
               onSubmit={async (e: FormEvent<HTMLFormElement>) => {
                 e.preventDefault();
@@ -367,80 +393,71 @@ export default function SaleOrderDetailPage() {
               }}
               className="space-y-2"
             >
-              <input name="reason" className="w-full rounded-xl border px-3 py-2" placeholder="Lý do huỷ" />
-              <StyledButton type="submit" className="text-rose-600 hover:bg-rose-50">
+              <Input name="reason" placeholder="Lý do huỷ" />
+              <Btn variant="danger" type="submit" disabled={busy} title="Huỷ đơn">
                 Huỷ đơn
-              </StyledButton>
+              </Btn>
             </form>
           </Card>
 
-          {/* Refund manual */}
+          {/* Hoàn tiền thủ công */}
           <Card
             title="Hoàn tiền thủ công"
             icon={<RotateCcw className="h-4 w-4" />}
-            color="from-lime-50 to-green-100"
+            accent="from-emerald-50 to-green-50"
           >
             <form
               onSubmit={async (e: FormEvent<HTMLFormElement>) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
                 const amount = fdStr(fd, "amount") ?? "";
-                const method = parseRefundMethod(fd.get("method"));
-                if (amount && method) await onRefundManual(amount, method);
+                const method = fd.get("method") as RefundMethod | null;
+                if (method) await onRefundManual(amount, method);
               }}
               className="space-y-2"
             >
-              <input name="amount" className="w-full rounded-xl border px-3 py-2" placeholder="Số tiền" />
-              <select name="method" className="w-full rounded-xl border px-3 py-2">
-                {REFUND_METHODS.map((m) => (
+              <Input name="amount" placeholder="Số tiền" />
+              <Select name="method" defaultValue="">
+                <option value="" disabled>
+                  Phương thức
+                </option>
+                {(["CASH", "BANK_TRANSFER", "MOMO", "OTHER"] as const).map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>
                 ))}
-              </select>
-              <StyledButton type="submit">Hoàn tiền</StyledButton>
+              </Select>
+              <Btn variant="primary" type="submit" disabled={busy}>
+                Hoàn tiền
+              </Btn>
             </form>
           </Card>
         </div>
-      </div>
-
-      {/* Totals (đọc an toàn từ object) */}
-      <div className="grid gap-3 rounded-2xl border bg-white/60 p-4 sm:grid-cols-2 md:grid-cols-4">
-        <Money label="Tạm tính" value={nf.format(pickNum(o, "subtotal"))} />
-        <Money label="Phí ship" value={nf.format(pickNum(o, "shippingFee"))} />
-        <Money label="Giảm" value={nf.format(pickNum(o, "discount"))} />
-        <Money
-          label="Tổng"
-          value={nf.format(
-            Number.isFinite(Number(o.total)) ? Number(o.total) : pickNum(o, "grandTotal"),
-          )}
-          strong
-        />
       </div>
     </div>
   );
 }
 
-/* ---------- UI helpers ---------- */
+/* ================= small UI ================= */
 function Card({
-                title,
-                icon,
-                children,
-                color = "from-white to-gray-50",
-              }: {
+  title,
+  icon,
+  children,
+  accent = "from-white to-gray-50",
+}: {
   title: string;
   icon?: React.ReactNode;
   children: React.ReactNode;
-  color?: string;
+  accent?: string;
 }) {
   return (
-    <div className={`rounded-2xl border bg-gradient-to-br p-4 shadow-sm ${color}`}>
+    <div className={`rounded-2xl border border-black/5 bg-gradient-to-br ${accent} p-4 shadow-sm`}>
       <div className="mb-3 flex items-center gap-2">
-        {icon && (
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border bg-white/60">
+        {icon ? (
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border bg-white/70">
             {icon}
           </span>
-        )}
+        ) : null}
         <div className="font-medium">{title}</div>
       </div>
       {children}
@@ -448,21 +465,65 @@ function Card({
   );
 }
 
-function StyledButton({ className = "", ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <button
-      {...props}
-      className={`cursor-pointer rounded-xl border px-3 py-2 shadow-sm hover:bg-gray-100 active:scale-95 ${className}`}
-      type={props.type ?? "button"}
-    />
+    <>
+      <div className="text-gray-600">{label}</div>
+      <div className="font-medium">{value}</div>
+    </>
   );
 }
 
-function Money({ label, value, strong }: { label: string; value: string | number; strong?: boolean }) {
+function Totals({
+  label,
+  value,
+  strong,
+}: {
+  label: string;
+  value: React.ReactNode;
+  strong?: boolean;
+}) {
   return (
     <div className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
       <span className="text-gray-600">{label}</span>
       <span className={strong ? "text-lg font-semibold" : "font-medium"}>{value}</span>
     </div>
   );
+}
+
+/* Inputs */
+function baseInput(className = "") {
+  return `w-full rounded-xl border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 hover:border-indigo-400 transition ${className}`;
+}
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  const { className = "", ...rest } = props;
+  return <input {...rest} className={baseInput(className)} />;
+}
+function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const { className = "", ...rest } = props;
+  return <textarea {...rest} className={baseInput(className)} rows={3} />;
+}
+function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const { className = "", children, ...rest } = props;
+  return (
+    <select {...rest} className={baseInput(`appearance-none ${className}`)}>
+      {children}
+    </select>
+  );
+}
+
+/* Buttons */
+function Btn({
+  variant = "outline",
+  className = "",
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "outline" | "danger" }) {
+  const base =
+    "cursor-pointer rounded-xl px-3 py-2 shadow-sm active:scale-95 disabled:opacity-60 transition border";
+  const map: Record<string, string> = {
+    primary: "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700",
+    outline: "bg-white hover:bg-gray-100 border-gray-300 text-gray-800",
+    danger: "bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100",
+  };
+  return <button {...props} className={`${base} ${map[variant]} ${className}`} />;
 }

@@ -137,12 +137,16 @@ export default function BooksPage() {
   /* ---------- ui helpers ---------- */
   const badge = (s: BookListItem["status"]) => {
     const map: Record<BookListItem["status"], string> = {
-      ACTIVE: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200",
-      INACTIVE: "bg-amber-100 text-amber-700 ring-1 ring-amber-200",
-      DRAFT: "bg-gray-100 text-gray-700 ring-1 ring-gray-200",
-      OUT_OF_STOCK: "bg-rose-100 text-rose-700 ring-1 ring-rose-200",
+      ACTIVE: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+      INACTIVE: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+      DRAFT: "bg-gray-50 text-gray-700 ring-1 ring-gray-200",
+      OUT_OF_STOCK: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
     };
-    return <span className={`rounded px-2 py-0.5 text-xs font-medium ${map[s]}`}>{s}</span>;
+    return (
+      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${map[s]}`}>
+        {s}
+      </span>
+    );
   };
 
   /* ---------- render ---------- */
@@ -153,7 +157,7 @@ export default function BooksPage() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl border bg-white/80 p-4 shadow-sm backdrop-blur"
+        className="rounded-2xl bg-white/80 p-4 shadow-[0_10px_30px_-12px_rgba(0,0,0,.2)] backdrop-blur"
       >
         <div className="flex items-end gap-3">
           <div className="flex-1">
@@ -161,7 +165,7 @@ export default function BooksPage() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-xl px-3 py-2 shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="Tiêu đề, ISBN, slug..."
             />
           </div>
@@ -170,7 +174,7 @@ export default function BooksPage() {
             <select
               value={status}
               onChange={(e) => setStatus(isStatus(e.target.value) ? e.target.value : "")}
-              className="cursor-pointer rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="cursor-pointer rounded-xl px-3 py-2 shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">Tất cả</option>
               {STATUS_OPTIONS.map((s) => (
@@ -186,14 +190,14 @@ export default function BooksPage() {
               setPage(0);
               void fetchData();
             }}
-            className="h-10 cursor-pointer rounded-lg bg-indigo-600 px-4 text-white hover:bg-indigo-700"
+            className="h-10 cursor-pointer rounded-xl bg-indigo-600 px-4 text-white transition hover:-translate-y-0.5 hover:bg-indigo-700 active:translate-y-0"
           >
             Tìm
           </button>
           <button
             type="button"
             onClick={() => setOpenCreate(true)}
-            className="h-10 cursor-pointer rounded-lg bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-4 font-medium text-white"
+            className="h-10 cursor-pointer rounded-xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-4 font-medium text-white shadow-md transition hover:-translate-y-0.5 active:translate-y-0"
           >
             + Thêm sách
           </button>
@@ -204,72 +208,74 @@ export default function BooksPage() {
 
       {!loading && data && (
         <>
-          <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50/80 text-gray-600">
-                <tr>
-                  {["ID", "Ảnh", "Tiêu đề", "Giá", "Đã bán", "Trạng thái", "Hành động"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left font-medium">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.content.map((b) => (
-                  <tr key={b.id} className="border-t hover:bg-gray-50/60">
-                    <td className="px-4 py-3">{b.id}</td>
+          {/* Carded table (no borders) */}
+          <div className="rounded-2xl bg-white/90 shadow-[0_10px_30px_-12px_rgba(0,0,0,.2)]">
+            <div className="flex items-center justify-between px-4 pb-2 pt-3 text-xs text-gray-500">
+              <div>ID</div>
+              <div className="flex-1 pl-4">Sách</div>
+              <div className="w-40">Giá</div>
+              <div className="w-20 text-center">Đã bán</div>
+              <div className="w-36">Trạng thái</div>
+              <div className="w-40 text-right">Hành động</div>
+            </div>
 
-                    {/* Ảnh + nút Tải ảnh */}
-                    <td className="px-4 py-3">
+            <ul className="divide-y divide-gray-100">
+              {data.content.map((b) => (
+                <li key={b.id} className="group px-4 py-3 transition hover:bg-gray-50/70">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 text-sm text-gray-700">{b.id}</div>
+
+                    {/* thumb + upload */}
+                    <div className="flex w-[88px] flex-col items-center">
                       {b.thumbnail ? (
                         <img
                           src={resolveThumb(b.thumbnail)}
                           alt={b.title}
-                          className="h-12 w-12 rounded-md object-cover ring-1 ring-gray-200"
+                          className="h-12 w-12 rounded-lg object-cover shadow-inner"
                           onError={(e) => {
-                            if (e.currentTarget.src !== PLACEHOLDER)
-                              e.currentTarget.src = PLACEHOLDER;
+                            if (e.currentTarget.src !== PLACEHOLDER) e.currentTarget.src = PLACEHOLDER;
                           }}
                         />
                       ) : (
-                        <div className="grid h-12 w-12 place-items-center rounded-md bg-gray-200 text-[10px] text-gray-500">
+                        <div className="grid h-12 w-12 place-items-center rounded-lg bg-gray-200 text-[10px] text-gray-500">
                           No img
                         </div>
                       )}
 
-                      <div className="mt-2">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          className="hidden"
-                          ref={(el) => {
-                            fileInputs.current[b.id] = el;
-                          }}
-                          onChange={(e) => handleUploadImages(b.id, e.currentTarget.files)}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => fileInputs.current[b.id]?.click()}
-                          disabled={uploading === b.id}
-                          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                            uploading === b.id
-                              ? "bg-gray-200 text-gray-600"
-                              : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                          }`}
-                        >
-                          {uploading === b.id ? "Đang tải..." : "Tải ảnh"}
-                        </button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        ref={(el) => {
+                          fileInputs.current[b.id] = el;
+                        }}
+                        onChange={(e) => handleUploadImages(b.id, e.currentTarget.files)}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => fileInputs.current[b.id]?.click()}
+                        disabled={uploading === b.id}
+                        className={`mt-2 rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                          uploading === b.id
+                            ? "bg-gray-200 text-gray-600"
+                            : "cursor-pointer bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                        }`}
+                      >
+                        {uploading === b.id ? "Đang tải..." : "Tải ảnh"}
+                      </button>
+                    </div>
+
+
+                    <div className="flex min-w-0 flex-1 items-center gap-3 pl-2">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">{b.title}</div>
+                        <div className="truncate text-xs text-gray-500">{b.slug}</div>
                       </div>
-                    </td>
+                    </div>
 
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{b.title}</div>
-                      <div className="text-xs text-gray-500">{b.slug}</div>
-                    </td>
-
-                    <td className="px-4 py-3">
+                    <div className="w-40 text-sm">
                       <div className="font-medium">
                         {(b.effectivePrice ?? b.price).toLocaleString()}₫
                       </div>
@@ -278,38 +284,39 @@ export default function BooksPage() {
                           Sale: {b.salePrice.toLocaleString()}₫
                         </div>
                       )}
-                    </td>
+                    </div>
 
-                    <td className="px-4 py-3">{b.sold ?? 0}</td>
-                    <td className="px-4 py-3">{badge(b.status)}</td>
+                    <div className="w-20 text-center text-sm">{b.sold ?? 0}</div>
 
-                    <td className="space-x-2 px-4 py-3">
+                    <div className="w-36">{badge(b.status)}</div>
+
+                    <div className="w-40 text-right">
                       <button
                         type="button"
-                        className="rounded-md bg-indigo-50 px-3 py-1 text-indigo-700 hover:bg-indigo-100"
+                        className="cursor-pointer rounded-md bg-indigo-600/10 px-3 py-1 text-indigo-700 transition hover:bg-indigo-600/20"
                         onClick={() => openEdit(b.id)}
                       >
                         Sửa
                       </button>
                       <button
                         type="button"
-                        className="rounded-md bg-rose-50 px-3 py-1 text-rose-700 hover:bg-rose-100"
+                        className="ml-2 cursor-pointer rounded-md bg-rose-600/10 px-3 py-1 text-rose-700 transition hover:bg-rose-600/20"
                         onClick={() => onDelete(b.id)}
                       >
                         Xóa
                       </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
 
           {/* Pagination */}
           <div className="mt-4 flex items-center justify-end gap-2">
             <button
               type="button"
-              className="rounded-lg bg-gray-100 px-3 py-1 hover:bg-gray-200 disabled:opacity-50"
+              className="cursor-pointer rounded-xl bg-gray-100 px-3 py-1 transition hover:bg-gray-200 disabled:opacity-50"
               onClick={() => setPage(Math.max(0, page - 1))}
               disabled={page <= 0}
             >
@@ -320,7 +327,7 @@ export default function BooksPage() {
             </div>
             <button
               type="button"
-              className="rounded-lg bg-gray-100 px-3 py-1 hover:bg-gray-200 disabled:opacity-50"
+              className="cursor-pointer rounded-xl bg-gray-100 px-3 py-1 transition hover:bg-gray-200 disabled:opacity-50"
               onClick={() => setPage(Math.min((data.totalPages || 1) - 1, page + 1))}
               disabled={page >= (data.totalPages || 1) - 1}
             >

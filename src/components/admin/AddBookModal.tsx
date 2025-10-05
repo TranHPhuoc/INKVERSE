@@ -2,6 +2,8 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import api from "../../services/api";
 import { createBook, type BookCreate } from "../../services/admin/books-admin";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 
 /* ---------------- Types from API wrappers ---------------- */
 type RestResponse<T> = {
@@ -25,23 +27,19 @@ function unwrap<T>(payload: unknown): T {
   }
   return payload as T;
 }
-
 function toOptions(list: ResOption[]): Option[] {
   return (list || [])
     .map((x) => ({ id: Number(x.id), name: String(x.name) }))
     .filter((x) => Number.isFinite(x.id) && !!x.name);
 }
-
 function toInstant(dateStr: string): string | null {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
-
 function isRecord(val: unknown): val is Record<string, unknown> {
   return !!val && typeof val === "object";
 }
-
 // Axios-like error safe picker
 type AxiosLikeError = { response?: { data?: { message?: unknown } } };
 function pickAxiosMessage(err: unknown): string | null {
@@ -61,11 +59,9 @@ function slugify(input: string): string {
     .replace(/-{2,}/g, "-");
   return s || "n-a";
 }
-
 function isDigits13(s: string): boolean {
   return /^\d{13}$/.test(s);
 }
-
 function isValidIsbn13(s: string): boolean {
   if (!isDigits13(s)) return false;
   const digits = s.split("").map((c) => Number(c));
@@ -101,36 +97,69 @@ const COVER_OPTIONS = [
 ] as const;
 type CoverType = (typeof COVER_OPTIONS)[number]["value"];
 
+/* ---------------- Rich Text helpers ---------------- */
+const RTE_MODULES = {
+  toolbar: [
+    [{ header: [2, 3, false] }],
+    ["bold", "italic", "underline", "strike"],
+    [{ list: "ordered" }, { list: "bullet" }],
+    [{ align: [] }],
+    ["link"],
+    ["clean"],
+  ],
+} as const;
+const RTE_FORMATS = [
+  "header",
+  "bold",
+  "italic",
+  "underline",
+  "strike",
+  "list",
+  "bullet",
+  "align",
+  "link",
+] as const;
+
+// mô tả rỗng/ chỉ tag rỗng
+function isTrivialHtml(html: string): boolean {
+  const s = html
+    .replace(/<p><br><\/p>/g, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+  return s.length === 0;
+}
+
 /* ---------------- Form types ---------------- */
 type FormState = {
   title: string;
   slug: string;
   sku: string;
   isbn13: string;
-  description: string;
+  description: string; // HTML từ ReactQuill
 
   publisherId: number | undefined;
   supplierId: number | undefined;
   authorIds: number[];
   categoryIds: number[];
 
-  pageCount: number;
-  publicationYear: number;
+  pageCount: number | undefined;
+  publicationYear: number | undefined;
   language: Language;
-  weightGram: number;
-  widthCm: number;
-  heightCm: number;
-  thicknessCm: number;
+  weightGram: number | undefined;
+  widthCm: number | undefined;
+  heightCm: number | undefined;
+  thicknessCm: number | undefined;
   coverType: CoverType;
   ageRating: AgeRating;
 
   status: BookCreate["status"];
-  price: number;
+  price: number | undefined;
   salePrice: number | undefined;
   saleStartAt: string;
   saleEndAt: string;
 
-  initialStock: number;
+  initialStock: number | undefined;
 };
 
 /* ---------------- UI helpers ---------------- */
@@ -163,23 +192,23 @@ export default function AddBookModal({
     authorIds: [],
     categoryIds: [],
 
-    pageCount: 100,
+    pageCount: undefined,
     publicationYear: new Date().getFullYear(),
     language: "VI",
-    weightGram: 200,
-    widthCm: 15,
-    heightCm: 20,
-    thicknessCm: 1.5,
+    weightGram: undefined,
+    widthCm: undefined,
+    heightCm: undefined,
+    thicknessCm: undefined,
     coverType: "PAPERBACK",
     ageRating: "ALL",
 
     status: "ACTIVE",
-    price: 1,
+    price: undefined,
     salePrice: undefined,
     saleStartAt: "",
     saleEndAt: "",
 
-    initialStock: 0,
+    initialStock: undefined,
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -193,6 +222,12 @@ export default function AddBookModal({
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((s) => ({ ...s, [k]: v }));
+  const setNum =
+    <K extends keyof FormState>(k: K) =>
+    (raw: string) => {
+      const v = raw.trim();
+      setForm((s) => ({ ...s, [k]: v === "" ? undefined : Number(v) }) as FormState);
+    };
 
   useEffect(() => {
     void loadOptions();
@@ -247,6 +282,7 @@ export default function AddBookModal({
   }, [form.isbn13]);
 
   const canSubmit = useMemo(() => {
+    const okDesc = !isTrivialHtml(form.description);
     return (
       !!form.title.trim() &&
       !!form.isbn13.trim() &&
@@ -254,20 +290,23 @@ export default function AddBookModal({
       !!form.supplierId &&
       form.authorIds.length > 0 &&
       form.categoryIds.length > 0 &&
+      form.pageCount != null &&
       Number(form.pageCount) > 0 &&
+      form.price != null &&
       Number(form.price) > 0 &&
       !!form.language &&
       !!form.coverType &&
-      !!form.ageRating
+      !!form.ageRating &&
+      okDesc
     );
-  }, [form, isbnError]);
+  }, [form]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
     if (!canSubmit) {
-      setError(isbnError ?? "Điền đủ trường bắt buộc.");
+      setError(isbnError ?? "Điền đủ trường bắt buộc (bao gồm mô tả).");
       return;
     }
 
@@ -288,29 +327,27 @@ export default function AddBookModal({
         authorIds: form.authorIds,
         categoryIds: form.categoryIds,
 
-        pageCount: Number(form.pageCount),
-        publicationYear: Number(form.publicationYear),
+        pageCount: Number(form.pageCount ?? 0),
+        publicationYear: Number(form.publicationYear ?? new Date().getFullYear()),
         language: form.language,
-        weightGram: Number(form.weightGram),
-        widthCm: Number(form.widthCm),
-        heightCm: Number(form.heightCm),
-        thicknessCm: Number(form.thicknessCm),
+        weightGram: Number(form.weightGram ?? 0),
+        widthCm: Number(form.widthCm ?? 0),
+        heightCm: Number(form.heightCm ?? 0),
+        thicknessCm: Number(form.thicknessCm ?? 0),
         coverType: form.coverType,
         ageRating: form.ageRating,
 
         status: form.status,
-        price: Number(form.price),
+        price: Number(form.price ?? 0),
         salePrice:
-          form.salePrice !== undefined &&
-          form.salePrice !== null &&
-          String(form.salePrice).trim() !== ""
+          form.salePrice != null && String(form.salePrice).trim() !== ""
             ? Number(form.salePrice)
             : null,
         saleStartAt: toInstant(form.saleStartAt),
         saleEndAt: toInstant(form.saleEndAt),
 
         images: [],
-        initialStock: Number(form.initialStock),
+        initialStock: Number(form.initialStock ?? 0),
       };
 
       await createBook(payload);
@@ -389,12 +426,20 @@ export default function AddBookModal({
               <div className="mt-1 text-xs text-gray-500">Nhập đủ 13 chữ số.</div>
             </FieldGroup>
 
-            <FieldGroup label="Mô tả">
-              <textarea
-                value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-                className="h-24 w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+            <FieldGroup label="Mô tả (rich text)">
+              <div className="rounded-lg border">
+                <ReactQuill
+                  value={form.description}
+                  onChange={(html) => set("description", html)}
+                  modules={RTE_MODULES}
+                  formats={RTE_FORMATS as unknown as string[]}
+                  theme="snow"
+                  placeholder="Nhập mô tả: có thể in đậm, bullet, link..."
+                />
+              </div>
+              <div className="mt-1 text-xs text-gray-500">
+                Nội dung lưu dạng HTML và hiển thị đẹp ở trang sản phẩm.
+              </div>
             </FieldGroup>
 
             <div className="grid grid-cols-2 gap-3">
@@ -482,8 +527,8 @@ export default function AddBookModal({
               <FieldGroup label="Năm XB">
                 <input
                   type="number"
-                  value={form.publicationYear}
-                  onChange={(e) => set("publicationYear", Number(e.target.value))}
+                  value={form.publicationYear ?? ""}
+                  onChange={(e) => setNum("publicationYear")(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </FieldGroup>
@@ -494,8 +539,8 @@ export default function AddBookModal({
                 <input
                   type="number"
                   min={1}
-                  value={form.pageCount}
-                  onChange={(e) => set("pageCount", Number(e.target.value))}
+                  value={form.pageCount ?? ""}
+                  onChange={(e) => setNum("pageCount")(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </FieldGroup>
@@ -503,8 +548,8 @@ export default function AddBookModal({
                 <input
                   type="number"
                   min={0}
-                  value={form.weightGram}
-                  onChange={(e) => set("weightGram", Number(e.target.value))}
+                  value={form.weightGram ?? ""}
+                  onChange={(e) => setNum("weightGram")(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </FieldGroup>
@@ -524,23 +569,23 @@ export default function AddBookModal({
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <FieldGroup label="Rộng (cm)">
-                <input
-                  type="number"
-                  min={0}
-                  step="0.1"
-                  value={form.widthCm}
-                  onChange={(e) => set("widthCm", Number(e.target.value))}
-                  className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </FieldGroup>
               <FieldGroup label="Cao (cm)">
                 <input
                   type="number"
                   min={0}
                   step="0.1"
-                  value={form.heightCm}
-                  onChange={(e) => set("heightCm", Number(e.target.value))}
+                  value={form.heightCm ?? ""}
+                  onChange={(e) => setNum("heightCm")(e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </FieldGroup>
+              <FieldGroup label="Rộng (cm)">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={form.widthCm ?? ""}
+                  onChange={(e) => setNum("widthCm")(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </FieldGroup>
@@ -549,8 +594,8 @@ export default function AddBookModal({
                   type="number"
                   min={0}
                   step="0.1"
-                  value={form.thicknessCm}
-                  onChange={(e) => set("thicknessCm", Number(e.target.value))}
+                  value={form.thicknessCm ?? ""}
+                  onChange={(e) => setNum("thicknessCm")(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </FieldGroup>
@@ -589,8 +634,8 @@ export default function AddBookModal({
                 <input
                   type="number"
                   min={1}
-                  value={form.price}
-                  onChange={(e) => set("price", Number(e.target.value))}
+                  value={form.price ?? ""}
+                  onChange={(e) => setNum("price")(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </FieldGroup>
@@ -598,8 +643,8 @@ export default function AddBookModal({
                 <input
                   type="number"
                   min={0}
-                  value={form.initialStock}
-                  onChange={(e) => set("initialStock", Number(e.target.value))}
+                  value={form.initialStock ?? ""}
+                  onChange={(e) => setNum("initialStock")(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </FieldGroup>
@@ -610,11 +655,8 @@ export default function AddBookModal({
                 <input
                   type="number"
                   min={0}
-                  value={form.salePrice ?? 0}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    set("salePrice", Number.isFinite(val) && val > 0 ? val : undefined);
-                  }}
+                  value={form.salePrice ?? ""}
+                  onChange={(e) => setNum("salePrice")(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </FieldGroup>

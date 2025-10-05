@@ -249,8 +249,7 @@ export default function CheckoutPage() {
         return;
       }
 
-      // COD → đi thẳng trang chi tiết đơn
-      window.location.href = `/orders/${orderCode}`;
+      window.location.href = `/order-success?code=${orderCode}&skipIntro=1`;
     } catch (e: unknown) {
       setErr(extractErr(e, "Đặt hàng thất bại"));
     } finally {

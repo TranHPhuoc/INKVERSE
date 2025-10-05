@@ -2,9 +2,6 @@
 import { useEffect, useState } from "react";
 import {
   listAuthors,
-  createAuthor,
-  updateAuthor,
-  deleteAuthor,
   listPublishers,
   createPublisher,
   updatePublisher,
@@ -15,6 +12,9 @@ import {
   deleteSupplier,
   type SimpleMaster,
   type MasterCreate,
+  createAuthor,
+  updateAuthor,
+  deleteAuthor,
 } from "../../services/admin/master";
 
 /* -------- utils -------- */
@@ -37,10 +37,10 @@ type SectionHandlers = {
 
 /* -------- Row editable -------- */
 function EditableRow({
-  item,
-  onUpdate,
-  onDelete,
-}: {
+                       item,
+                       onUpdate,
+                       onDelete,
+                     }: {
   item: SimpleMaster;
   onUpdate: (id: number, name: string) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
@@ -51,89 +51,94 @@ function EditableRow({
   const [deleting, setDeleting] = useState(false);
 
   return (
-    <tr className="border-t hover:bg-gray-50/60">
-      <td className="px-4 py-2">{item.id}</td>
-      <td className="px-4 py-2">
-        {editing ? (
-          <input
-            className="w-full rounded-md border px-2 py-1"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={saving}
-          />
-        ) : (
-          item.name
-        )}
-      </td>
-      <td className="px-4 py-2">{editing ? slugify(name) : item.slug}</td>
-      <td className="px-4 py-2">
-        {editing ? (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={async () => {
-                const trimmed = name.trim();
-                if (!trimmed) return;
-                setSaving(true);
-                try {
-                  await onUpdate(item.id, trimmed);
+    <li className="px-4 py-3 hover:bg-gray-50/70">
+      <div className="grid grid-cols-[80px_minmax(0,1fr)_220px_200px] items-center gap-3 md:grid-cols-[80px_minmax(0,1fr)_260px_220px]">
+        <div className="text-sm text-gray-700">{item.id}</div>
+
+        <div className="min-w-0">
+          {editing ? (
+            <input
+              className="w-full rounded-md px-2 py-1 shadow-inner"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={saving}
+            />
+          ) : (
+            <div className="truncate">{item.name}</div>
+          )}
+        </div>
+
+        <div className="truncate text-gray-600">{editing ? slugify(name) : item.slug}</div>
+
+        <div className="flex justify-end gap-2">
+          {editing ? (
+            <>
+              <button
+                onClick={async () => {
+                  const trimmed = name.trim();
+                  if (!trimmed) return;
+                  setSaving(true);
+                  try {
+                    await onUpdate(item.id, trimmed);
+                    setEditing(false);
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                className="cursor-pointer rounded-md bg-emerald-600/90 px-3 py-1 text-white transition hover:-translate-y-0.5 hover:bg-emerald-600 active:translate-y-0 disabled:opacity-60"
+                disabled={saving}
+              >
+                {saving ? "Đang lưu..." : "Lưu"}
+              </button>
+              <button
+                onClick={() => {
                   setEditing(false);
-                } finally {
-                  setSaving(false);
-                }
-              }}
-              className="cursor-pointer rounded-md bg-emerald-600 px-3 py-1 text-white hover:bg-emerald-700 disabled:opacity-60"
-              disabled={saving}
-            >
-              {saving ? "Đang lưu..." : "Lưu"}
-            </button>
-            <button
-              onClick={() => {
-                setEditing(false);
-                setName(item.name);
-              }}
-              className="cursor-pointer rounded-md border px-3 py-1 hover:bg-gray-50"
-              disabled={saving}
-            >
-              Hủy
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setEditing(true)}
-              className="cursor-pointer rounded-md border px-3 py-1 hover:bg-gray-50"
-            >
-              Sửa
-            </button>
-            <button
-              onClick={async () => {
-                if (!window.confirm(`Xoá "${item.name}"?`)) return;
-                setDeleting(true);
-                try {
-                  await onDelete(item.id);
-                } finally {
-                  setDeleting(false);
-                }
-              }}
-              className="cursor-pointer rounded-md bg-rose-600 px-3 py-1 text-white hover:bg-rose-700 disabled:opacity-60"
-              disabled={deleting}
-            >
-              {deleting ? "Đang xóa..." : "Xóa"}
-            </button>
-          </div>
-        )}
-      </td>
-    </tr>
+                  setName(item.name);
+                }}
+                className="cursor-pointer rounded-md px-3 py-1 transition hover:bg-gray-50"
+                disabled={saving}
+              >
+                Hủy
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setEditing(true)}
+                className="cursor-pointer rounded-md px-3 py-1 transition hover:bg-gray-50"
+              >
+                Sửa
+              </button>
+              <button
+                onClick={async () => {
+                  if (!window.confirm(`Xoá "${item.name}"?`)) return;
+                  setDeleting(true);
+                  try {
+                    await onDelete(item.id);
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+                className="cursor-pointer rounded-md bg-rose-600/90 px-3 py-1 text-white transition hover:-translate-y-0.5 hover:bg-rose-600 active:translate-y-0 disabled:opacity-60"
+                disabled={deleting}
+              >
+                {deleting ? "Đang xóa..." : "Xóa"}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </li>
   );
 }
 
 /* -------- Section dùng chung -------- */
 function Section({
-  title,
-  color,
-  items,
-  handlers,
-}: {
+                   title,
+                   color,
+                   items,
+                   handlers,
+                 }: {
   title: string;
   color: string;
   items: SimpleMaster[];
@@ -144,14 +149,14 @@ function Section({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm">
+    <div className="rounded-2xl bg-white p-4 shadow-[0_10px_30px_-12px_rgba(0,0,0,.2)]">
       <h3 className="mb-3 flex items-center gap-2 font-semibold">
         <span className={`inline-block h-2 w-2 rounded-full ${color}`} />
         {title}
       </h3>
 
       <form
-        className="mb-4 flex items-end gap-3"
+        className="mb-4 flex flex-wrap items-end gap-3"
         onSubmit={async (e) => {
           e.preventDefault();
           const trimmed = name.trim();
@@ -169,7 +174,7 @@ function Section({
         }}
       >
         <input
-          className="flex-1 rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+          className="flex-1 rounded-xl px-3 py-2 shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
           placeholder="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -177,7 +182,7 @@ function Section({
           disabled={creating}
         />
         <button
-          className="h-10 rounded-lg bg-indigo-600 px-4 text-white transition hover:bg-indigo-700 disabled:opacity-60"
+          className="h-10 cursor-pointer rounded-xl bg-indigo-600 px-4 text-white transition hover:-translate-y-0.5 hover:bg-indigo-700 active:translate-y-0 disabled:opacity-60"
           disabled={creating}
         >
           {creating ? "Đang tạo..." : "Tạo"}
@@ -186,28 +191,19 @@ function Section({
 
       {error && <div className="mb-3 text-sm text-rose-600">{error}</div>}
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50/80 text-gray-600">
-            <tr>
-              {["ID", "Name", "Slug", "Actions"].map((h) => (
-                <th key={h} className="px-4 py-2 text-left font-medium">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((i) => (
-              <EditableRow
-                key={i.id}
-                item={i}
-                onUpdate={handlers.onUpdate}
-                onDelete={handlers.onDelete}
-              />
-            ))}
-          </tbody>
-        </table>
+      {/* Carded list with fixed grid columns to avoid misalignment on long titles */}
+      <div className="rounded-xl">
+        <div className="grid grid-cols-[80px_minmax(0,1fr)_220px_200px] gap-3 px-4 pb-2 pt-3 text-xs text-gray-500 md:grid-cols-[80px_minmax(0,1fr)_260px_220px]">
+          <div>ID</div>
+          <div>Name</div>
+          <div>Slug</div>
+          <div className="text-right">Actions</div>
+        </div>
+        <ul className="divide-y divide-gray-100">
+          {items.map((i) => (
+            <EditableRow key={i.id} item={i} onUpdate={handlers.onUpdate} onDelete={handlers.onDelete} />
+          ))}
+        </ul>
       </div>
     </div>
   );

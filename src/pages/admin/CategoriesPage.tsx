@@ -110,17 +110,17 @@ export default function CategoriesPage() {
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Categories</h2>
 
-      {/* Form Create */}
+      {/* Form Create (no-border card) */}
       <motion.form
         onSubmit={onCreate}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-wrap items-end gap-3 rounded-xl border bg-white/80 p-4 shadow-sm backdrop-blur"
+        className="flex flex-wrap items-end gap-3 rounded-2xl bg-white/80 p-4 shadow-[0_10px_30px_-12px_rgba(0,0,0,.2)] backdrop-blur"
       >
         <div className="min-w-[260px] flex-1">
           <label className="mb-1 block text-sm text-gray-600">Name</label>
           <input
-            className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full rounded-xl px-3 py-2 shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -130,7 +130,7 @@ export default function CategoriesPage() {
         <div className="min-w-[220px]">
           <label className="mb-1 block text-sm text-gray-600">Parent</label>
           <select
-            className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full rounded-xl px-3 py-2 shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500"
             value={parentId}
             onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : "")}
           >
@@ -146,58 +146,59 @@ export default function CategoriesPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="h-10 cursor-pointer rounded-lg bg-indigo-600 px-4 text-white transition hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60"
+          className="h-10 cursor-pointer rounded-xl bg-indigo-600 px-4 text-white transition hover:-translate-y-0.5 hover:bg-indigo-700 active:translate-y-0 disabled:opacity-60"
         >
           {submitting ? "Đang tạo..." : "Tạo"}
         </button>
       </motion.form>
 
       {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-2 text-sm text-rose-600">
+        <div className="rounded-xl bg-rose-50 p-2 text-sm text-rose-600 shadow-inner">
           {error}
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+      {/* List (carded, divider lines) */}
+      <div className="rounded-2xl bg-white/90 shadow-[0_10px_30px_-12px_rgba(0,0,0,.2)]">
         {loading ? (
           <div className="p-4 text-sm text-gray-600">Đang tải...</div>
         ) : (
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50/80 text-gray-600">
-              <tr>
-                {["ID", "Name", "Slug", "Parent", "Leaf", "Actions"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left font-medium">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((c) => (
-                <tr key={c.id} className="border-t hover:bg-gray-50/60">
-                  <td className="px-4 py-3">{c.id}</td>
-                  <td className="px-4 py-3">
+          <ul className="divide-y divide-gray-100">
+            <li className="flex items-center px-4 pb-2 pt-3 text-xs text-gray-500">
+              <div className="w-14">ID</div>
+              <div className="flex-1">Name</div>
+              <div className="w-48">Slug</div>
+              <div className="w-48">Parent</div>
+              <div className="w-16">Leaf</div>
+              <div className="w-40 text-right">Actions</div>
+            </li>
+
+            {data.map((c) => (
+              <li key={c.id} className="px-4 py-3 hover:bg-gray-50/70">
+                <div className="flex items-center gap-3">
+                  <div className="w-14">{c.id}</div>
+
+                  <div className="flex-1">
                     {editingId === c.id ? (
                       <input
-                        className="w-full rounded-md border px-2 py-1"
+                        className="w-full rounded-md px-2 py-1 shadow-inner"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
                         disabled={saving}
                       />
                     ) : (
-                      c.name
+                      <div className="truncate">{c.name}</div>
                     )}
-                  </td>
-                  <td className="px-4 py-3">{c.slug}</td>
-                  <td className="px-4 py-3">
+                  </div>
+
+                  <div className="w-48 truncate text-gray-600">{c.slug}</div>
+
+                  <div className="w-48">
                     {editingId === c.id ? (
                       <select
-                        className="w-full rounded-md border px-2 py-1"
+                        className="w-full rounded-md px-2 py-1 shadow-inner"
                         value={editParent}
-                        onChange={(e) =>
-                          setEditParent(e.target.value ? Number(e.target.value) : "")
-                        }
+                        onChange={(e) => setEditParent(e.target.value ? Number(e.target.value) : "")}
                         disabled={saving}
                       >
                         <option value="">(none)</option>
@@ -210,19 +211,23 @@ export default function CategoriesPage() {
                           ))}
                       </select>
                     ) : c.parentId ? (
-                      (data.find((x) => x.id === c.parentId)?.name ?? `#${c.parentId}`)
+                      <span className="truncate">
+                        {data.find((x) => x.id === c.parentId)?.name ?? `#${c.parentId}`}
+                      </span>
                     ) : (
                       "(root)"
                     )}
-                  </td>
-                  <td className="px-4 py-3">{c.leaf ? "Yes" : "No"}</td>
-                  <td className="px-4 py-3">
+                  </div>
+
+                  <div className="w-16">{c.leaf ? "Yes" : "No"}</div>
+
+                  <div className="w-40 text-right">
                     {editingId === c.id ? (
-                      <div className="flex gap-2">
+                      <div className="inline-flex gap-2">
                         <button
                           onClick={onSaveEdit}
                           disabled={saving}
-                          className="cursor-pointer rounded-md bg-emerald-600 px-3 py-1 text-white hover:bg-emerald-700 disabled:opacity-60"
+                          className="cursor-pointer rounded-md bg-emerald-600/90 px-3 py-1 text-white transition hover:-translate-y-0.5 hover:bg-emerald-600 active:translate-y-0 disabled:opacity-60"
                         >
                           {saving ? "Đang lưu..." : "Lưu"}
                         </button>
@@ -232,41 +237,38 @@ export default function CategoriesPage() {
                             setEditName("");
                             setEditParent("");
                           }}
-                          className="cursor-pointer rounded-md border px-3 py-1 hover:bg-gray-50"
+                          className="cursor-pointer rounded-md px-3 py-1 transition hover:bg-gray-50"
                           disabled={saving}
                         >
                           Hủy
                         </button>
                       </div>
                     ) : (
-                      <div className="flex gap-2">
+                      <div className="inline-flex gap-2">
                         <button
                           onClick={() => onStartEdit(c)}
-                          className="cursor-pointer rounded-md border px-3 py-1 hover:bg-gray-50"
+                          className="cursor-pointer rounded-md px-3 py-1 transition hover:bg-gray-50"
                         >
                           Sửa
                         </button>
                         <button
                           onClick={() => onDelete(c.id, c.name)}
                           disabled={deletingId === c.id}
-                          className="cursor-pointer rounded-md bg-rose-600 px-3 py-1 text-white hover:bg-rose-700 disabled:opacity-60"
+                          className="cursor-pointer rounded-md bg-rose-600/90 px-3 py-1 text-white transition hover:-translate-y-0.5 hover:bg-rose-600 active:translate-y-0 disabled:opacity-60"
                         >
                           {deletingId === c.id ? "Đang xóa..." : "Xóa"}
                         </button>
                       </div>
                     )}
-                  </td>
-                </tr>
-              ))}
-              {!data.length && (
-                <tr>
-                  <td className="px-4 py-6 text-center text-gray-500" colSpan={6}>
-                    Chưa có danh mục.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              </li>
+            ))}
+
+            {!data.length && (
+              <li className="px-4 py-6 text-center text-gray-500">Chưa có danh mục.</li>
+            )}
+          </ul>
         )}
       </div>
     </div>

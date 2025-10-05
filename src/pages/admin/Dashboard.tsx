@@ -36,9 +36,9 @@ export default function Dashboard() {
             initial="hidden"
             animate="visible"
             whileHover={{ translateY: -4 }}
-            className={`rounded-xl bg-gradient-to-r p-6 text-white shadow-lg ${gradients[i % gradients.length]}`}
+            className={`rounded-2xl bg-gradient-to-r p-6 text-white shadow-[0_18px_40px_-18px_rgba(0,0,0,.35)] ${gradients[i % gradients.length]}`}
           >
-            <div className="text-sm opacity-90">Widget</div>
+            <div className="text-sm/6 opacity-90">Widget</div>
             <div className="text-xl font-semibold">{label}</div>
           </motion.div>
         ))}

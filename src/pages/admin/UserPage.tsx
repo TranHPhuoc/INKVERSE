@@ -55,56 +55,53 @@ export default function UserPage() {
 
       {!loading && data && (
         <>
-          <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50/80 text-gray-600">
-                <tr>
-                  {["ID", "Email", "Username", "Roles", "Enabled", "Hành động"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left font-medium">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.content.length === 0 ? (
-                  <tr>
-                    <td className="px-4 py-6 text-gray-500" colSpan={6}>
-                      Chưa có user nào.
-                    </td>
-                  </tr>
-                ) : (
-                  data.content.map((u) => (
-                    <tr key={u.id} className="border-t hover:bg-gray-50/60">
-                      <td className="px-4 py-3">{u.id}</td>
-                      <td className="px-4 py-3">{u.email}</td>
-                      <td className="px-4 py-3">{u.username}</td>
-                      <td className="px-4 py-3">{u.roles?.join(", ") ?? u.role ?? ""}</td>
-                      <td className="px-4 py-3">{u.enabled ? "Yes" : "No"}</td>
-                      <td className="space-x-2 px-4 py-3">
+          {/* Carded list */}
+          <div className="rounded-2xl bg-white/90 shadow-[0_10px_30px_-12px_rgba(0,0,0,.2)]">
+            <div className="grid grid-cols-[80px_1fr_1fr_200px_100px_220px] gap-3 px-4 pb-2 pt-3 text-xs text-gray-500">
+              <div>ID</div>
+              <div>Email</div>
+              <div>Username</div>
+              <div>Roles</div>
+              <div>Enabled</div>
+              <div className="text-right">Hành động</div>
+            </div>
+
+            <ul className="divide-y divide-gray-100">
+              {data.content.length === 0 ? (
+                <li className="px-4 py-6 text-center text-gray-500">Chưa có user nào.</li>
+              ) : (
+                data.content.map((u) => (
+                  <li key={u.id} className="px-4 py-3 hover:bg-gray-50/70">
+                    <div className="grid grid-cols-[80px_1fr_1fr_200px_100px_220px] items-center gap-3">
+                      <div>{u.id}</div>
+                      <div className="truncate">{u.email}</div>
+                      <div className="truncate">{u.username}</div>
+                      <div className="truncate">{u.roles?.join(", ") ?? u.role ?? ""}</div>
+                      <div>{u.enabled ? "Yes" : "No"}</div>
+                      <div className="text-right">
                         <button
-                          className="rounded-md bg-amber-50 px-3 py-1 text-amber-700 hover:bg-amber-100"
+                          className="cursor-pointer rounded-md bg-amber-600/10 px-3 py-1 text-amber-700 transition hover:bg-amber-600/20"
                           onClick={() => onSoft(u.id)}
                         >
                           Soft
                         </button>
                         <button
-                          className="rounded-md bg-rose-50 px-3 py-1 text-rose-700 hover:bg-rose-100"
+                          className="ml-2 cursor-pointer rounded-md bg-rose-600/10 px-3 py-1 text-rose-700 transition hover:bg-rose-600/20"
                           onClick={() => onHard(u.id)}
                         >
                           Hard
                         </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
           </div>
 
           <div className="mt-4 flex items-center justify-end gap-2">
             <button
-              className="rounded rounded-lg border bg-gray-100 px-3 py-1 hover:bg-gray-200 disabled:opacity-50"
+              className="cursor-pointer rounded-xl bg-gray-100 px-3 py-1 transition hover:bg-gray-200 disabled:opacity-50"
               onClick={() => setPage(Math.max(0, page - 1))}
               disabled={page <= 0}
             >
@@ -114,7 +111,7 @@ export default function UserPage() {
               Page {Math.min(page + 1, Math.max(1, totalPages))} / {totalPages || 1}
             </div>
             <button
-              className="rounded-lg border bg-gray-100 px-3 py-1 hover:bg-gray-200 disabled:opacity-50"
+              className="cursor-pointer rounded-xl bg-gray-100 px-3 py-1 transition hover:bg-gray-200 disabled:opacity-50"
               onClick={() => setPage(Math.min((totalPages || 1) - 1, page + 1))}
               disabled={page >= (totalPages || 1) - 1}
             >

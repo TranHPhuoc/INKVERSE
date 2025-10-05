@@ -3,10 +3,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CheckCircle2, Loader2, CircleX, RefreshCw } from "lucide-react";
-import { getVnpayReturnInfo } from "../services/payment";
+
+import { getVnpayReturnInfo, type ResVnpReturn } from "../services/payment";
 import { getOrderByCode } from "../services/order";
 import type { ResOrderDetail, PaymentStatus } from "../types/order";
-import type { VnpReturnInfo, SummaryProps } from "../types/vnpay";
+import type { SummaryProps } from "../types/vnpay";
 import { isPaid, isFinalFail, isWaiting } from "../types/vnpay";
 
 export default function VNPayReturnPage() {
@@ -15,7 +16,7 @@ export default function VNPayReturnPage() {
   const [waitingIpn, setWaitingIpn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [returnInfo, setReturnInfo] = useState<VnpReturnInfo | null>(null);
+  const [returnInfo, setReturnInfo] = useState<ResVnpReturn | null>(null);
   const [order, setOrder] = useState<ResOrderDetail | null>(null);
 
   const pollRef = useRef<number | null>(null);
@@ -28,7 +29,7 @@ export default function VNPayReturnPage() {
 
   useEffect(() => {
     const clearPoll = () => {
-      if (pollRef.current) {
+      if (pollRef.current != null) {
         window.clearInterval(pollRef.current);
         pollRef.current = null;
       }
@@ -45,51 +46,65 @@ export default function VNPayReturnPage() {
         setReturnInfo(info);
         setVerifying(false);
 
-        const code = info.orderCode;
+        const code: string | undefined = info.orderCode;
         if (!code) {
           setError("Thiếu mã đơn hàng trong dữ liệu trả về.");
           setLoading(false);
           return;
         }
 
-        if (info.responseCode === "00") {
-          setWaitingIpn(true);
-          elapsedRef.current = 0;
+        const checkOnce = async (): Promise<boolean> => {
+          try {
+            const od: ResOrderDetail = await getOrderByCode(code);
+            setOrder(od);
 
-          const doPoll = async () => {
-            try {
-              const od = await getOrderByCode(code);
-              setOrder(od);
-
-              const st = od?.paymentStatus as PaymentStatus | undefined;
-
-              if (isPaid(st) || isFinalFail(st)) {
-                clearPoll();
-                setWaitingIpn(false);
-                setLoading(false);
-                return;
-              }
-
-              elapsedRef.current += 3000;
-              if (elapsedRef.current >= 60000) {
-                clearPoll();
-                setWaitingIpn(false);
-                setLoading(false);
-                setError(
-                  "Xác nhận thanh toán đang chậm. Vui lòng kiểm tra mục Đơn hàng sau ít phút.",
-                );
-              }
-            } catch {
-              /**/
+            const st = od?.paymentStatus as PaymentStatus | undefined;
+            if (isPaid(st) || isFinalFail(st)) {
+              clearPoll();
+              setWaitingIpn(false);
+              setLoading(false);
+              return true;
             }
-          };
+          } catch {
+            //
+          }
+          return false;
+        };
 
-          await doPoll();
-          pollRef.current = window.setInterval(doPoll, 3000);
-        } else {
-          setWaitingIpn(false);
-          setLoading(false);
-        }
+        const finished = await checkOnce();
+        if (finished) return;
+
+        setWaitingIpn(true);
+        elapsedRef.current = 0;
+
+        const doPoll = async () => {
+          try {
+            const od = await getOrderByCode(code);
+            setOrder(od);
+
+            const st = od?.paymentStatus as PaymentStatus | undefined;
+            if (isPaid(st) || isFinalFail(st)) {
+              clearPoll();
+              setWaitingIpn(false);
+              setLoading(false);
+              return;
+            }
+
+            elapsedRef.current += 3000;
+            if (elapsedRef.current >= 60000) {
+              clearPoll();
+              setWaitingIpn(false);
+              setLoading(false);
+              setError(
+                "Xác nhận thanh toán đang chậm. Vui lòng kiểm tra mục Đơn hàng sau ít phút.",
+              );
+            }
+          } catch {
+            /**/
+          }
+        };
+
+        pollRef.current = window.setInterval(doPoll, 3000);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Có lỗi khi xử lý VNPay return.";
         setError(msg);
@@ -100,11 +115,12 @@ export default function VNPayReturnPage() {
     })();
 
     return () => {
-      if (pollRef.current) window.clearInterval(pollRef.current);
+      if (pollRef.current != null) window.clearInterval(pollRef.current);
     };
   }, [rawQuery]);
 
   const gatewayOk = returnInfo?.responseCode === "00";
+
   const st = order?.paymentStatus as PaymentStatus | undefined;
   const paid = isPaid(st);
   const failed = isFinalFail(st);
@@ -147,7 +163,7 @@ export default function VNPayReturnPage() {
               gatewayOk={gatewayOk}
               paid={paid}
               failed={failed}
-              {...(returnInfo?.orderCode ? { orderCode: returnInfo.orderCode } : {})} // tránh truyền undefined khi có exactOptionalPropertyTypes
+              {...(returnInfo?.orderCode ? { orderCode: returnInfo.orderCode } : {})}
             />
           </div>
 
@@ -168,6 +184,7 @@ export default function VNPayReturnPage() {
   );
 }
 
+/* ===================== UI Helpers ===================== */
 function StatusRow({
   label,
   active,
@@ -201,14 +218,6 @@ function Summary({ loading, error, gatewayOk, paid, failed, orderCode }: Summary
   if (loading) return <div className="mt-6 rounded-xl bg-slate-50 p-4">Đang xử lý kết quả…</div>;
   if (error) return <div className="mt-6 rounded-xl bg-rose-50 p-4 text-rose-700">{error}</div>;
 
-  if (!gatewayOk) {
-    return (
-      <div className="mt-6 rounded-xl bg-rose-50 p-4 text-rose-700">
-        Cổng VNPay trả về không thành công. Vui lòng thử lại.
-        {orderCode && <div className="text-sm">Mã đơn: {orderCode}</div>}
-      </div>
-    );
-  }
   if (paid) {
     return (
       <div className="mt-6 rounded-xl bg-emerald-50 p-4 text-emerald-800">
@@ -225,9 +234,11 @@ function Summary({ loading, error, gatewayOk, paid, failed, orderCode }: Summary
       </div>
     );
   }
+
   return (
     <div className="mt-6 rounded-xl bg-amber-50 p-4 text-amber-800">
-      VNPay đã tiếp nhận. Hệ thống đang chờ IPN xác nhận…
+      Hệ thống đang chờ xác nhận từ ngân hàng/VNPay…
+      {gatewayOk ? <div className="text-sm opacity-80">Cổng VNPay: OK (00)</div> : null}
       {orderCode && <div className="text-sm">Mã đơn: {orderCode}</div>}
     </div>
   );

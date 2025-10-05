@@ -35,6 +35,8 @@ import OrderListPage from "./pages/OrderListPage";
 import FavoritesPage from "./pages/FavoritePage.tsx";
 import RelatedAllPage from "./pages/RelatedAllPage";
 import VNPayReturnPage from "./pages/VNPayReturnPage";
+import OrderSuccessPage from "./pages/OrderSuccessPage";
+
 
 // Pages – User
 import AccountLayout from "./pages/user/AccountLayout";
@@ -92,6 +94,9 @@ function IntroGate({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [skipped, setSkipped] = useState(false);
 
+  // Chỉ hiện Intro ở trang Home "/"
+  const isHome = location.pathname === "/";
+
   const shouldSkip = useMemo(() => {
     const q = new URLSearchParams(location.search);
     const fromQuery = q.get("skipIntro") === "1";
@@ -106,9 +111,9 @@ function IntroGate({ children }: { children: ReactNode }) {
     }
   }, [shouldSkip]);
 
-  const hideIntro = location.pathname.startsWith("/sale") || location.pathname.startsWith("/admin");
+  const showIntro = isHome && !skipped;
 
-  if (!hideIntro && !skipped) {
+  if (showIntro) {
     return (
       <>
         <Intro
@@ -271,6 +276,15 @@ export default function App() {
                   </PageTransition>
                 }
               />
+              <Route
+                path="/order-success"
+                element={
+                  <PageTransition>
+                    <OrderSuccessPage/>
+                  </PageTransition>
+                }
+              />
+
               <Route
                 path="/don-hang"
                 element={

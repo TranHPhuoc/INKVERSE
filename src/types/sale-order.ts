@@ -42,32 +42,6 @@ export type ResOrderItem = {
   lineTotal: number | string;
 };
 
-/** ====== SALE/ADMIN Order DTO  ====== */
-export type ResOrderAdmin = {
-  id: number;
-  code: string;
-
-  status: OrderStatus;
-  paymentStatus: PaymentStatus;
-  paymentMethod: PaymentMethod;
-  total: number;
-
-  createdAt: string;
-  updatedAt?: string | null;
-
-  // phụ trách (nếu có)
-  assigneeId?: number | null;
-  assigneeName?: string | null;
-  shippingAddress?: ShippingAddress | null;
-
-  // người nhận (optional)
-  receiverName?: string | null;
-  receiverPhone?: string | null;
-  addressLine?: string | null;
-
-  items: ResOrderItem[];
-};
-
 export type ShippingAddress = {
   receiverName: string | null;
   receiverPhone: string | null;
@@ -77,6 +51,40 @@ export type ShippingAddress = {
   district?: string | null;
   province?: string | null;
   addressLine?: string | null;
+};
+
+/** ====== SALE/ADMIN Order DTO  ====== */
+export type ResOrderAdmin = {
+  id: number;
+  code: string;
+
+  customerName: string | null;
+  customerPhone: string | null;
+  customerEmail: string | null;
+
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod | null;
+
+  subtotal: number | string;
+  shippingFee: number | string;
+  discount: number | string;
+  tax: number | string;
+  total: number | string;
+
+  createdAt: string;
+  updatedAt?: string | null;
+
+  assigneeId?: number | null;
+  assigneeName?: string | null;
+
+  shippingAddress?: ShippingAddress | null;
+
+  receiverName?: string | null;
+  receiverPhone?: string | null;
+  addressLine?: string | null;
+
+  items: ResOrderItem[];
 };
 
 /* ====== Request DTOs ====== */
@@ -91,17 +99,24 @@ export type ReqUpdatePayment = {
 };
 
 export type ReqUpdateShipping = {
-  carrier?: string | null;
+  shippingCarrier?: string | null;
   trackingCode?: string | null;
   shippedAt?: string | null; // ISO
-  deliveredAt?: string | null; // ISO
+  deliveredAt?: string | null;
   fee?: string | number | null;
   note?: string | null;
 };
 
 export type ReqAssignOrder = { assigneeId: number | null };
-export type ReqCreateNote = {
-  note: string;
+export type ReqCreateNote = { note: string };
+
+export type RefundMethod = "CASH" | "BANK_TRANSFER" | "MOMO" | "OTHER";
+export type ReqCancelOrder = {
+  reason: string;
 };
-export type ReqCancelOrder = { reason: string };
-export type ReqRefundManual = { amount?: number; currency?: string; note?: string | null };
+export type ReqRefundManual = {
+  amount: number;
+  method: RefundMethod;
+  currency?: string;
+  note?: string | null;
+};

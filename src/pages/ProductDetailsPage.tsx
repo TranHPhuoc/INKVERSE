@@ -1,3 +1,4 @@
+// src/pages/ProductDetailsPage.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import type { BookDetail } from "../types/books";
@@ -15,6 +16,7 @@ import ErrorBoundary from "../components/ErrorBoundary";
 import { isFavorite, getCount as getFavCount } from "../store/favorite-store";
 import ReviewModal from "../components/ReviewModal";
 import RelatedBooksGrid from "../components/RelatedBooksGrid.tsx";
+import { motion } from "framer-motion";
 
 type BookDetailView = BookDetail & {
   likedByMe?: boolean;
@@ -111,6 +113,76 @@ function animateFlyToCart(sourceEl: HTMLElement): Promise<void> {
   });
 }
 
+/* ====== Expandable Description (kiểu Fahasa) ====== */
+function ExpandableDescription({ html }: { html: string }) {
+  const COLLAPSED = 220; // px
+  const [expanded, setExpanded] = useState(false);
+  const [contentHeight, setContentHeight] = useState<number | null>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  // Đo chiều cao nội dung và cập nhật khi resize
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setContentHeight(el.scrollHeight);
+    update();
+
+    // ResizeObserver để nội dung responsive vẫn đúng
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener("load", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("load", update);
+    };
+  }, [html]);
+
+  return (
+    <div className="mt-10 rounded-2xl border border-gray-100 bg-white/70 p-6 shadow-sm ring-1 ring-white/50 backdrop-blur">
+      <h2 className="mb-3 text-lg font-semibold text-gray-900">Mô tả sản phẩm</h2>
+
+      <div className="relative overflow-hidden">
+        <motion.div
+          // dùng số px cụ thể để animate (không animate trực tiếp 'auto')
+          animate={{ height: expanded ? (contentHeight ?? "auto") : COLLAPSED }}
+          transition={{ duration: 0.5, ease: [0.25, 0.8, 0.25, 1] }}
+          className="prose prose-rose prose-p:leading-relaxed max-w-none"
+          ref={ref}
+          style={{ willChange: "height" }}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+
+        {!expanded && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white to-white/0" />
+        )}
+      </div>
+
+      <div className="mt-3 text-center">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="inline-flex cursor-pointer justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-rose-600 transition-colors hover:text-rose-700"
+        >
+          {expanded ? (
+            <>
+              Rút gọn
+              <svg viewBox="0 0 24 24" className="h-4 w-4">
+                <path fill="currentColor" d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z" />
+              </svg>
+            </>
+          ) : (
+            <>
+              Xem thêm
+              <svg viewBox="0 0 24 24" className="h-4 w-4">
+                <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+              </svg>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ================= Page ================= */
 export default function ProductDetailsPage() {
   const { bookSlug = "" } = useParams<{ bookSlug: string }>();
@@ -157,7 +229,6 @@ export default function ProductDetailsPage() {
     };
   }, [data?.id]);
 
-  /* Check eligible để bật nút Viết đánh giá */
   useEffect(() => {
     let active = true;
     if (!data?.id) return;
@@ -206,7 +277,6 @@ export default function ProductDetailsPage() {
     };
   }, [bookSlug, by]);
 
-  /* Tự mở modal & scroll khi được điều hướng từ OrdersList (action=review) */
   useEffect(() => {
     if (action === "review") {
       setReviewOpen(true);
@@ -231,8 +301,8 @@ export default function ProductDetailsPage() {
   const hasSale = !!data.salePrice && Number(data.salePrice) < Number(data.price ?? 0);
   const discountPercent = hasSale
     ? Math.round(
-        ((Number(data.price) - Number(data.salePrice ?? data.price)) / Number(data.price)) * 100,
-      )
+      ((Number(data.price) - Number(data.salePrice ?? data.price)) / Number(data.price)) * 100,
+    )
     : 0;
 
   const gallery =
@@ -434,7 +504,7 @@ export default function ProductDetailsPage() {
                     <button
                       type="button"
                       onClick={dec}
-                      className="px-3 py-2 text-lg hover:bg-gray-50"
+                      className="px-3 py-2 text-lg hover:bg-gray-50 cursor-pointer"
                       aria-label="Giảm số lượng"
                     >
                       −
@@ -456,7 +526,7 @@ export default function ProductDetailsPage() {
                     <button
                       type="button"
                       onClick={inc}
-                      className="px-3 py-2 text-lg hover:bg-gray-50"
+                      className="px-3 py-2 text-lg hover:bg-gray-50 cursor-pointer"
                       aria-label="Tăng số lượng"
                     >
                       +
@@ -498,15 +568,7 @@ export default function ProductDetailsPage() {
           </div>
 
           {/* Description */}
-          {!!data.description && (
-            <div className="mt-10 rounded-2xl border border-gray-100 bg-white/70 p-6 shadow-sm ring-1 ring-white/50 backdrop-blur">
-              <h2 className="mb-3 text-lg font-semibold text-gray-900">Mô tả sản phẩm</h2>
-              <div
-                className="prose prose-rose prose-p:leading-relaxed max-w-none"
-                dangerouslySetInnerHTML={{ __html: data.description }}
-              />
-            </div>
-          )}
+          {!!data.description && <ExpandableDescription html={data.description} />}
         </div>
       </main>
 
@@ -557,16 +619,14 @@ export default function ProductDetailsPage() {
           open={reviewOpen}
           onClose={() => setReviewOpen(false)}
           onSubmitted={async () => {
-            setCanWrite(false); // đã đánh giá xong → khoá nút
+            setCanWrite(false);
             try {
               const s = await getRatingSummary(Number(data.id));
               setSummary({ average: Number(s.average ?? 0), count: s.count ?? 0 });
             } catch {
               /**/
             }
-            // ép refresh danh sách đánh giá
             setReviewRefreshTick((t) => t + 1);
-            // scroll xuống block đánh giá để thấy review mới
             setTimeout(() => {
               reviewsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
             }, 60);
