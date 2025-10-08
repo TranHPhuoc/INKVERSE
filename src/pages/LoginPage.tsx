@@ -4,11 +4,11 @@ import type { AxiosError } from "axios";
 import type { ApiErrorBody } from "../types/http";
 import bgPoster from "../assets/backgroundbooks.png";
 import { useAuth } from "../context/useAuth";
+import { FcGoogle } from "react-icons/fc";
 
 /* ───────── helpers ───────── */
 type RolesLike = { role?: string; roles?: string[] };
 function getRoles(): Set<string> {
-  // Ưu tiên đọc từ context nếu có
   try {
     const raw = localStorage.getItem("auth.user");
     const u = raw ? (JSON.parse(raw) as RolesLike) : null;
@@ -151,6 +151,13 @@ export default function LoginPage() {
               className="mt-1 w-full cursor-pointer rounded-lg bg-red-500 py-3 text-base font-semibold text-white transition hover:bg-red-600 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 md:mt-2 md:py-3.5 md:text-lg"
             >
               {loading ? "Đang xử lý..." : "Đăng nhập"}
+            </button>
+            <button
+              type="button"
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 py-3 transition hover:bg-white/10 active:scale-[0.99]"
+            >
+              <FcGoogle size={22} />
+              <span className="text-sm font-medium md:text-base">Đăng nhập với Google</span>
             </button>
 
             <p className="text-center text-sm md:text-base">

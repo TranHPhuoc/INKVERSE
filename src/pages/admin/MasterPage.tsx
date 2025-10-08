@@ -37,10 +37,10 @@ type SectionHandlers = {
 
 /* -------- Row editable -------- */
 function EditableRow({
-                       item,
-                       onUpdate,
-                       onDelete,
-                     }: {
+  item,
+  onUpdate,
+  onDelete,
+}: {
   item: SimpleMaster;
   onUpdate: (id: number, name: string) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
@@ -134,11 +134,11 @@ function EditableRow({
 
 /* -------- Section dùng chung -------- */
 function Section({
-                   title,
-                   color,
-                   items,
-                   handlers,
-                 }: {
+  title,
+  color,
+  items,
+  handlers,
+}: {
   title: string;
   color: string;
   items: SimpleMaster[];
@@ -174,7 +174,7 @@ function Section({
         }}
       >
         <input
-          className="flex-1 rounded-xl px-3 py-2 shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+          className="flex-1 rounded-xl px-3 py-2 shadow-inner focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60"
           placeholder="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -193,7 +193,7 @@ function Section({
 
       {/* Carded list with fixed grid columns to avoid misalignment on long titles */}
       <div className="rounded-xl">
-        <div className="grid grid-cols-[80px_minmax(0,1fr)_220px_200px] gap-3 px-4 pb-2 pt-3 text-xs text-gray-500 md:grid-cols-[80px_minmax(0,1fr)_260px_220px]">
+        <div className="grid grid-cols-[80px_minmax(0,1fr)_220px_200px] gap-3 px-4 pt-3 pb-2 text-xs text-gray-500 md:grid-cols-[80px_minmax(0,1fr)_260px_220px]">
           <div>ID</div>
           <div>Name</div>
           <div>Slug</div>
@@ -201,7 +201,12 @@ function Section({
         </div>
         <ul className="divide-y divide-gray-100">
           {items.map((i) => (
-            <EditableRow key={i.id} item={i} onUpdate={handlers.onUpdate} onDelete={handlers.onDelete} />
+            <EditableRow
+              key={i.id}
+              item={i}
+              onUpdate={handlers.onUpdate}
+              onDelete={handlers.onDelete}
+            />
           ))}
         </ul>
       </div>

@@ -1,5 +1,6 @@
+// src/pages/OrdersListPage.tsx
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Clock,
@@ -177,12 +178,11 @@ const getFirstProductLinkById = (o: ResOrderDetail): string | null => {
   if (!first || typeof first !== "object") return null;
   const it = first as OrderItemLite;
   const id = Number(it.book?.id ?? it.bookId ?? 0) || null;
-  return id ? `/books/${id}?by=id&action=review` : null;
+  return id ? `/books/${id}?by=id` : null; // giữ ?by=id
 };
 
 /* ---------- page ---------- */
 export default function OrdersListPage() {
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
   const [page, setPage] = useState<number>(Number(params.get("page") ?? 0));
@@ -337,14 +337,14 @@ export default function OrdersListPage() {
 
                       {isCompleted && productLink && (
                         <div className="flex gap-2">
-                          <button
-                            onClick={() => navigate(productLink)}
+                          <Link
+                            to={`${productLink}&action=review`} // /books/{id}?by=id&action=review
                             className="inline-flex cursor-pointer items-center rounded-xl bg-emerald-600 px-3.5 py-2.5 text-white hover:bg-emerald-500"
                           >
                             Đánh giá
-                          </button>
+                          </Link>
                           <Link
-                            to={productLink.replace("?by=id&action=review", "")}
+                            to={productLink} // /books/{id}?by=id
                             className="inline-flex cursor-pointer items-center rounded-xl bg-rose-600 px-3.5 py-2.5 text-white hover:bg-rose-500"
                           >
                             Mua lại

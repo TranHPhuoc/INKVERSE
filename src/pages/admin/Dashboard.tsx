@@ -1,47 +1,60 @@
-import { motion, type Variants } from "framer-motion";
+// src/pages/admin/DashboardPage.tsx
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import HeaderKpis from "../../components/dashboard/HeaderKpi";
+import RevenueArea from "../../components/dashboard/RevenueArea";
+import TopProducts from "../../components/dashboard/TopProducts";
+import CategoryBar from "../../components/dashboard/CategoryBar";
+import { getRevenueDaily, getTopBooks, getCategorySales } from "../../services/admin/metrics";
 
-export default function Dashboard() {
-  const cardVariants: Variants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: (i: number = 0) => ({
-      opacity: 1,
-      y: 0,
-      transition: { delay: i * 0.12, duration: 0.45, type: "spring", stiffness: 140, damping: 18 },
-    }),
+/* ===== Date helpers ===== */
+function toIsoNoMs(d: Date) {
+  return d.toISOString().split(".")[0] + "Z";
+}
+function rangeNDays(n: number) {
+  const to = new Date();
+  const from = new Date(to); from.setDate(to.getDate() - (n - 1));
+  const prevTo = new Date(from.getTime() - 1_000);
+  const prevFrom = new Date(prevTo); prevFrom.setDate(prevTo.getDate() - (n - 1));
+  return {
+    from: toIsoNoMs(from),
+    to: toIsoNoMs(to),
+    prevFrom: toIsoNoMs(prevFrom),
+    prevTo: toIsoNoMs(prevTo),
   };
+}
 
-  const gradients = [
-    "from-indigo-500 to-blue-500",
-    "from-fuchsia-500 to-pink-500",
-    "from-emerald-500 to-teal-500",
-  ];
+export default function DashboardPage() {
+  const r = useMemo(() => rangeNDays(7), []);
+
+  const { data: sales, isLoading: loadingSales } = useQuery({
+    queryKey: ["sales", r.from, r.to],
+    queryFn: () => getRevenueDaily({ from: r.from, to: r.to }),
+  });
+
+  const { data: top, isLoading: loadingTop } = useQuery({
+    queryKey: ["top", r.from, r.to],
+    queryFn: () => getTopBooks({ from: r.from, to: r.to, metric: "sold", limit: 10 }),
+  });
+
+  const { data: cats, isLoading: loadingCats } = useQuery({
+    queryKey: ["cats", r.from, r.to],
+    queryFn: () => getCategorySales({ from: r.from, to: r.to, limit: 10 }),
+  });
 
   return (
-    <div className="space-y-6">
-      <motion.h2
-        initial={{ opacity: 0, x: -40 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.45 }}
-        className="text-2xl font-bold"
-      >
-        Dashboard
-      </motion.h2>
+    <div className="mx-auto w-full max-w-[1550px] p-4">
+      <HeaderKpis from={r.from} to={r.to} prevFrom={r.prevFrom} prevTo={r.prevTo} />
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {["Tổng quan 1", "Tổng quan 2", "Tổng quan 3"].map((label, i) => (
-          <motion.div
-            key={label}
-            custom={i}
-            variants={cardVariants}
-            initial="hidden"
-            animate="visible"
-            whileHover={{ translateY: -4 }}
-            className={`rounded-2xl bg-gradient-to-r p-6 text-white shadow-[0_18px_40px_-18px_rgba(0,0,0,.35)] ${gradients[i % gradients.length]}`}
-          >
-            <div className="text-sm/6 opacity-90">Widget</div>
-            <div className="text-xl font-semibold">{label}</div>
-          </motion.div>
-        ))}
+      <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <RevenueArea data={sales} loading={loadingSales} />
+        </div>
+        <TopProducts items={top} loading={loadingTop} />
+      </div>
+
+      <div className="mt-6">
+        <CategoryBar data={cats} loading={loadingCats} />
       </div>
     </div>
   );

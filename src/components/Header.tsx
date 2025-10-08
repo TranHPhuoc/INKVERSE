@@ -1,3 +1,4 @@
+// src/components/Header.tsx
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,7 +10,7 @@ import PillNav from "../components/Animation/PillNav";
 import logo from "../assets/logoweb.png";
 import { getCart } from "../services/cart";
 
-/* ====== layout shell 1440px ====== */
+/* ====== layout shell 1550px ====== */
 const SHELL = "mx-auto w-full max-w-[1550px] px-4 sm:px-6 lg:px-8";
 
 /* ---------------- badge cache ---------------- */
@@ -84,6 +85,7 @@ const Header: React.FC = () => {
     return () => window.removeEventListener("cart:changed", handler as EventListener);
   }, [refreshBadge]);
 
+  /* ---------- Nav items (with fixed Cart badge) ---------- */
   const pillItems = [
     {
       label: (
@@ -105,14 +107,24 @@ const Header: React.FC = () => {
     },
     {
       label: (
-        <span className="relative inline-flex items-center gap-1">
-          <ShoppingCart className="h-[18px] w-[18px]" />
-          Giỏ hàng
-          {cartCount > 0 && (
-            <span className="absolute -top-2 -right-3 h-[16px] min-w-[16px] rounded-full bg-rose-600 px-1 text-[10px] leading-[16px] text-white">
-              {cartCount > 99 ? "99+" : cartCount}
-            </span>
-          )}
+        <span className="inline-flex items-center gap-2">
+          {/* Icon + badge */}
+          <span className="relative mr-1.5 inline-flex">
+            <ShoppingCart className="h-[18px] w-[18px]" />
+            {cartCount > 0 && (
+              <motion.span
+                key={cartCount}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 500, damping: 26 }}
+                aria-label={`Số sản phẩm trong giỏ: ${cartCount}`}
+                className="absolute top-[-4px] right-[-6px] grid h-4 min-w-4 place-items-center rounded-full bg-rose-600 px-1 text-[10px] leading-4 font-semibold text-white shadow-sm ring-2 ring-white"
+              >
+                {cartCount > 99 ? "99+" : cartCount}
+              </motion.span>
+            )}
+          </span>
+          <span>Giỏ hàng</span>
         </span>
       ),
       href: "/gio-hang",
@@ -127,7 +139,7 @@ const Header: React.FC = () => {
     },
   ];
 
-  /* ---------- Hover handlers cho dropdown tài khoản ---------- */
+  /* ---------- Hover handlers ---------- */
   const hoverRef = useRef<HTMLDivElement | null>(null);
   const hideTimer = useRef<number | null>(null);
   const openMenu = () => {

@@ -29,7 +29,6 @@ export async function listFeaturedAuthors(limit = 8): Promise<Author[]> {
     /* ignore and try next */
   }
 
-  // 2) thử public all
   try {
     const res = await api.get("/api/v1/authors", { params: { limit } });
     const data = unwrap<Author[] | null>(res.data);
@@ -38,7 +37,6 @@ export async function listFeaturedAuthors(limit = 8): Promise<Author[]> {
     /* ignore and try next */
   }
 
-  // 3) fallback tạm vào admin (nếu đang đăng nhập có quyền)
   try {
     const res = await api.get("/api/v1/admin/authors");
     const data = unwrap<Array<{ id: number; name: string; slug: string }> | null>(res.data);

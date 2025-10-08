@@ -46,7 +46,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   SHIPPED: "Đang giao",
   DELIVERED: "Đã giao",
   COMPLETED: "Hoàn tất",
-  CANCELED: "Đã huỷ",
+  CANCELED: "Huỷ đơn",
   CANCEL_REQUESTED: "Yêu cầu huỷ",
 };
 const STATUS_COLOR: Record<OrderStatus, string> = {
@@ -397,7 +397,7 @@ export default function SaleOrdersPage() {
                                 {disabled ? (
                                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                 ) : (
-                                  "Huỷ"
+                                  "Huỷ đơn"
                                 )}
                               </button>
                             </>

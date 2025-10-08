@@ -11,6 +11,7 @@ type Props = {
 
 export default function ReviewModal({ bookId, open, onClose, onSubmitted }: Props) {
   const [score, setScore] = useState(5);
+  const [hoverScore, setHoverScore] = useState<number | null>(null);
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export default function ReviewModal({ bookId, open, onClose, onSubmitted }: Prop
       setSubmitting(true);
       setErr(null);
       await upsertRating(bookId, {
-        score: Math.max(1, Math.min(5, Number(score) || 0)),
+        score: Math.max(0.5, Math.min(5, Number(score) || 0)),
         content: content.trim(),
       });
       onSubmitted?.();
@@ -45,6 +46,15 @@ export default function ReviewModal({ bookId, open, onClose, onSubmitted }: Prop
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const displayScore = hoverScore ?? score;
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>, i: number) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const half = x < rect.width / 2 ? 0.5 : 1;
+    setHoverScore(i + half);
   };
 
   return (
@@ -79,20 +89,40 @@ export default function ReviewModal({ bookId, open, onClose, onSubmitted }: Prop
             {/* Rating */}
             <div className="mb-3">
               <div className="flex items-center gap-2">
-                <div className="flex">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setScore(i + 1)}
-                      className="cursor-pointer text-2xl leading-none"
-                      aria-label={`${i + 1} sao`}
-                    >
-                      <span className={i < score ? "text-yellow-400" : "text-gray-300"}>★</span>
-                    </button>
-                  ))}
+                <div
+                  className="flex"
+                  onMouseLeave={() => setHoverScore(null)}
+                >
+                  {Array.from({ length: 5 }).map((_, i) => {
+                    const fill =
+                      displayScore >= i + 1
+                        ? 1
+                        : displayScore >= i + 0.5
+                          ? 0.5
+                          : 0;
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onMouseMove={(e) => handleMouseMove(e, i)}
+                        onClick={() => setScore(displayScore)}
+                        className="relative cursor-pointer text-5xl leading-none"
+                        aria-label={`${i + 1} sao`}
+                      >
+                        <span className="text-gray-300 select-none">★</span>
+                        <span
+                          className="absolute left-0 top-0 overflow-hidden text-yellow-400 select-none"
+                          style={{ width: `${fill * 100}%` }}
+                        >
+                          ★
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <span className="text-sm text-gray-500">({score} sao)</span>
+                <span className="text-sm text-gray-500">
+                  ({displayScore.toFixed(1)} sao)
+                </span>
               </div>
             </div>
 

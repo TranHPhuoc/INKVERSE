@@ -142,11 +142,11 @@ function hardRedirect(url: string) {
   try {
     window.location.assign(url);
     return;
-  } catch {}
+  } catch {/**/}
   try {
     window.location.replace(url);
     return;
-  } catch {}
+  } catch {/**/}
   window.location.href = url;
 }
 

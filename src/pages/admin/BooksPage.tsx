@@ -7,7 +7,7 @@ import AddBookModal from "../../components/admin/AddBookModal";
 import EditBookModal from "../../components/admin/EditBookModal";
 import { resolveThumb, PLACEHOLDER } from "../../types/img";
 
-/* ===== Types ===== */
+/* =================== Types =================== */
 type SpringPage<T> = {
   content: T[];
   number: number;
@@ -37,7 +37,14 @@ const STATUS_OPTIONS: readonly BookListItem["status"][] = [
 const isStatus = (v: string): v is BookListItem["status"] =>
   (STATUS_OPTIONS as readonly string[]).includes(v);
 
-/* ===== Page ===== */
+/* =================== Layout constants =================== */
+// grid: [ID][Sách(expand)][Giá][Đã bán][Trạng thái][Hành động]
+const GRID_COLS =
+  "grid grid-cols-[56px_minmax(0,1fr)_210px_90px_140px_140px] items-center gap-3";
+// width của khối thumbnail ở cột "Sách" (giống phần row để header thẳng hàng)
+const THUMB_W = 88;
+
+/* =================== Page =================== */
 export default function BooksPage() {
   // filters
   const [q, setQ] = useState("");
@@ -53,11 +60,11 @@ export default function BooksPage() {
   const [openCreate, setOpenCreate] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  // upload
+  // upload (per-row)
   const [uploading, setUploading] = useState<number | null>(null);
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({});
 
-  /* ---------- data fetch ---------- */
+  /* ---------- fetch list ---------- */
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -124,17 +131,13 @@ export default function BooksPage() {
     url.searchParams.delete("edit");
     window.history.replaceState({}, "", url);
   };
-
-  // auto open when landing with ?edit=ID
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const idStr = sp.get("edit");
-    if (idStr && /^\d+$/.test(idStr)) {
-      setEditingId(Number(idStr));
-    }
+    if (idStr && /^\d+$/.test(idStr)) setEditingId(Number(idStr));
   }, []);
 
-  /* ---------- ui helpers ---------- */
+  /* ---------- helpers ---------- */
   const badge = (s: BookListItem["status"]) => {
     const map: Record<BookListItem["status"], string> = {
       ACTIVE: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
@@ -149,11 +152,40 @@ export default function BooksPage() {
     );
   };
 
-  /* ---------- render ---------- */
+  function PriceCell({ b }: { b: BookListItem }) {
+    const price = Number(b.price ?? 0);
+    const effective = Number(b.effectivePrice ?? (b.salePrice ?? price));
+    const hasSale = b.salePrice != null && Number(b.salePrice) < price;
+    const salePct =
+      hasSale && price > 0 ? Math.round(((price - Number(b.salePrice)) / price) * 100) : 0;
+
+    return (
+      <div className="w-full text-right text-sm">
+        <div className={hasSale ? "font-semibold text-rose-600" : "font-medium"}>
+          {effective.toLocaleString()}₫
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          {hasSale && (
+            <>
+              <span className="text-[11px] text-gray-500 line-through">
+                {price.toLocaleString()}₫
+              </span>
+              <span className="rounded-full bg-rose-50 px-1.5 py-[1px] text-[10px] font-medium text-rose-600">
+                −{salePct}%
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* =================== render =================== */
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Books</h2>
 
+      {/* Filters */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -169,6 +201,7 @@ export default function BooksPage() {
               placeholder="Tiêu đề, ISBN, slug..."
             />
           </div>
+
           <div>
             <label className="mb-1 block text-sm text-gray-600">Trạng thái</label>
             <select
@@ -184,6 +217,7 @@ export default function BooksPage() {
               ))}
             </select>
           </div>
+
           <button
             type="button"
             onClick={() => {
@@ -194,6 +228,7 @@ export default function BooksPage() {
           >
             Tìm
           </button>
+
           <button
             type="button"
             onClick={() => setOpenCreate(true)}
@@ -208,25 +243,36 @@ export default function BooksPage() {
 
       {!loading && data && (
         <>
-          {/* Carded table (no borders) */}
+          {/* Header */}
           <div className="rounded-2xl bg-white/90 shadow-[0_10px_30px_-12px_rgba(0,0,0,.2)]">
-            <div className="flex items-center justify-between px-4 pb-2 pt-3 text-xs text-gray-500">
-              <div>ID</div>
-              <div className="flex-1 pl-4">Sách</div>
-              <div className="w-40">Giá</div>
-              <div className="w-20 text-center">Đã bán</div>
-              <div className="w-36">Trạng thái</div>
-              <div className="w-40 text-right">Hành động</div>
+            <div className={`${GRID_COLS} px-4 pb-2 pt-3 text-[11px] font-medium tracking-wide text-gray-500`}>
+              <div className="tabular-nums pl-[2px]">ID</div>
+
+              {/* Sách: chèn spacer = thumbnail width để label nằm đúng trên tiêu đề */}
+              <div className="pl-2">
+                <div className="flex items-center gap-3">
+                  <div style={{ width: THUMB_W }} className="shrink-0" />
+                  <span>Sách</span>
+                </div>
+              </div>
+
+              <div className="text-right">Giá</div>
+              <div className="text-center">Đã bán</div>
+              <div>Trạng thái</div>
+              <div className="text-right">Hành động</div>
             </div>
 
+            {/* Rows */}
             <ul className="divide-y divide-gray-100">
               {data.content.map((b) => (
-                <li key={b.id} className="group px-4 py-3 transition hover:bg-gray-50/70">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 text-sm text-gray-700">{b.id}</div>
+                <li key={b.id} className={`${GRID_COLS} px-4 py-3 transition hover:bg-gray-50/70`}>
+                  {/* ID */}
+                  <div className="tabular-nums pl-[2px] text-sm text-gray-700">{b.id}</div>
 
+                  {/* Sách */}
+                  <div className="flex min-w-0 items-center gap-3 pl-2">
                     {/* thumb + upload */}
-                    <div className="flex w-[88px] flex-col items-center">
+                    <div style={{ width: THUMB_W }} className="shrink-0">
                       {b.thumbnail ? (
                         <img
                           src={resolveThumb(b.thumbnail)}
@@ -257,7 +303,7 @@ export default function BooksPage() {
                         type="button"
                         onClick={() => fileInputs.current[b.id]?.click()}
                         disabled={uploading === b.id}
-                        className={`mt-2 rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                        className={`mt-2 rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
                           uploading === b.id
                             ? "bg-gray-200 text-gray-600"
                             : "cursor-pointer bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
@@ -267,45 +313,40 @@ export default function BooksPage() {
                       </button>
                     </div>
 
-
-                    <div className="flex min-w-0 flex-1 items-center gap-3 pl-2">
-                      <div className="min-w-0">
-                        <div className="truncate font-medium">{b.title}</div>
-                        <div className="truncate text-xs text-gray-500">{b.slug}</div>
-                      </div>
+                    {/* title + slug */}
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{b.title}</div>
+                      <div className="truncate text-xs text-gray-500">{b.slug}</div>
                     </div>
+                  </div>
 
-                    <div className="w-40 text-sm">
-                      <div className="font-medium">
-                        {(b.effectivePrice ?? b.price).toLocaleString()}₫
-                      </div>
-                      {b.salePrice != null && (
-                        <div className="text-xs text-rose-600">
-                          Sale: {b.salePrice.toLocaleString()}₫
-                        </div>
-                      )}
-                    </div>
+                  {/* Giá */}
+                  <div className="w-full">
+                    <PriceCell b={b} />
+                  </div>
 
-                    <div className="w-20 text-center text-sm">{b.sold ?? 0}</div>
+                  {/* Đã bán */}
+                  <div className="text-center text-sm">{b.sold ?? 0}</div>
 
-                    <div className="w-36">{badge(b.status)}</div>
+                  {/* Trạng thái */}
+                  <div className="text-sm">{badge(b.status)}</div>
 
-                    <div className="w-40 text-right">
-                      <button
-                        type="button"
-                        className="cursor-pointer rounded-md bg-indigo-600/10 px-3 py-1 text-indigo-700 transition hover:bg-indigo-600/20"
-                        onClick={() => openEdit(b.id)}
-                      >
-                        Sửa
-                      </button>
-                      <button
-                        type="button"
-                        className="ml-2 cursor-pointer rounded-md bg-rose-600/10 px-3 py-1 text-rose-700 transition hover:bg-rose-600/20"
-                        onClick={() => onDelete(b.id)}
-                      >
-                        Xóa
-                      </button>
-                    </div>
+                  {/* Actions */}
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      className="cursor-pointer rounded-md bg-indigo-600/10 px-3 py-1 text-indigo-700 transition hover:bg-indigo-600/20"
+                      onClick={() => openEdit(b.id)}
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      type="button"
+                      className="ml-2 cursor-pointer rounded-md bg-rose-600/10 px-3 py-1 text-rose-700 transition hover:bg-rose-600/20"
+                      onClick={() => onDelete(b.id)}
+                    >
+                      Xóa
+                    </button>
                   </div>
                 </li>
               ))}

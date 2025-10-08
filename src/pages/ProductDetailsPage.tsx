@@ -15,8 +15,8 @@ import FavoriteHeart from "../components/FavoriteHeart";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { isFavorite, getCount as getFavCount } from "../store/favorite-store";
 import ReviewModal from "../components/ReviewModal";
-import RelatedBooksGrid from "../components/RelatedBooksGrid.tsx";
-import { motion } from "framer-motion";
+import RelatedBooksGrid from "../components/RelatedBooksGrid";
+import ProductDescription from "../components/ProductDescription";
 
 type BookDetailView = BookDetail & {
   likedByMe?: boolean;
@@ -111,76 +111,6 @@ function animateFlyToCart(sourceEl: HTMLElement): Promise<void> {
       resolve();
     }
   });
-}
-
-/* ====== Expandable Description (kiểu Fahasa) ====== */
-function ExpandableDescription({ html }: { html: string }) {
-  const COLLAPSED = 220; // px
-  const [expanded, setExpanded] = useState(false);
-  const [contentHeight, setContentHeight] = useState<number | null>(null);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  // Đo chiều cao nội dung và cập nhật khi resize
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => setContentHeight(el.scrollHeight);
-    update();
-
-    // ResizeObserver để nội dung responsive vẫn đúng
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    window.addEventListener("load", update);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("load", update);
-    };
-  }, [html]);
-
-  return (
-    <div className="mt-10 rounded-2xl border border-gray-100 bg-white/70 p-6 shadow-sm ring-1 ring-white/50 backdrop-blur">
-      <h2 className="mb-3 text-lg font-semibold text-gray-900">Mô tả sản phẩm</h2>
-
-      <div className="relative overflow-hidden">
-        <motion.div
-          // dùng số px cụ thể để animate (không animate trực tiếp 'auto')
-          animate={{ height: expanded ? (contentHeight ?? "auto") : COLLAPSED }}
-          transition={{ duration: 0.5, ease: [0.25, 0.8, 0.25, 1] }}
-          className="prose prose-rose prose-p:leading-relaxed max-w-none"
-          ref={ref}
-          style={{ willChange: "height" }}
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-
-        {!expanded && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white to-white/0" />
-        )}
-      </div>
-
-      <div className="mt-3 text-center">
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="inline-flex cursor-pointer justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-rose-600 transition-colors hover:text-rose-700"
-        >
-          {expanded ? (
-            <>
-              Rút gọn
-              <svg viewBox="0 0 24 24" className="h-4 w-4">
-                <path fill="currentColor" d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z" />
-              </svg>
-            </>
-          ) : (
-            <>
-              Xem thêm
-              <svg viewBox="0 0 24 24" className="h-4 w-4">
-                <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
-              </svg>
-            </>
-          )}
-        </button>
-      </div>
-    </div>
-  );
 }
 
 /* ================= Page ================= */
@@ -403,13 +333,10 @@ export default function ProductDetailsPage() {
           <div className="grid grid-cols-1 gap-8 md:grid-cols-[520px_minmax(0,1fr)]">
             {/* ===== Left: Gallery + Actions ===== */}
             <div className="md:sticky md:top-20 md:self-start">
-              <div
-                ref={galleryWrapRef}
-                className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white/70 p-3 shadow-[0_10px_30px_-12px_rgba(244,63,94,.25)] backdrop-blur"
-              >
+              <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white/70 p-3 shadow-[0_10px_30px_-12px_rgba(244,63,94,.25)] backdrop-blur">
                 <BookGallery images={gallery} initialIndex={0} />
                 {discountPercent > 0 && (
-                  <span className="pointer-events-none absolute top-3 left-3 rounded-xl bg-rose-600/95 px-2.5 py-1 text-xs font-semibold text-white shadow">
+                  <span className="pointer-events-none absolute left-3 top-3 rounded-xl bg-rose-600/95 px-2.5 py-1 text-xl font-semibold text-white shadow">
                     -{discountPercent}%
                   </span>
                 )}
@@ -438,7 +365,7 @@ export default function ProductDetailsPage() {
               {/* Title + meta + favorite */}
               <div className="rounded-2xl border border-gray-100 bg-white/70 p-5 shadow-sm ring-1 ring-white/50 backdrop-blur">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl leading-snug font-bold text-gray-900">{data.title}</h1>
+                  <h1 className="text-2xl font-bold leading-snug text-gray-900">{data.title}</h1>
 
                   <FavoriteHeart
                     bookId={Number(data.id)}
@@ -504,7 +431,7 @@ export default function ProductDetailsPage() {
                     <button
                       type="button"
                       onClick={dec}
-                      className="px-3 py-2 text-lg hover:bg-gray-50 cursor-pointer"
+                      className="cursor-pointer px-3 py-2 text-lg hover:bg-gray-50"
                       aria-label="Giảm số lượng"
                     >
                       −
@@ -526,7 +453,7 @@ export default function ProductDetailsPage() {
                     <button
                       type="button"
                       onClick={inc}
-                      className="px-3 py-2 text-lg hover:bg-gray-50 cursor-pointer"
+                      className="cursor-pointer px-3 py-2 text-lg hover:bg-gray-50"
                       aria-label="Tăng số lượng"
                     >
                       +
@@ -558,7 +485,7 @@ export default function ProductDetailsPage() {
                   )}
                   {(data.widthCm || data.heightCm || data.thicknessCm) && (
                     <SpecRow label="Kích thước">
-                      {data.widthCm ?? "?"} × {data.heightCm ?? "?"} × {data.thicknessCm ?? "?"} cm
+                      {data.heightCm ?? "?"} × {data.widthCm ?? "?"} × {data.thicknessCm ?? "?"} cm
                     </SpecRow>
                   )}
                   {data.pageCount != null && <SpecRow label="Số trang">{data.pageCount}</SpecRow>}
@@ -567,23 +494,25 @@ export default function ProductDetailsPage() {
             </div>
           </div>
 
-          {/* Description */}
-          {!!data.description && <ExpandableDescription html={data.description} />}
+          {/* Description – dùng component, tự ẩn nếu mô tả <= 200 ký tự */}
+          <ProductDescription description={data.description} />
         </div>
       </main>
 
       {/* Toast mini */}
-      {toastOpen && (
-        <div className="pointer-events-none fixed inset-0 z-[1000] grid place-items-center">
-          <div className="absolute inset-0 bg-black/10" />
-          <div className="pointer-events-auto mx-4 flex animate-[fadeIn_.2s] items-center gap-3 rounded-2xl bg-neutral-800/95 px-6 py-5 text-white shadow-2xl ring-1 ring-white/10">
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-500/20 ring-1 ring-emerald-400/40">
-              <svg viewBox="0 0 24 24" className="h-6 w-6 text-emerald-400">
-                <path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" />
-              </svg>
+      {(
+        <div className={`${toastOpen ? "" : "pointer-events-none"} fixed inset-0 z-[1000] grid place-items-center`}>
+          {toastOpen && <div className="absolute inset-0 bg-black/10" />}
+          {toastOpen && (
+            <div className="pointer-events-auto mx-4 flex animate-[fadeIn_.2s] items-center gap-3 rounded-2xl bg-neutral-800/95 px-6 py-5 text-white shadow-2xl ring-1 ring-white/10">
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-500/20 ring-1 ring-emerald-400/40">
+                <svg viewBox="0 0 24 24" className="h-6 w-6 text-emerald-400">
+                  <path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" />
+                </svg>
+              </div>
+              <div className="text-base font-medium">{toastMsg}</div>
             </div>
-            <div className="text-base font-medium">{toastMsg}</div>
-          </div>
+          )}
         </div>
       )}
 

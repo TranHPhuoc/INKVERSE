@@ -9,6 +9,7 @@ import type {
   OrderStatus,
 } from "../types/order";
 import { getOrderByCode } from "../services/order";
+import api from "../services/api";
 import {
   ArrowLeft,
   Loader2,
@@ -19,6 +20,7 @@ import {
   CircleX,
   Check,
   Clock,
+  X,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -96,7 +98,7 @@ function badgeClassByPaymentStatus(s: PaymentStatus) {
   }
 }
 
-/* ===== status order to infer steps when timestamps missing ===== */
+/* ===== Status order ===== */
 const STATUS_ORDER: OrderStatus[] = [
   "PENDING",
   "CONFIRMED",
@@ -107,7 +109,6 @@ const STATUS_ORDER: OrderStatus[] = [
   "CANCEL_REQUESTED",
   "CANCELED",
 ];
-
 const STEP_TO_MIN_STATUS: Record<
   "createdAt" | "confirmedAt" | "shippedAt" | "completedAt",
   OrderStatus
@@ -117,12 +118,23 @@ const STEP_TO_MIN_STATUS: Record<
   shippedAt: "SHIPPED",
   completedAt: "COMPLETED",
 };
-
 function isStepDoneByStatus(stepKey: keyof typeof STEP_TO_MIN_STATUS, status: OrderStatus) {
   const cur = STATUS_ORDER.indexOf(status);
   const need = STATUS_ORDER.indexOf(STEP_TO_MIN_STATUS[stepKey]);
   return cur >= need;
 }
+
+/* ===== Cancel config ===== */
+const CANCELABLE_STATUSES: OrderStatus[] = ["PENDING", "CONFIRMED", "PROCESSING"];
+const CANCEL_REASONS = [
+  "Đặt nhầm sản phẩm",
+  "Muốn chỉnh sửa đơn hàng",
+  "Thời gian giao dự kiến quá lâu",
+  "Tìm giá tốt hơn",
+  "Không còn nhu cầu",
+  "Thay đổi địa chỉ / SĐT",
+  "Khác",
+];
 
 /* ===== Page ===== */
 export default function OrderDetailPage() {
@@ -131,6 +143,19 @@ export default function OrderDetailPage() {
   const [data, setData] = useState<ResOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+
+  // cancel modal state
+  const [showCancel, setShowCancel] = useState(false);
+  const [reasonChecks, setReasonChecks] = useState<string[]>([]);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelErr, setCancelErr] = useState<string | null>(null);
+
+  async function refetch() {
+    const res = await getOrderByCode(code);
+    setData(res);
+    setErr(null);
+  }
 
   useEffect(() => {
     let alive = true;
@@ -157,7 +182,6 @@ export default function OrderDetailPage() {
     };
   }, [code]);
 
-  // prepare
   const paymentMethod =
     (data as unknown as { paymentMethod?: PaymentMethod | null })?.paymentMethod ?? null;
 
@@ -167,10 +191,70 @@ export default function OrderDetailPage() {
     { key: "shippedAt" as const, label: "Đang giao", at: data?.shippedAt, icon: Truck },
     { key: "completedAt" as const, label: "Hoàn tất", at: data?.completedAt, icon: CreditCard },
   ];
-
   const isDone = (stepKey: (typeof timeline)[number]["key"], dt?: string | null) =>
     !!dt || (data ? isStepDoneByStatus(stepKey, data.status) : false);
 
+  // điều kiện enable hủy
+  const canCancel =
+    !!data && CANCELABLE_STATUSES.includes(data.status) && data.paymentStatus !== "PAID";
+
+  function toggleReason(r: string) {
+    setReasonChecks((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
+  }
+  function closeCancelModal() {
+    setShowCancel(false);
+    setReasonChecks([]);
+    setCancelReason("");
+    setCancelErr(null);
+  }
+
+  // gọi API hủy (có fallback)
+  async function performCancel() {
+    if (!data) return;
+    setCancelling(true);
+    setCancelErr(null);
+    try {
+      const combinedReason = [...reasonChecks, cancelReason.trim()].filter(Boolean).join(" | ");
+      const payload = combinedReason ? { reason: combinedReason } : undefined;
+
+      // 1) cancel
+      let ok = false;
+      try {
+        const r1 = await api.post(`/api/v1/orders/${data.code}/cancel`, payload, {
+          validateStatus: (s: number) => s < 500,
+        });
+        if (r1.status >= 200 && r1.status < 300) ok = true;
+        else if (r1.status === 405 || r1.status === 404) ok = false;
+        else if (r1.status >= 400)
+          throw new Error((r1.data?.message as string) || "Huỷ đơn thất bại");
+      } catch {
+        // fallback below
+      }
+
+      // 2) fallback request-cancel
+      if (!ok) {
+        const r2 = await api.post(`/api/v1/orders/${data.code}/request-cancel`, payload, {
+          validateStatus: (s: number) => s < 500,
+        });
+        if (!(r2.status >= 200 && r2.status < 300)) {
+          throw new Error((r2.data?.message as string) || "Gửi yêu cầu huỷ thất bại");
+        }
+      }
+
+      await refetch();
+      closeCancelModal();
+    } catch (e) {
+      const msg =
+        (e as { message?: string })?.message ||
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        "Không thể huỷ đơn hàng";
+      setCancelErr(msg);
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  /* ===== render ===== */
   if (loading && !data) {
     return (
       <div className="container mx-auto px-4 py-16">
@@ -201,10 +285,16 @@ export default function OrderDetailPage() {
   }
 
   const items: ResOrderItem[] = data.items ?? [];
+  const cancelBtnLabel =
+    data.status === "CANCEL_REQUESTED"
+      ? "Đã yêu cầu hủy"
+      : data.status === "CANCELED"
+        ? "Đã huỷ"
+        : "Hủy đơn hàng";
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Header (no border) */}
+      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
@@ -231,16 +321,31 @@ export default function OrderDetailPage() {
               {ORDER_STATUS_VI[data.status]}
             </span>
             <span
-              className={`rounded-full px-3 py-1 text-sm ${badgeClassByPaymentStatus(
-                data.paymentStatus,
-              )}`}
+              className={`rounded-full px-3 py-1 text-sm ${badgeClassByPaymentStatus(data.paymentStatus)}`}
             >
               {PAYMENT_STATUS_VI[data.paymentStatus]}
             </span>
+
+            <button
+              disabled={!canCancel}
+              onClick={() => canCancel && setShowCancel(true)}
+              className={`ml-2 rounded-xl px-4 py-2 text-sm font-semibold shadow ${
+                canCancel
+                  ? "bg-rose-600 text-white hover:bg-rose-500"
+                  : "cursor-not-allowed bg-gray-200 text-gray-500"
+              }`}
+              title={
+                canCancel
+                  ? "Hủy đơn hàng"
+                  : "Không thể hủy: chỉ hỗ trợ khi đơn đang chờ xử lý/đang xử lý và chưa thanh toán."
+              }
+            >
+              {cancelBtnLabel}
+            </button>
           </div>
         </div>
 
-        {/* Timeline (no borders) */}
+        {/* Timeline */}
         <div className="bg-white/70 px-5 py-4">
           <ol className="relative ml-1 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {timeline.map(({ key, label, at, icon: Icon }, idx) => {
@@ -266,7 +371,7 @@ export default function OrderDetailPage() {
       </motion.div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left: items (no border) */}
+        {/* Left: items */}
         <div className="space-y-3 lg:col-span-2">
           {items.map((it: ResOrderItem) => (
             <motion.div
@@ -314,7 +419,7 @@ export default function OrderDetailPage() {
           )}
         </div>
 
-        {/* Right: summary + shipping (no border) */}
+        {/* Right: summary + shipping */}
         <div className="h-fit space-y-6 lg:sticky lg:top-24">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -369,6 +474,91 @@ export default function OrderDetailPage() {
           </motion.div>
         </div>
       </div>
+
+      {/* Cancel modal */}
+      {showCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-lg font-semibold">Hủy đơn hàng</h4>
+              <button
+                className="rounded-lg p-1 hover:bg-gray-100"
+                onClick={closeCancelModal}
+                aria-label="Đóng"
+              >
+                <X className="h-5 w-5 cursor-pointer" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600">
+              Bạn chắc chắn muốn hủy đơn <b>{data.code}</b>?{" "}
+              <span className="text-gray-500">
+                (Tùy trạng thái hệ thống, thao tác có thể ghi nhận là <i>yêu cầu huỷ</i>.)
+              </span>
+            </p>
+
+            {/* Lý do gợi ý (CHECKBOXES) */}
+            <div className="mt-4">
+              <div className="mb-2 text-sm font-medium text-gray-700">Chọn lý do</div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {CANCEL_REASONS.map((r) => {
+                  const id = `cancel-reason-${r}`;
+                  const checked = reasonChecks.includes(r);
+                  return (
+                    <label
+                      key={r}
+                      htmlFor={id}
+                      className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                        checked ? "border-rose-300 bg-rose-50" : "border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      <input
+                        id={id}
+                        type="checkbox"
+                        className="h-4 w-4 accent-rose-600"
+                        checked={checked}
+                        onChange={() => toggleReason(r)}
+                      />
+                      <span>{r}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Ghi chú thêm */}
+            <label className="mt-4 block text-sm font-medium text-gray-700">
+              Ghi chú thêm (tuỳ chọn)
+            </label>
+            <textarea
+              rows={3}
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-gray-700 focus:border-rose-500 focus:ring focus:ring-rose-100"
+              placeholder="Ví dụ: đổi ý, đặt nhầm…"
+            />
+
+            {cancelErr && <div className="mt-2 text-sm text-rose-600">{cancelErr}</div>}
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                className="rounded-xl px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 cursor-pointer"
+                onClick={closeCancelModal}
+                disabled={cancelling}
+              >
+                Thoát
+              </button>
+              <button
+                onClick={performCancel}
+                disabled={cancelling}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-rose-500 disabled:opacity-60 cursor-pointer"
+              >
+                {cancelling ? "Đang xử lý..." : "Xác nhận hủy đơn"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

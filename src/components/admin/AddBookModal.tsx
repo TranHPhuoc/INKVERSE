@@ -437,9 +437,6 @@ export default function AddBookModal({
                   placeholder="Nhập mô tả: có thể in đậm, bullet, link..."
                 />
               </div>
-              <div className="mt-1 text-xs text-gray-500">
-                Nội dung lưu dạng HTML và hiển thị đẹp ở trang sản phẩm.
-              </div>
             </FieldGroup>
 
             <div className="grid grid-cols-2 gap-3">

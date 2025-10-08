@@ -36,7 +36,7 @@ import FavoritesPage from "./pages/FavoritePage.tsx";
 import RelatedAllPage from "./pages/RelatedAllPage";
 import VNPayReturnPage from "./pages/VNPayReturnPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
-
+import AuthorDetailPage from "./pages/AuthorDetailPage";
 
 // Pages – User
 import AccountLayout from "./pages/user/AccountLayout";
@@ -280,7 +280,7 @@ export default function App() {
                 path="/order-success"
                 element={
                   <PageTransition>
-                    <OrderSuccessPage/>
+                    <OrderSuccessPage />
                   </PageTransition>
                 }
               />
@@ -314,6 +314,14 @@ export default function App() {
                 element={
                   <PageTransition>
                     <VNPayReturnPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/author/:slug"
+                element={
+                  <PageTransition>
+                    <AuthorDetailPage />
                   </PageTransition>
                 }
               />
