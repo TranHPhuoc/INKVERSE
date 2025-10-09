@@ -1,4 +1,3 @@
-// src/pages/AuthorDetailPage.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -12,11 +11,12 @@ import {
 } from "../services/author";
 import { addAndSelectOne, addCartItem } from "../services/cart";
 import { getBookDetailById } from "../types/books";
+import { AUTHOR_META } from "../types/authorMeta";
 
 const SHELL = "mx-auto w-full max-w-[1550px] px-4 sm:px-6 lg:px-8";
 const nf = new Intl.NumberFormat("vi-VN");
 
-/* ========= Fly-to-cart (dùng lại từ ProductDetailsPage) ========= */
+/* ========= Fly-to-cart ========= */
 function animateFlyToCartFrom(el?: HTMLElement | null): Promise<void> {
   return new Promise<void>((resolve) => {
     try {
@@ -74,10 +74,8 @@ export default function AuthorDetailPage() {
   const [hoverIdx, setHoverIdx] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // mô tả (lấy từ getBookDetailById khi hover)
   const [activeDesc, setActiveDesc] = useState<string>("");
 
-  // ref ảnh preview để bay vào giỏ
   const previewImgRef = useRef<HTMLImageElement | null>(null);
 
   const safeIdx = useMemo(
@@ -89,14 +87,15 @@ export default function AuthorDetailPage() {
   useEffect(() => {
     try {
       window.scrollTo({ top: 0, behavior: "auto" });
-    } catch {/**/}
+    } catch {
+      /**/
+    }
     setLoading(true);
 
     (async () => {
       let id = authorIdParam;
       let header = makeAuthorHeader(slug, id);
 
-      // Nếu thiếu authorId trong URL -> resolve từ slug
       if (!Number.isFinite(id) || id <= 0) {
         const found = await fetchAuthorBySlug(slug).catch(() => null);
         if (found) {
@@ -112,10 +111,7 @@ export default function AuthorDetailPage() {
       }
 
       setAuthor(header);
-      const [f, b] = await Promise.all([
-        getAuthorFeaturedWorksById(id),
-        listAuthorBooksById(id),
-      ]);
+      const [f, b] = await Promise.all([getAuthorFeaturedWorksById(id), listAuthorBooksById(id)]);
       setFeatured(Array.isArray(f) ? f : []);
       setBooks(Array.isArray(b) ? b : []);
       setHoverIdx(0);
@@ -123,7 +119,6 @@ export default function AuthorDetailPage() {
     })();
   }, [slug, authorIdParam]);
 
-  /* Lấy mô tả thật cho sách đang active */
   useEffect(() => {
     (async () => {
       if (!active?.id) {
@@ -173,39 +168,44 @@ export default function AuthorDetailPage() {
     );
   }
 
-  const cover = author.coverUrl || author.avatarUrl || "";
-  const shortBio =
-    author.shortBio ||
-    "Một giọng kể riêng biệt, giàu xúc cảm. Những trang viết của tác giả điềm đạm mà thấm sâu.";
+  const meta = AUTHOR_META[author.name];
+  const life = meta?.life ?? "";
+  const shortBio = author.shortBio || meta?.bio || "";
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-slate-100">
       {/* ===== Header ===== */}
       <div
-        className="relative isolate"
-        style={{
-          backgroundImage: cover
-            ? `linear-gradient(180deg, rgba(2,6,23,0.6), rgba(2,6,23,0.95)), url('${cover}')`
-            : "linear-gradient(180deg, rgba(2,6,23,0.6), rgba(2,6,23,0.95))",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
+        className="relative isolate bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950"
         aria-label={`Thông tin tác giả ${author.name}`}
       >
         <div className={`${SHELL} py-16 lg:py-20`}>
-          <div className="flex flex-col items-start gap-8 lg:flex-row lg:items-end">
+          <div className="flex flex-col gap-6 md:flex-row md:items-start">
+            {/* Avatar */}
             <img
-              src={author.avatarUrl || cover}
+              src={author.avatarUrl || author.coverUrl || ""}
               alt={author.name}
-              className="h-40 w-40 rounded-2xl object-cover shadow-2xl ring-4 ring-white/10"
+              className="h-40 w-40 flex-shrink-0 rounded-2xl object-cover shadow-2xl ring-4 ring-white/10"
             />
-            <div className="flex-1">
-              <h1 className="text-3xl font-semibold tracking-tight lg:text-4xl">{author.name}</h1>
-              <p className="mt-6 max-w-3xl leading-relaxed text-slate-200/90">{shortBio}</p>
+
+            {/* Right */}
+            <div className="min-w-0 flex-1 pt-[2px]">
+              {" "}
+              <h1 className="mb-3 text-3xl font-semibold tracking-tight lg:text-4xl">
+                {author.name}
+                {!!life && (
+                  <span className="ml-3 align-middle text-base font-normal text-slate-300">
+                    ({life})
+                  </span>
+                )}
+              </h1>
+              <div
+                className="prose prose-invert prose-p:my-3 prose-p:first:mt-0 prose-p:last:mb-0 prose-strong:text-white prose-strong:font-semibold max-w-[880px] text-[15px] leading-7 text-slate-200/90"
+                dangerouslySetInnerHTML={{ __html: shortBio }}
+              />
             </div>
           </div>
         </div>
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(80%_60%_at_50%_0%,rgba(99,102,241,0.15),transparent_70%)]" />
       </div>
 
       {/* ===== Featured works ===== */}
@@ -222,11 +222,11 @@ export default function AuthorDetailPage() {
                 const isActive = i === safeIdx;
                 return (
                   <li key={bk.id}>
-                    <button
+                    <Link
+                      to={`/books/${bk.slug}`}
                       onMouseEnter={() => setHoverIdx(i)}
                       onFocus={() => setHoverIdx(i)}
-                      onClick={() => setHoverIdx(i)}
-                      className={`group flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left transition ${
+                      className={`group flex w-full cursor-pointer items-center gap-4 rounded-xl px-3 py-3 text-left transition ${
                         isActive ? "bg-white/10 ring-1 ring-white/15" : "hover:bg-white/5"
                       }`}
                       aria-current={isActive ? "true" : "false"}
@@ -253,7 +253,7 @@ export default function AuthorDetailPage() {
                           )}
                         </div>
                       </div>
-                    </button>
+                    </Link>
                   </li>
                 );
               })}
@@ -294,26 +294,18 @@ export default function AuthorDetailPage() {
                   </div>
 
                   {/* mô tả */}
-                  {!!activeDesc && (
-                    <ExpandableClamp html={activeDesc} maxHeight={120} />
-                  )}
+                  {!!activeDesc && <ExpandableClamp html={activeDesc} maxHeight={120} />}
 
                   <div className="mt-auto flex gap-3 pt-6">
-                    <Link
-                      to={`/books/${active.slug}`}
-                      className="rounded-xl bg-white px-5 py-2.5 font-medium text-slate-900 shadow hover:opacity-95"
-                    >
-                      Xem chi tiết
-                    </Link>
                     <button
                       onClick={handleAddToCart}
-                      className="rounded-xl border border-white/20 px-5 py-2.5 font-medium text-white/90 hover:bg-white/10"
+                      className="rounded-xl border border-white/20 px-5 py-2.5 font-medium text-white/90 hover:bg-white/10 cursor-pointer"
                     >
                       Thêm vào giỏ
                     </button>
                     <button
                       onClick={handleBuyNow}
-                      className="rounded-xl bg-rose-500/90 px-5 py-2.5 font-semibold text-white shadow hover:brightness-110"
+                      className="rounded-xl bg-rose-500/90 px-5 py-2.5 font-semibold text-white shadow hover:brightness-110 cursor-pointer"
                     >
                       Mua ngay
                     </button>
@@ -326,7 +318,7 @@ export default function AuthorDetailPage() {
         </section>
       )}
 
-      {/* ===== All books (card đồng nhất Home) ===== */}
+      {/* ===== All books ===== */}
       {books.length > 0 && (
         <section className={`${SHELL} pb-20`}>
           <h2 className="mb-6 text-2xl font-semibold">Tất cả tác phẩm</h2>
@@ -340,24 +332,23 @@ export default function AuthorDetailPage() {
                   to={`/books/${bk.slug}`}
                   className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 ring-1 ring-white/10 transition hover:-translate-y-0.5 hover:bg-white/10"
                 >
-                  {/* Image area – tỉ lệ 3:4 giống Home */}
                   <div className="relative">
                     <div className="aspect-[3/4] w-full">
                       <img
                         src={bk.cover}
                         alt={bk.title}
-                        className="h-full w-full rounded-b-none rounded-t-2xl object-cover"
+                        className="h-full w-full rounded-t-2xl rounded-b-none object-cover"
                       />
                     </div>
                     {hasSale && (
-                      <span className="pointer-events-none absolute left-3 top-3 rounded-md bg-rose-600/95 px-2 py-0.5 text-xs font-semibold text-white">
+                      <span className="pointer-events-none absolute top-3 left-3 rounded-md bg-rose-600/95 px-2 py-0.5 text-xs font-semibold text-white">
                         -
                         {Math.max(
                           0,
                           Math.round(
                             ((Number(bk.price) - Number(bk.salePrice ?? bk.price)) /
                               Number(bk.price || 1)) *
-                            100,
+                              100,
                           ),
                         )}
                         %
@@ -365,7 +356,6 @@ export default function AuthorDetailPage() {
                     )}
                   </div>
 
-                  {/* Text */}
                   <div className="p-3">
                     <div className="line-clamp-2 h-[2.6em] text-sm font-medium text-slate-100 group-hover:text-white">
                       {bk.title}
@@ -373,8 +363,12 @@ export default function AuthorDetailPage() {
                     <div className="mt-1 text-sm text-slate-300">
                       {hasSale ? (
                         <>
-                          <span className="font-semibold text-white">{nf.format(bk.salePrice!)} đ</span>
-                          <span className="ml-2 line-through opacity-60">{nf.format(bk.price)} đ</span>
+                          <span className="font-semibold text-white">
+                            {nf.format(bk.salePrice!)} đ
+                          </span>
+                          <span className="ml-2 line-through opacity-60">
+                            {nf.format(bk.price)} đ
+                          </span>
                         </>
                       ) : (
                         <span className="font-semibold text-white">{nf.format(bk.price)} đ</span>
@@ -391,7 +385,7 @@ export default function AuthorDetailPage() {
   );
 }
 
-/* ========== Component: mô tả rút gọn có Xem thêm / Rút gọn ========== */
+/* ========== mô tả rút gọn ========== */
 function ExpandableClamp({ html, maxHeight = 120 }: { html: string; maxHeight?: number }) {
   const [expanded, setExpanded] = useState(false);
   const [realH, setRealH] = useState<number | null>(null);

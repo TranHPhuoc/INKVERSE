@@ -10,11 +10,14 @@ type Props = {
 };
 
 export default function ReviewModal({ bookId, open, onClose, onSubmitted }: Props) {
-  const [score, setScore] = useState(5);
+  const [score, setScore] = useState<number>(5); // only 1..5
   const [hoverScore, setHoverScore] = useState<number | null>(null);
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // helper clamp 1..5
+  const clampStar = (n: number) => Math.max(1, Math.min(5, Math.round(Number(n) || 0)));
 
   useEffect(() => {
     if (!open || !bookId) return;
@@ -22,7 +25,7 @@ export default function ReviewModal({ bookId, open, onClose, onSubmitted }: Prop
     myRating(bookId)
       .then((r) => {
         if (!active || !r) return;
-        setScore(r.score ?? 5);
+        setScore(clampStar(r.score ?? 5));
         setContent(r.content ?? "");
       })
       .catch(() => {});
@@ -36,7 +39,7 @@ export default function ReviewModal({ bookId, open, onClose, onSubmitted }: Prop
       setSubmitting(true);
       setErr(null);
       await upsertRating(bookId, {
-        score: Math.max(0.5, Math.min(5, Number(score) || 0)),
+        score: clampStar(score),
         content: content.trim(),
       });
       onSubmitted?.();
@@ -49,13 +52,6 @@ export default function ReviewModal({ bookId, open, onClose, onSubmitted }: Prop
   };
 
   const displayScore = hoverScore ?? score;
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>, i: number) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const half = x < rect.width / 2 ? 0.5 : 1;
-    setHoverScore(i + half);
-  };
 
   return (
     <AnimatePresence>
@@ -89,30 +85,23 @@ export default function ReviewModal({ bookId, open, onClose, onSubmitted }: Prop
             {/* Rating */}
             <div className="mb-3">
               <div className="flex items-center gap-2">
-                <div
-                  className="flex"
-                  onMouseLeave={() => setHoverScore(null)}
-                >
+                <div className="flex" onMouseLeave={() => setHoverScore(null)}>
                   {Array.from({ length: 5 }).map((_, i) => {
-                    const fill =
-                      displayScore >= i + 1
-                        ? 1
-                        : displayScore >= i + 0.5
-                          ? 0.5
-                          : 0;
+                    const starIndex = i + 1;
+                    const filled = displayScore >= starIndex;
                     return (
                       <button
                         key={i}
                         type="button"
-                        onMouseMove={(e) => handleMouseMove(e, i)}
-                        onClick={() => setScore(displayScore)}
+                        onMouseEnter={() => setHoverScore(starIndex)}
+                        onClick={() => setScore(starIndex)}
                         className="relative cursor-pointer text-5xl leading-none"
-                        aria-label={`${i + 1} sao`}
+                        aria-label={`${starIndex} sao`}
                       >
                         <span className="text-gray-300 select-none">★</span>
                         <span
-                          className="absolute left-0 top-0 overflow-hidden text-yellow-400 select-none"
-                          style={{ width: `${fill * 100}%` }}
+                          className="absolute top-0 left-0 overflow-hidden text-yellow-400 select-none"
+                          style={{ width: filled ? "100%" : "0%" }}
                         >
                           ★
                         </span>
@@ -120,9 +109,7 @@ export default function ReviewModal({ bookId, open, onClose, onSubmitted }: Prop
                     );
                   })}
                 </div>
-                <span className="text-sm text-gray-500">
-                  ({displayScore.toFixed(1)} sao)
-                </span>
+                <span className="text-sm text-gray-500">({displayScore} sao)</span>
               </div>
             </div>
 

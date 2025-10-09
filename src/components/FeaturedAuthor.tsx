@@ -1,4 +1,3 @@
-// src/components/FeaturedAuthorsTabs.tsx
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -23,13 +22,13 @@ import NapoleonHill from "../assets/authors/NapoleonHill.jpg";
 type TabKey = "vn" | "intl";
 
 type FeaturedAuthorItem = {
+  id?: number;
   name: string;
   avatar?: string | null;
-  /** Optional: nếu bạn muốn override slug mặc định */
   slug?: string;
 };
 
-/* ================= Slug map (ổn định) ================= */
+/* ================= Slug map  ================= */
 const SLUG_MAP: Record<string, string> = {
   "Nguyễn Nhật Ánh": "nguyen-nhat-anh",
   "Tô Hoài": "to-hoai",
@@ -48,24 +47,26 @@ const SLUG_MAP: Record<string, string> = {
 };
 
 /* ================= Data ================= */
+
+
 const DOMESTIC: FeaturedAuthorItem[] = [
-  { name: "Nguyễn Nhật Ánh", avatar: NguyenNhatAnh },
-  { name: "Tô Hoài", avatar: ToHoai },
-  { name: "Nam Cao", avatar: NamCao },
-  { name: "Vũ Trọng Phụng", avatar: VuTrongPhung },
-  { name: "Ma Văn Kháng", avatar: MaVanKhang },
-  { name: "Nguyễn Ngọc Tư", avatar: NguyenNgocTu },
-  { name: "Trần Đăng Khoa", avatar: TranDangKhoa },
+  { id: 50, name: "Nguyễn Nhật Ánh", avatar: NguyenNhatAnh },
+  { id: 52, name: "Tô Hoài", avatar: ToHoai },
+  { id: 18, name: "Nam Cao", avatar: NamCao },
+  { id: 19, name: "Vũ Trọng Phụng", avatar: VuTrongPhung },
+  { id: 55, name: "Ma Văn Kháng", avatar: MaVanKhang },
+  { id: 56, name: "Nguyễn Ngọc Tư", avatar: NguyenNgocTu },
+  { id: 57, name: "Trần Đăng Khoa", avatar: TranDangKhoa },
 ];
 
 const INTERNATIONAL: FeaturedAuthorItem[] = [
-  { name: "Warren Buffett", avatar: WarrenBuffett },
-  { name: "J.K. Rowling", avatar: JKRowling },
-  { name: "Agatha Christie", avatar: AgathaChristie },
-  { name: "Paulo Coelho", avatar: PauloCoelho },
-  { name: "Stephen King", avatar: StephenKing },
-  { name: "Arthur Conan Doyle", avatar: ArthurConanDoyle },
-  { name: "Napoleon Hill", avatar: NapoleonHill },
+  { id: 58, name: "Warren Buffett", avatar: WarrenBuffett },
+  { id: 59, name: "J.K. Rowling", avatar: JKRowling },
+  { id: 60, name: "Agatha Christie", avatar: AgathaChristie },
+  { id: 6, name: "Paulo Coelho", avatar: PauloCoelho },
+  { id: 61, name: "Stephen King", avatar: StephenKing },
+  { id: 62, name: "Arthur Conan Doyle", avatar: ArthurConanDoyle },
+  { id: 43, name: "Napoleon Hill", avatar: NapoleonHill },
 ];
 
 const TABS: { key: TabKey; label: string; data: FeaturedAuthorItem[] }[] = [
@@ -80,7 +81,6 @@ function toSlug(name: string, fallback?: string): string {
   if (fallback && fallback.trim()) return fallback.trim();
   const mapped = SLUG_MAP[name];
   if (mapped) return mapped;
-  // fallback cực đoan
   return name.trim().toLowerCase().replace(/\s+/g, "-");
 }
 
@@ -104,17 +104,19 @@ function AuthorGrid({ authors }: { authors: FeaturedAuthorItem[] }) {
     >
       {authors.map((a, i) => {
         const slug = toSlug(a.name, a.slug);
-        const href = `/author/${encodeURIComponent(slug)}`;
+        const href =
+          a.id != null
+            ? `/author/${encodeURIComponent(slug)}?authorId=${a.id}`
+            : `/author/${encodeURIComponent(slug)}`;
 
         return (
           <motion.li
-            key={slug}
+            key={`${slug}-${a.id ?? i}`}
             className="flex flex-col items-center"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.045, duration: 0.28, ease: easeOutBezier }}
           >
-            {/* Mở TAB MỚI */}
             <a
               href={href}
               target="_blank"

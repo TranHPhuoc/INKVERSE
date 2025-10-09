@@ -1,12 +1,14 @@
 // src/pages/OrderSuccessPage.tsx
 import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 export default function OrderSuccessPage() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
-  const code = params.get("code"); // lấy orderCode truyền từ CheckoutPage
+  const code = params.get("code");
+  const navigate = useNavigate();
+
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center bg-gradient-to-b from-white via-rose-50/60 to-pink-100/70">
@@ -73,12 +75,12 @@ export default function OrderSuccessPage() {
           >
             🛍️ Về lại trang chủ để mua sắm tiếp
           </Link>
-          <Link
-            to="/orders"
-            className="inline-block rounded-xl border border-gray-300 bg-white px-6 py-3 font-medium text-gray-700 hover:bg-gray-50 transition"
+          <button
+            onClick={() => navigate("/don-hang")}
+            className="mt-4 w-full bg-gray-100 hover:bg-gray-200 rounded-lg py-3"
           >
             Xem đơn hàng của tôi
-          </Link>
+          </button>
         </motion.div>
       </motion.div>
     </div>
