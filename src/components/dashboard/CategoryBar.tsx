@@ -1,5 +1,11 @@
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
 } from "recharts";
 import type { ResAdminCategorySalesDTO } from "../../services/admin/metrics";
 
@@ -10,6 +16,12 @@ type Props = {
   loading?: boolean | undefined;
 };
 
+function calcYAxisWidth(maxValue: number): number {
+  const sample = nf.format(Math.max(0, maxValue));
+  const w = sample.length * 9 + 14;
+  return Math.max(56, Math.min(120, w));
+}
+
 export default function CategoryBar({ data, loading }: Props) {
   const list: ResAdminCategorySalesDTO[] = Array.isArray(data) ? data : [];
   const chartData = list.map((d) => ({
@@ -17,25 +29,41 @@ export default function CategoryBar({ data, loading }: Props) {
     revenue: Number(d.revenue ?? 0),
   }));
 
+  const maxRevenue = chartData.reduce((m, x) => (x.revenue > m ? x.revenue : m), 0);
+  const yAxisWidth = calcYAxisWidth(maxRevenue);
+
   return (
-    <div className="rounded-3xl bg-[#1e2240] p-5 text-white shadow-inner ring-1 ring-white/10">
-      <p className="mb-4 text-[13px] font-semibold tracking-wide text-white/80">
+    <div className="rounded-3xl bg-[#1e2240] p-6 text-white shadow-inner ring-1 ring-white/10">
+      <p className="mb-5 text-[13px] font-semibold tracking-wide text-white/80">
         DOANH THU THEO DANH MỤC
       </p>
 
       {loading ? (
-        <div className="h-72 w-full animate-pulse rounded-2xl bg-white/10" />
+        <div className="h-[28rem] w-full animate-pulse rounded-2xl bg-white/10" />
       ) : chartData.length === 0 ? (
-        <div className="flex h-72 items-center justify-center text-white/60">
+        <div className="flex h-[28rem] items-center justify-center text-white/60">
           Chưa có dữ liệu trong khoảng thời gian này
         </div>
       ) : (
-        <div className="h-72 w-full">
+        <div className="h-[28rem] w-full">
           <ResponsiveContainer>
-            <BarChart data={chartData}>
+            <BarChart
+              data={chartData}
+              margin={{ top: 10, right: 16, bottom: 0, left: 12 }}
+            >
               <CartesianGrid strokeOpacity={0.15} />
-              <XAxis dataKey="name" tick={{ fill: "rgba(255,255,255,.7)" }} tickMargin={10} />
-              <YAxis tickFormatter={(v: number) => nf.format(v)} tick={{ fill: "rgba(255,255,255,.7)" }} />
+              <XAxis
+                dataKey="name"
+                interval={0}
+                height={60}
+                tick={{ fill: "rgba(255,255,255,.7)", fontSize: 12 }}
+                tickMargin={10}
+              />
+              <YAxis
+                width={yAxisWidth}
+                tickFormatter={(v: number) => nf.format(v)}
+                tick={{ fill: "rgba(255,255,255,.7)", fontSize: 12 }}
+              />
               <Tooltip
                 formatter={(v: number) => `${nf.format(v)} ₫`}
                 contentStyle={{

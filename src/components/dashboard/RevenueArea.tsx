@@ -1,5 +1,12 @@
+// src/components/dashboard/RevenueArea.tsx
 import {
-  AreaChart, Area, CartesianGrid, Tooltip, XAxis, YAxis, ResponsiveContainer,
+  AreaChart,
+  Area,
+  CartesianGrid,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
 } from "recharts";
 import type { ResAdminRevenuePointDTO } from "../../services/admin/metrics";
 
@@ -10,34 +17,58 @@ type Props = {
   loading?: boolean | undefined;
 };
 
+function toDayLabel(day: string): string {
+  if (!day || day.length < 10) return day;
+  const [y, m, d] = day.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function calcYAxisWidth(maxValue: number): number {
+  const sample = nf.format(Math.max(0, maxValue));
+  const w = sample.length * 9 + 14;
+  return Math.max(56, Math.min(120, w));
+}
+
+
 export default function RevenueArea({ data, loading }: Props) {
-  const list: ResAdminRevenuePointDTO[] = Array.isArray(data) ? data : [];
-  const chartData = list.map((d) => ({
-    day: new Date(d.day).toLocaleDateString("en-GB"),
-    revenue: Number(d.revenue ?? 0),
-  }));
+  const list: ResAdminRevenuePointDTO[] = Array.isArray(data) ? (data as ResAdminRevenuePointDTO[]) : [];
+  const chartData = list.map((d) => ({ day: toDayLabel(d.day), revenue: Number(d.revenue ?? 0) }));
+
+  const maxRevenue = chartData.reduce((m, x) => (x.revenue > m ? x.revenue : m), 0);
+  const yAxisWidth = calcYAxisWidth(maxRevenue);
 
   return (
-    <div className="rounded-3xl bg-[#1e2240] p-5 text-white shadow-inner ring-1 ring-white/10">
+    <div className="h-[630px] rounded-3xl bg-[#1e2240] p-6 text-white shadow-inner ring-1 ring-white/10 flex flex-col">
       <p className="mb-4 text-[13px] font-semibold tracking-wide text-white/80">
         DOANH THU THEO NGÀY
       </p>
 
       {loading ? (
-        <div className="h-72 w-full animate-pulse rounded-2xl bg-white/10" />
+        <div className="flex-1 animate-pulse rounded-2xl bg-white/10" />
       ) : chartData.length === 0 ? (
-        <div className="flex h-72 items-center justify-center text-white/60">
+        <div className="flex-1 flex items-center justify-center text-white/60">
           Chưa có dữ liệu trong khoảng thời gian này
         </div>
       ) : (
-        <div className="h-72 w-full">
-          <ResponsiveContainer>
-            <AreaChart data={chartData}>
+        <div className="flex-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 10, right: 16, left: 12, bottom: 0 }}>
               <CartesianGrid strokeOpacity={0.15} />
-              <XAxis dataKey="day" tick={{ fill: "rgba(255,255,255,.7)" }} tickMargin={8} />
-              <YAxis tickFormatter={(v: number) => nf.format(v)} tick={{ fill: "rgba(255,255,255,.7)" }} />
+              <XAxis
+                dataKey="day"
+                interval="preserveStartEnd"
+                minTickGap={20}
+                tick={{ fill: "rgba(255,255,255,.7)", fontSize: 12 }}
+                tickMargin={8}
+              />
+              <YAxis
+                width={yAxisWidth}
+                tickFormatter={(v: number) => nf.format(v)}
+                tick={{ fill: "rgba(255,255,255,.7)", fontSize: 12 }}
+              />
               <Tooltip
-                formatter={(v: number) => `${nf.format(v)} ₫`}
+                labelFormatter={(label) => String(label)}
+                formatter={(v: number) => `${nf.format(Number(v))} ₫`}
                 contentStyle={{
                   backgroundColor: "rgba(30,34,64,.95)",
                   borderRadius: 10,

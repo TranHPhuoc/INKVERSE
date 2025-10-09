@@ -72,7 +72,7 @@ export type BookListItem = {
 
 export type SpringPage<T> = {
   content: T[];
-  number: number; // zero-based page index from server
+  number: number;
   size: number;
   totalElements: number;
   totalPages: number;
@@ -144,7 +144,7 @@ export type CategoryTree = {
 export async function getCategoryTree(): Promise<CategoryTree[]> {
   try {
     const res = await api.get("/api/v1/categories/tree", {
-      validateStatus: (s) => s < 500, // let 4xx pass to unwrap
+      validateStatus: (s) => s < 500,
     });
     const data = unwrap<CategoryTree[] | null>(res.data);
     return Array.isArray(data) ? data : [];
@@ -254,7 +254,7 @@ export async function listBooks(params: ListParams): Promise<SpringPage<BookList
   return unwrap<SpringPage<BookListItem>>(res.data);
 }
 
-/** Search theo keyword + filter (fallback về listBooks nếu q rỗng) */
+/** Search theo keyword + filter  */
 export async function searchBooks(params: SearchBookReq): Promise<SpringPage<BookListItem>> {
   const {
     q,
