@@ -50,7 +50,7 @@ const SLUG_MAP: Record<string, string> = {
 
 
 const DOMESTIC: FeaturedAuthorItem[] = [
-  { id: 50, name: "Nguyễn Nhật Ánh", avatar: NguyenNhatAnh },
+  { id: 11, name: "Nguyễn Nhật Ánh", avatar: NguyenNhatAnh },
   { id: 52, name: "Tô Hoài", avatar: ToHoai },
   { id: 18, name: "Nam Cao", avatar: NamCao },
   { id: 19, name: "Vũ Trọng Phụng", avatar: VuTrongPhung },
