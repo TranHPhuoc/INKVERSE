@@ -1,3 +1,4 @@
+// src/components/ProductCarousel.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -5,7 +6,7 @@ import ProductCard from "./ProductCard";
 import type { BookListItem, SpringPage, ListParams } from "../types/books";
 import api from "../services/api";
 
-/* ───────── constants & helpers ───────── */
+/* ===== Constants & helpers ===== */
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const VIEWPORT_PAD = 8;
 const COL_GAP = 16;
@@ -13,17 +14,28 @@ const ROW_GAP = 16;
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(n, max));
 
+/** Đo chiều rộng viewport; luôn trả về số dương (fallback) để tránh width=0 lúc mount */
 function useResizeWidth(ref: React.RefObject<HTMLElement | null>): number {
   const [w, setW] = useState(0);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
+
+    const update = () => setW(Math.round(el.getBoundingClientRect().width));
+    update(); // đo ngay lần đầu
+
+    const ro = new ResizeObserver((entries: ResizeObserverEntry[]) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const nw = Math.round(entry.contentRect.width);
+      setW((prev) => (prev !== nw ? nw : prev));
+    });
     ro.observe(el);
-    setW(el.clientWidth);
+
     return () => ro.disconnect();
   }, [ref]);
-  return w;
+
+  return w || 1200; // fallback để không bao giờ render với 0
 }
 
 function toRowMajorColumns<T>(arr: T[], rows: number): T[][] {
@@ -44,7 +56,7 @@ function withApiPrefix(endpoint?: string): string | undefined {
   return endpoint.startsWith("/api/") ? endpoint : `/api/v1${endpoint}`;
 }
 
-/* ───────── props ───────── */
+/* ===== Props ===== */
 type QueryParams = Partial<
   Pick<
     ListParams,
@@ -60,30 +72,39 @@ type Props = {
   loading?: boolean;
   className?: string;
   wheelNav?: boolean;
-  endpoint?: string;
+  endpoint?: string; // nếu truyền -> sẽ tự fetch, append trang khi cuộn tới cuối
   params?: QueryParams;
+  emptyHint?: string;
 };
 
-/* ───────── component ───────── */
+/* ===== Component ===== */
 export default function ProductCarousel({
-  items = [],
-  rows = 1,
-  cols = 6,
-  loading = false,
-  className,
-  wheelNav = true,
-  endpoint,
-  params = {},
-}: Props) {
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const viewportW = useResizeWidth(viewportRef);
+                                          items = [],
+                                          rows: rowsProp = 1,
+                                          cols: colsProp = 6,
+                                          loading = false,
+                                          className,
+                                          wheelNav = true,
+                                          endpoint,
+                                          params = {},
+                                          emptyHint = "Chưa có sản phẩm.",
+                                        }: Props) {
+  // Chuẩn hoá rows/cols
+  const rows = Math.max(1, Math.floor(rowsProp));
+  const cols = Math.max(1, Math.floor(colsProp));
 
+  // Viewport
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const viewportW = useResizeWidth(viewportRef); // luôn > 0
+
+  // State dữ liệu
   const [list, setList] = useState<BookListItem[]>(items);
   const [page, setPage] = useState(0); // zero-based
   const [totalPages, setTotalPages] = useState(1);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Đồng bộ items prop
   useEffect(() => {
     setList(items);
     setPage(0);
@@ -92,31 +113,30 @@ export default function ProductCarousel({
 
   const paramsKey = useMemo(() => JSON.stringify(params ?? {}), [params]);
 
+  // Fetch server nếu có endpoint
   useEffect(() => {
     const ep = withApiPrefix(endpoint);
-    if (!ep) return; // chỉ dùng items tĩnh
-    const size = Math.max(1, rows * cols);
+
+    // ✅ Nếu đã có items truyền vào (từ BE HomeFeed), KHÔNG fetch thêm để khỏi ghi đè
+    if ((items?.length ?? 0) > 0 || !ep) return;
 
     let cancelled = false;
+    const size = Math.max(1, rows * cols);
+
     (async () => {
       try {
         setFetching(true);
         setError(null);
-
         const res = await api.get<SpringPage<BookListItem>>(ep, {
           params: { ...params, page, size },
           validateStatus: (s) => s < 500,
         });
-
         const pageData = res.data;
         const content = Array.isArray(pageData?.content) ? pageData.content : [];
         const tp = pageData?.totalPages ?? 1;
 
         if (cancelled) return;
-
-        if (page === 0) setList(content);
-        else setList((prev) => [...prev, ...content]);
-
+        setList((prev) => (page === 0 ? content : [...prev, ...content]));
         setTotalPages(tp);
       } catch {
         if (!cancelled) setError("Không tải được dữ liệu.");
@@ -125,38 +145,37 @@ export default function ProductCarousel({
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [endpoint, paramsKey, page, rows, cols, params]);
+    return () => { cancelled = true; };
+  }, [endpoint, paramsKey, page, rows, cols, params, items?.length]);
 
-  // width mỗi cột
+
+  // Tính width mỗi cột (có min để không collapse)
   const colW = useMemo(() => {
-    if (viewportW <= 0 || cols <= 0) return 0;
     const usable = viewportW - VIEWPORT_PAD * 2 - COL_GAP * (cols - 1);
-    return Math.max(0, usable / cols);
+    return Math.max(150, usable / cols); // mỗi card tối thiểu 150px
   }, [viewportW, cols]);
 
+  // Chuyển danh sách -> cột (row-major)
   const columns = useMemo(() => toRowMajorColumns(list ?? [], rows), [list, rows]);
   const totalColumns = columns.length;
   const maxIndex = Math.max(0, totalColumns - cols);
 
+  // Index cuộn
   const [index, setIndex] = useState(0);
   useEffect(() => setIndex(0), [rows, cols, list?.length]);
 
+  // Điều hướng
   const next = () => {
     if (index < maxIndex) {
       setIndex((i) => i + 1);
       return;
     }
-
+    // auto-load thêm trang khi đã cuộn tới cuối
     if (endpoint && page + 1 < totalPages && !fetching) {
       const ep = withApiPrefix(endpoint);
       if (!ep) return;
-
       setFetching(true);
       const size = Math.max(1, rows * cols);
-
       api
         .get<SpringPage<BookListItem>>(ep, {
           params: { ...params, page: page + 1, size },
@@ -169,22 +188,19 @@ export default function ProductCarousel({
           if (typeof res.data?.totalPages === "number") setTotalPages(res.data.totalPages);
           setIndex((i) => i + 1);
         })
-        .catch(() => {
-          setError("Không tải được dữ liệu.");
-        })
+        .catch(() => setError("Không tải được dữ liệu."))
         .finally(() => setFetching(false));
     }
   };
-
   const prev = () => setIndex((i) => clamp(i - 1, 0, maxIndex));
 
-  // render skeleton khi loading/fetching
+  // Data để render (skeleton khi đang tải)
   const renderColumns: (BookListItem | { __sk: true; id: string })[][] =
     (loading && list.length === 0) || fetching
       ? toRowMajorColumns(
-          Array.from({ length: rows * cols }).map((_, i) => ({ __sk: true, id: `sk-${i}` })),
-          rows,
-        )
+        Array.from({ length: rows * cols }).map((_, i) => ({ __sk: true, id: `sk-${i}` })),
+        rows,
+      )
       : (columns as unknown as (BookListItem | { __sk: true; id: string })[][]);
 
   // Wheel navigation
@@ -204,25 +220,27 @@ export default function ProductCarousel({
 
   return (
     <div className={`relative ${className ?? ""}`} aria-roledescription="carousel">
-      <div ref={viewportRef} className="overflow-hidden">
+      <div ref={viewportRef} className="overflow-hidden min-h-[260px]">
         <motion.div
           className="flex flex-nowrap"
           animate={{ x: -(index * (colW + COL_GAP)) }}
           transition={{ duration: 0.48, ease: EASE }}
-          style={{ paddingLeft: VIEWPORT_PAD, paddingRight: VIEWPORT_PAD, gap: COL_GAP }}
+          style={{
+            paddingLeft: VIEWPORT_PAD,
+            paddingRight: VIEWPORT_PAD,
+            gap: COL_GAP,
+            minWidth: "100%", // tránh collapse
+          }}
           role="list"
         >
           {renderColumns.map((col, ci) => (
             <div key={`col-${ci}`} className="flex-none" style={{ width: colW }} role="listitem">
-              <div className="flex flex-col" style={{ gap: ROW_GAP }}>
+              <div className="flex flex-col" style={{ gap: ROW_GAP, minHeight: 1 }}>
                 {col.map((it, ri) =>
                   "__sk" in it ? (
                     <div key={it.id} className="h-64 w-full animate-pulse rounded-xl bg-gray-100" />
                   ) : (
-                    <ProductCard
-                      key={(it as BookListItem).id ?? `i-${ci}-${ri}`}
-                      item={it as BookListItem}
-                    />
+                    <ProductCard key={(it as BookListItem).id ?? `i-${ci}-${ri}`} item={it as BookListItem} />
                   ),
                 )}
               </div>
@@ -251,6 +269,9 @@ export default function ProductCarousel({
         <ChevronRight className="h-5 w-5" />
       </button>
 
+      {!fetching && !loading && list.length === 0 && !!emptyHint && (
+        <p className="mt-3 text-center text-sm text-gray-500">{emptyHint}</p>
+      )}
       {error && <p className="mt-2 text-center text-sm text-rose-600">{error}</p>}
     </div>
   );

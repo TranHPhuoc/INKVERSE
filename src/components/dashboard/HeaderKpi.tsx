@@ -142,6 +142,7 @@ export default function HeaderKpis({ from, to, prevFrom, prevTo }: Props) {
         format="percent"
         compareLabel={compareLabel}
         {...withProp("deltaPct", dConversionRate)}
+        {...withProp("trendPct", tOrders)}
         sparkline={orderSpark}
         icon={<Percent />}
         tone="emerald"

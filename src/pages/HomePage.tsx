@@ -1,4 +1,5 @@
 // src/pages/HomePage.tsx
+/* cspell:ignore Không trang khách hàng GIAO phầm bán chạy */
 import React, { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Headphones, ShieldCheck, Truck } from "lucide-react";
 import {
@@ -25,12 +26,12 @@ import banner4 from "../assets/INKVERSE.SITE1.jpg";
 import banner5 from "../assets/INKVERSE.SITE2.png";
 import FeaturedAuthorsTabs from "../components/FeaturedAuthor";
 
-/* ───────── constants ───────── */
+/* ===== constants ===== */
 const BANNERS = [banner1, banner2, banner3];
 const SHELL = "mx-auto w-full max-w-[1550px] px-4 sm:px-6 lg:px-8";
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
-/* ───────── animations ───────── */
+/* ===== animations ===== */
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 40 },
   visible: (i: number = 0) => ({
@@ -41,10 +42,10 @@ const fadeUp: Variants = {
 };
 
 function Reveal({
-  children,
-  index = 0,
-  className,
-}: {
+                  children,
+                  index = 0,
+                  className,
+                }: {
   children: React.ReactNode;
   index?: number;
   className?: string;
@@ -53,30 +54,24 @@ function Reveal({
   const inView = useInView(ref, { amount: 0.2, margin: "-10% 0px -10% 0px" });
   const controls = useAnimationControls();
   useEffect(() => {
-    controls.start(inView ? "visible" : "hidden");
+    // controls.start trả Promise -> dùng void để bỏ warning "ignored promise"
+    void controls.start(inView ? "visible" : "hidden");
   }, [inView, controls]);
   return (
-    <motion.div
-      ref={ref}
-      custom={index}
-      initial="hidden"
-      animate={controls}
-      variants={fadeUp}
-      className={className}
-    >
+    <motion.div ref={ref} custom={index} initial="hidden" animate={controls} variants={fadeUp} className={className}>
       {children}
     </motion.div>
   );
 }
 
-/* ───────── Hero Banner ───────── */
+/* ===== Hero Banner ===== */
 const DURATION = 0.65;
 
 const HeroBanner: React.FC<{ images: string[]; intervalMs?: number; className?: string }> = ({
-  images,
-  intervalMs = 3000,
-  className,
-}) => {
+                                                                                               images,
+                                                                                               intervalMs = 3000,
+                                                                                               className,
+                                                                                             }) => {
   const [index, setIndex] = useState(1);
   const [withTransition, setWithTransition] = useState(true);
   const timerRef = useRef<number | null>(null);
@@ -132,8 +127,6 @@ const HeroBanner: React.FC<{ images: string[]; intervalMs?: number; className?: 
   };
 
   const real = images.length ? (index - 1 + images.length) % images.length : 0;
-
-  // IMPORTANT: typing Transition explicitly + set undefined for else-branch (exactOptionalPropertyTypes)
   const trackTransition: Transition = {
     duration: withTransition ? DURATION : 0,
     ...(withTransition ? { type: "tween" as const, ease: EASE } : {}),
@@ -167,17 +160,8 @@ const HeroBanner: React.FC<{ images: string[]; intervalMs?: number; className?: 
           const opacity = fmTransform(x, range, [0.6, 1, 0.6]);
 
           return (
-            <motion.div
-              key={`${src}-${i}`}
-              className="relative h-full min-w-full"
-              style={{ rotateY, scale, opacity }}
-            >
-              <img
-                src={src}
-                alt={`banner-${i}`}
-                className="absolute inset-0 h-full w-full object-cover"
-                draggable={false}
-              />
+            <motion.div key={`${src}-${i}`} className="relative h-full min-w-full" style={{ rotateY, scale, opacity }}>
+              <img src={src} alt={`banner-${i}`} className="absolute inset-0 h-full w-full object-cover" draggable={false} />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/15 via-transparent to-white/0" />
             </motion.div>
           );
@@ -216,7 +200,7 @@ const HeroBanner: React.FC<{ images: string[]; intervalMs?: number; className?: 
   );
 };
 
-/* ───────── main page ───────── */
+/* ===== Page ===== */
 export default function HomePage() {
   const [feed, setFeed] = useState<HomeFeed | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -226,61 +210,46 @@ export default function HomePage() {
   const [newest, setNewest] = useState<BookListItem[]>([]);
   const [newTotalPages, setNewTotalPages] = useState<number>(1);
 
-  // Load home feed
+  // --- Fetch home feed ---
   useEffect(() => {
-    let cancelled = false;
-    const fetchFeed = async () => {
+    (async () => {
       try {
         const res = await getHomeFeed();
-        if (!cancelled) setFeed(res ?? null);
-      } catch (e) {
+        setFeed(res ?? null);
+      } catch (e: unknown) {
+        // rút message an toàn từ unknown
         const msg =
-          (e as { response?: { data?: { message?: string } } }).response?.data?.message ||
-          (e as Error).message ||
-          "Không tải được trang chủ";
-        if (!cancelled) setErr(msg);
+          (typeof e === "object" &&
+            e !== null &&
+            // @ts-expect-error – optional chaining theo kiểu any-safe
+            (e.response?.data?.message as string | undefined)) ||
+          (e instanceof Error ? e.message : "Không tải được trang chủ");
+        setErr(msg);
       }
-    };
-    void fetchFeed();
-    return () => {
-      cancelled = true;
-    };
+    })();
   }, []);
 
+  // --- Fetch newest ---
   useEffect(() => {
-    let cancelled = false;
-    const fetchNewest = async () => {
+    (async () => {
       try {
-        const pageRes: SpringPage<BookListItem> = await listBooks({
+        const res: SpringPage<BookListItem> = await listBooks({
           page: newPage,
           size: 18,
           sort: "createdAt",
           direction: "DESC",
           status: "ACTIVE",
         });
-        if (!cancelled) {
-          setNewest(pageRes?.content ?? []);
-          setNewTotalPages(Math.max(1, pageRes?.totalPages ?? 1));
-        }
+        setNewest(res?.content ?? []);
+        setNewTotalPages(Math.max(1, res?.totalPages ?? 1));
       } catch {
-        if (!cancelled) {
-          setNewest([]);
-          setNewTotalPages(1);
-        }
+        setNewest([]);
+        setNewTotalPages(1);
       }
-    };
-    void fetchNewest();
-    return () => {
-      cancelled = true;
-    };
+    })();
   }, [newPage]);
 
-  const validFlash = (feed?.featuredSale ?? []).filter((b) => {
-    const now = Date.now();
-    const s = !b.saleStartAt || new Date(b.saleStartAt).getTime() <= now;
-    const e = !b.saleEndAt || new Date(b.saleEndAt).getTime() >= now;
-    return !!b.salePrice && s && e;
-  });
+  const flash = feed?.featuredSale ?? [];
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
@@ -296,13 +265,7 @@ export default function HomePage() {
                 <div className="hidden flex-col gap-4 lg:col-span-4 lg:flex">
                   {[banner4, banner5].map((b, i) => (
                     <div key={i} className="overflow-hidden rounded-xl bg-gray-100">
-                      <img
-                        src={b}
-                        alt={`side-${i}`}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                        draggable={false}
-                      />
+                      <img src={b} alt={`side-${i}`} className="h-full w-full object-cover" loading="lazy" />
                     </div>
                   ))}
                 </div>
@@ -310,11 +273,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {err && (
-            <div className="py-2">
-              <div className={`${SHELL} text-rose-600`}>{err}</div>
-            </div>
-          )}
+          {err && <div className={`${SHELL} py-2 text-rose-600`}>{err}</div>}
 
           {/* Flash Sales */}
           <Reveal>
@@ -324,11 +283,10 @@ export default function HomePage() {
                   <SectionHeader label="FLASH SALES" bg="bg-[#BE2623]" text="text-white" />
                   <div className="p-4">
                     <ProductCarousel
-                      items={validFlash}
-                      endpoint="/books"
-                      params={{ status: "ACTIVE", sort: "saleEndAt", direction: "ASC" }}
+                      items={flash}
                       rows={1}
                       cols={6}
+                      emptyHint={flash.length === 0 ? "Hiện chưa có chương trình Flash Sale." : ""}
                     />
                   </div>
                 </div>
@@ -346,20 +304,15 @@ export default function HomePage() {
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4 md:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
                       {newest.length > 0
                         ? newest.map((b, i) => (
-                            <Reveal key={b.id ?? `${i}`} index={i}>
-                              <ProductCard item={b} />
-                            </Reveal>
-                          ))
+                          <Reveal key={b.id ?? `${i}`} index={i}>
+                            <ProductCard item={b} />
+                          </Reveal>
+                        ))
                         : Array.from({ length: 10 }).map((_, i) => (
-                            <div key={i} className="h-64 rounded bg-gray-100" />
-                          ))}
+                          <div key={i} className="h-64 animate-pulse rounded bg-gray-100" />
+                        ))}
                     </div>
-                    <Pagination
-                      page={newPage}
-                      totalPages={newTotalPages}
-                      onChange={setNewPage}
-                      autoScrollTop
-                    />
+                    <Pagination page={newPage} totalPages={newTotalPages} onChange={setNewPage} autoScrollTop />
                   </div>
                 </div>
               </div>
@@ -387,10 +340,9 @@ export default function HomePage() {
                   <div className="p-4">
                     <ProductCarousel
                       items={feed?.bestSellers ?? []}
-                      endpoint="/books"
-                      params={{ status: "ACTIVE", sort: "sold", direction: "DESC" }}
                       rows={2}
                       cols={6}
+                      emptyHint={(feed?.bestSellers?.length ?? 0) === 0 ? "Chưa có sản phẩm bán chạy." : ""}
                     />
                   </div>
                 </div>
@@ -402,33 +354,12 @@ export default function HomePage() {
           <div className={`${SHELL} py-8`}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               {[
-                {
-                  Icon: Truck,
-                  title: "GIAO HÀNG MIỄN PHÍ VÀ NHANH CHÓNG",
-                  sub: "Miễn phí cho đơn hàng trên 500.000đ",
-                  tone: "rose" as const,
-                },
-                {
-                  Icon: Headphones,
-                  title: "DỊCH VỤ CHĂM SÓC KHÁCH HÀNG 24/7",
-                  sub: "Hỗ trợ thân thiện mọi lúc",
-                  tone: "indigo" as const,
-                },
-                {
-                  Icon: ShieldCheck,
-                  title: "THANH TOÁN AN TOÀN",
-                  sub: "Bảo mật thông tin & hoàn tiền",
-                  tone: "rose" as const,
-                },
-              ].map(({ Icon, title, sub, tone }, i) => (
-                <Reveal
-                  key={i}
-                  index={i}
-                  className="flex items-center gap-4 rounded-2xl p-5 shadow"
-                >
-                  <div
-                    className={`${tone === "rose" ? "bg-rose-50 text-rose-600 ring-rose-100" : "bg-indigo-50 text-indigo-600 ring-indigo-100"} rounded-xl p-3 ring-1`}
-                  >
+                { Icon: Truck, title: "GIAO HÀNG MIỄN PHÍ VÀ NHANH CHÓNG", sub: "Miễn phí cho đơn hàng trên 500.000đ" },
+                { Icon: Headphones, title: "CHĂM SÓC KHÁCH HÀNG 24/7", sub: "Hỗ trợ thân thiện mọi lúc" },
+                { Icon: ShieldCheck, title: "THANH TOÁN AN TOÀN", sub: "Bảo mật thông tin & hoàn tiền" },
+              ].map(({ Icon, title, sub }, i) => (
+                <Reveal key={i} index={i} className="flex items-center gap-4 rounded-2xl p-5 shadow">
+                  <div className="rounded-xl bg-indigo-50 p-3 ring-1 ring-indigo-100 text-indigo-600">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
@@ -445,16 +376,14 @@ export default function HomePage() {
   );
 }
 
-/* ───────── Section Header ───────── */
+/* ===== Section Header ===== */
 const SectionHeader: React.FC<{ label: string; badge?: string; bg?: string; text?: string }> = ({
-  label,
-  badge,
-  bg = "bg-white",
-  text = "text-gray-900",
-}) => (
-  <div
-    className={`flex items-center justify-center rounded-t-2xl border-b px-4 py-3 ${bg} ${text}`}
-  >
+                                                                                                  label,
+                                                                                                  badge,
+                                                                                                  bg = "bg-white",
+                                                                                                  text = "text-gray-900",
+                                                                                                }) => (
+  <div className={`flex items-center justify-center rounded-t-2xl border-b px-4 py-3 ${bg} ${text}`}>
     <h2 className="text-lg font-semibold tracking-tight md:text-xl">{label}</h2>
     {!!badge && (
       <span className="ml-3 inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-[11px] font-medium">
