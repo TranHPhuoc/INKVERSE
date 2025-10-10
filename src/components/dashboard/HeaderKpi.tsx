@@ -6,9 +6,11 @@ import { DollarSign, CheckCircle2, Percent, ShoppingBag, Receipt } from "lucide-
 
 /* ===== helpers ===== */
 function pctDelta(oldV?: number, newV?: number) {
-  if (oldV == null || !isFinite(oldV) || oldV === 0 || newV == null) return null;
-  return ((newV - oldV) / Math.abs(oldV)) * 100;
+  if (oldV == null || !isFinite(oldV) || newV == null) return null;
+  const base = Math.max(Math.abs(oldV), 1);
+  return ((newV - oldV) / base) * 100;
 }
+
 function labelFrom(from?: string): string {
   if (!from) return "";
   const d = new Date(from);
