@@ -5,11 +5,12 @@ import KpiCard from "./KpiCard";
 import { DollarSign, CheckCircle2, Percent, ShoppingBag, Receipt } from "lucide-react";
 
 /* ===== helpers ===== */
-function pctDelta(oldV?: number, newV?: number) {
-  if (oldV == null || !isFinite(oldV) || newV == null) return null;
-  const base = Math.max(Math.abs(oldV), 1);
-  return ((newV - oldV) / base) * 100;
+function pctDelta(prev?: number, cur?: number) {
+  if (prev == null || cur == null || !isFinite(prev) || !isFinite(cur)) return undefined;
+  if (prev === 0) return cur === 0 ? 0 : Number.POSITIVE_INFINITY; // N/A/∞
+  return ((cur - prev) / Math.abs(prev)) * 100;
 }
+
 
 function labelFrom(from?: string): string {
   if (!from) return "";
