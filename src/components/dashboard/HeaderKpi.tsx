@@ -7,9 +7,15 @@ import { DollarSign, CheckCircle2, Percent, ShoppingBag, Receipt } from "lucide-
 /* ===== helpers ===== */
 function pctDelta(prev?: number, cur?: number) {
   if (prev == null || cur == null || !isFinite(prev) || !isFinite(cur)) return undefined;
-  if (prev === 0) return cur === 0 ? 0 : Number.POSITIVE_INFINITY; // N/A/∞
+
+  if (prev === 0) {
+    if (cur === 0) return 0;
+    return 100;
+  }
+
   return ((cur - prev) / Math.abs(prev)) * 100;
 }
+
 
 
 function labelFrom(from?: string): string {

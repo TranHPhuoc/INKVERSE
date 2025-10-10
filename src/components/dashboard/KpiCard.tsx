@@ -191,23 +191,18 @@ function KpiCardBase({
           {/* Nhãn “so với …” */}
           <p className="mt-0.5 text-xs text-slate-500">{compareLabel}</p>
 
-          {/* MoM (so với tháng trước) */}
-          {isDeltaInf && <p className="text-[11px] text-emerald-600">Tăng mạnh (từ 0)</p>}
+          {/* MoM */}
+          {isDeltaInf && (
+            <p className="text-[11px] text-emerald-600">Tăng mạnh (từ 0)</p>
+          )}
           {hasDelta && (
             <p
               className={`text-[11px] ${
                 (deltaPct ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600"
               }`}
             >
-              So với tháng trước {(deltaPct ?? 0) >= 0 ? "tăng" : "giảm"}{" "}
+              {compareLabel} {(deltaPct ?? 0) >= 0 ? "tăng" : "giảm"}{" "}
               {nfPercent.format(Math.abs(deltaPct ?? 0) / 100)}
-            </p>
-          )}
-
-          {hasTrend && (
-            <p className="text-[11px] text-slate-400">
-              Xu hướng trong tháng {(trendPct ?? 0) >= 0 ? "tăng" : "giảm"}{" "}
-              {nfPercent.format(Math.abs(trendPct ?? 0) / 100)}
             </p>
           )}
         </div>
