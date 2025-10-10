@@ -59,41 +59,37 @@ type KpiCardProps = {
   format: "number" | "currency" | "percent";
   compareLabel: string;
   deltaPct?: number;
-  trendPct?: number;
   icon: React.ReactNode;
   tone?: Tone;
   loading?: boolean;
   sparkline?: SparkPoint[];
 };
 
-/* ========= Path helper (Catmull–Rom) ========= */
+/* ========= Helpers ========= */
 function toSmoothPath(points: { x: number; y: number }[], tension = 1): string {
   if (points.length === 0) return "";
   if (points.length === 1) return `M ${points[0]!.x} ${points[0]!.y}`;
-
   const segs: string[] = [`M ${points[0]!.x} ${points[0]!.y}`];
-
   for (let i = 0; i < points.length - 1; i++) {
     const p0 = (points[i - 1] ?? points[i])!;
     const p1 = points[i]!;
     const p2 = points[i + 1]!;
     const p3 = (points[i + 2] ?? points[i + 1])!;
-
     const c1x = p1.x + ((p2.x - p0.x) / 6) * tension;
     const c1y = p1.y + ((p2.y - p0.y) / 6) * tension;
     const c2x = p2.x - ((p3.x - p1.x) / 6) * tension;
     const c2y = p2.y - ((p3.y - p1.y) / 6) * tension;
-
     segs.push(`C ${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`);
   }
   return segs.join(" ");
 }
 
-/* ========= Sparkline ========= */
-type SparklineProps = { data: SparkPoint[]; tone?: Tone; trendPct?: number };
 function withProp<K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> {
   return value === undefined ? {} : ({ [key]: value } as Partial<Record<K, V>>);
 }
+
+/* ========= Sparkline ========= */
+type SparklineProps = { data: SparkPoint[]; tone?: Tone; trendPct?: number };
 
 function Sparkline({ data, tone = "indigo", trendPct }: SparklineProps) {
   const w = 260,
@@ -108,18 +104,14 @@ function Sparkline({ data, tone = "indigo", trendPct }: SparklineProps) {
       : TONE[tone].stroke;
 
   const { path, end } = useMemo(() => {
-    if (!Array.isArray(data) || data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0)
       return { path: "", end: null as { x: number; y: number } | null };
-    }
-
     const ys = data.map((d) => Number(d.y ?? 0));
     const min = Math.min(...ys);
     const max = Math.max(...ys);
     const span = max - min || 1;
-
     const stepX = (w - pad * 2) / Math.max(1, data.length - 1);
     const yScale = (v: number) => h - pad - ((v - min) / span) * (h - pad * 2);
-
     const pts = data.map((d, i) => ({ x: pad + i * stepX, y: yScale(d.y) }));
     return { path: toSmoothPath(pts, 1), end: pts[pts.length - 1] };
   }, [data]);
@@ -148,8 +140,7 @@ function KpiCardBase({
   value,
   format,
   compareLabel,
-  deltaPct, // MoM
-  trendPct, // Xu hướng nội tháng
+  deltaPct,
   icon,
   tone = "indigo",
   loading,
@@ -165,9 +156,7 @@ function KpiCardBase({
     formatValue(format === "percent" ? v : Math.round(v), format),
   );
 
-  const hasTrend = typeof trendPct === "number" && !Number.isNaN(trendPct);
   const hasDelta = typeof deltaPct === "number" && !Number.isNaN(deltaPct) && isFinite(deltaPct);
-  const isDeltaInf = deltaPct === Infinity;
 
   return (
     <div
@@ -188,13 +177,7 @@ function KpiCardBase({
             {loading ? "—" : <motion.span>{shown}</motion.span>}
           </motion.p>
 
-          {/* Nhãn “so với …” */}
-          <p className="mt-0.5 text-xs text-slate-500">{compareLabel}</p>
-
-          {/* MoM */}
-          {isDeltaInf && (
-            <p className="text-[11px] text-emerald-600">Tăng mạnh (từ 0)</p>
-          )}
+          {/* MoM line only (green for increase, red for decrease) */}
           {hasDelta && (
             <p
               className={`text-[11px] ${
@@ -215,8 +198,9 @@ function KpiCardBase({
         </div>
       </div>
 
+      {/* Sparkline color follows MoM (deltaPct) */}
       {sparkline && sparkline.length > 1 && (
-        <Sparkline data={sparkline} tone={tone} {...withProp("trendPct", trendPct)} />
+        <Sparkline data={sparkline} tone={tone} {...withProp("trendPct", deltaPct)} />
       )}
 
       {/* subtle blob */}
