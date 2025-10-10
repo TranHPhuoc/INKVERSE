@@ -1,5 +1,8 @@
-export type AuthorMeta = { life?: string; bio: string };
-
+export type AuthorMeta = {
+  life?: string;
+  bio?: string;
+  quote?: string;
+};
 export const AUTHOR_META: Record<string, AuthorMeta> = {
   "Nguyễn Nhật Ánh": {
     life: "07/05/1955",

@@ -1,6 +1,8 @@
+// src/pages/AuthorDetailPage.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
+
 import {
   makeAuthorHeader,
   getAuthorFeaturedWorksById,
@@ -12,6 +14,7 @@ import {
 import { addAndSelectOne, addCartItem } from "../services/cart";
 import { getBookDetailById } from "../types/books";
 import { AUTHOR_META } from "../types/authorMeta";
+import type { AuthorMeta } from "../types/authorMeta";
 
 const SHELL = "mx-auto w-full max-w-[1550px] px-4 sm:px-6 lg:px-8";
 const nf = new Intl.NumberFormat("vi-VN");
@@ -62,6 +65,7 @@ function animateFlyToCartFrom(el?: HTMLElement | null): Promise<void> {
   });
 }
 
+/* ========== Page ========== */
 export default function AuthorDetailPage() {
   const { slug = "" } = useParams();
   const [sp] = useSearchParams();
@@ -74,8 +78,10 @@ export default function AuthorDetailPage() {
   const [hoverIdx, setHoverIdx] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // mô tả (lấy từ getBookDetailById khi hover ở preview)
   const [activeDesc, setActiveDesc] = useState<string>("");
 
+  // ref ảnh preview để bay vào giỏ
   const previewImgRef = useRef<HTMLImageElement | null>(null);
 
   const safeIdx = useMemo(
@@ -84,18 +90,18 @@ export default function AuthorDetailPage() {
   );
   const active = useMemo(() => (safeIdx >= 0 ? featured[safeIdx] : null), [featured, safeIdx]);
 
+  /* -------- fetch header + lists -------- */
   useEffect(() => {
     try {
       window.scrollTo({ top: 0, behavior: "auto" });
-    } catch {
-      /**/
-    }
+    } catch {/**/}
     setLoading(true);
 
     (async () => {
       let id = authorIdParam;
       let header = makeAuthorHeader(slug, id);
 
+      // Nếu thiếu authorId trong URL -> resolve từ slug
       if (!Number.isFinite(id) || id <= 0) {
         const found = await fetchAuthorBySlug(slug).catch(() => null);
         if (found) {
@@ -111,7 +117,10 @@ export default function AuthorDetailPage() {
       }
 
       setAuthor(header);
-      const [f, b] = await Promise.all([getAuthorFeaturedWorksById(id), listAuthorBooksById(id)]);
+      const [f, b] = await Promise.all([
+        getAuthorFeaturedWorksById(id),
+        listAuthorBooksById(id),
+      ]);
       setFeatured(Array.isArray(f) ? f : []);
       setBooks(Array.isArray(b) ? b : []);
       setHoverIdx(0);
@@ -119,6 +128,7 @@ export default function AuthorDetailPage() {
     })();
   }, [slug, authorIdParam]);
 
+  /* -------- fetch real description for active book -------- */
   useEffect(() => {
     (async () => {
       if (!active?.id) {
@@ -168,30 +178,35 @@ export default function AuthorDetailPage() {
     );
   }
 
-  const meta = AUTHOR_META[author.name];
-  const life = meta?.life ?? "";
-  const shortBio = author.shortBio || meta?.bio || "";
+  const meta: AuthorMeta | undefined = AUTHOR_META[author.name];
+  const life: string = meta?.life ?? "";
+  const shortBio: string = author.shortBio || meta?.bio || "";
+  const quote: string | undefined = meta?.quote;
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-slate-100">
-      {/* ===== Header ===== */}
+      {/* ===== Hero / Header ===== */}
       <div
         className="relative isolate bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950"
         aria-label={`Thông tin tác giả ${author.name}`}
       >
         <div className={`${SHELL} py-16 lg:py-20`}>
+          {/* avatar | (title + bio + quick facts) — top aligned */}
           <div className="flex flex-col gap-6 md:flex-row md:items-start">
-            {/* Avatar */}
-            <img
+            {/* Avatar with subtle motion */}
+            <motion.img
               src={author.avatarUrl || author.coverUrl || ""}
               alt={author.name}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ rotate: 1.5, scale: 1.02 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
               className="h-40 w-40 flex-shrink-0 rounded-2xl object-cover shadow-2xl ring-4 ring-white/10"
             />
 
-            {/* Right */}
+            {/* Right: Name + Bio */}
             <div className="min-w-0 flex-1 pt-[2px]">
-              {" "}
-              <h1 className="mb-3 text-3xl font-semibold tracking-tight lg:text-4xl">
+              <h1 className="mb-3 text-3xl font-semibold tracking-tight text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.18)] lg:text-4xl">
                 {author.name}
                 {!!life && (
                   <span className="ml-3 align-middle text-base font-normal text-slate-300">
@@ -199,24 +214,35 @@ export default function AuthorDetailPage() {
                   </span>
                 )}
               </h1>
+
               <div
-                className="prose prose-invert prose-p:my-3 prose-p:first:mt-0 prose-p:last:mb-0 prose-strong:text-white prose-strong:font-semibold max-w-[880px] text-[15px] leading-7 text-slate-200/90"
+                className="
+                  max-w-[900px] text-[15px] leading-7 text-slate-200/90
+                  prose prose-invert
+                  prose-p:my-3 prose-p:first:mt-0 prose-p:last:mb-0
+                  prose-strong:text-white prose-strong:font-semibold
+                "
                 dangerouslySetInnerHTML={{ __html: shortBio }}
               />
             </div>
           </div>
         </div>
+
+        {/* radial glow */}
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(80%_60%_at_50%_0%,rgba(99,102,241,0.18),transparent_70%)]" />
       </div>
 
       {/* ===== Featured works ===== */}
       {featured.length > 0 && (
         <section className={`${SHELL} py-14`}>
           <div className="mb-8 flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">Những tác phẩm nổi bật</h2>
+            <h2 className="bg-gradient-to-r from-rose-300 to-indigo-300 bg-clip-text text-2xl font-semibold text-transparent">
+              Những tác phẩm nổi bật
+            </h2>
           </div>
 
           <div className="grid gap-8 lg:grid-cols-2">
-            {/* Left list */}
+            {/* Left list (clickable + hover preview) */}
             <ul className="rounded-2xl border border-white/10 bg-white/5 p-2 backdrop-blur">
               {featured.map((bk, i) => {
                 const isActive = i === safeIdx;
@@ -234,10 +260,10 @@ export default function AuthorDetailPage() {
                       <img
                         src={bk.cover}
                         alt={bk.title}
-                        className="h-16 w-12 flex-none rounded-md object-cover shadow"
+                        className="h-16 w-12 flex-none rounded-md object-cover shadow transition group-hover:scale-[1.02]"
                       />
-                      <div>
-                        <div className="font-medium text-slate-100 group-hover:text-white">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-slate-100 group-hover:text-white">
                           {bk.title}
                         </div>
                         <div className="mt-1 text-sm text-slate-300">
@@ -263,15 +289,17 @@ export default function AuthorDetailPage() {
             {active && (
               <motion.div
                 key={active.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 110, damping: 16 }}
                 className="relative grid grid-cols-[220px,1fr] gap-6 rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-900/30 p-6 backdrop-blur"
               >
-                <img
+                <motion.img
                   ref={previewImgRef}
                   src={active.cover}
                   alt={active.title}
+                  whileHover={{ rotateY: 3, scale: 1.04 }}
+                  transition={{ type: "spring", stiffness: 100, damping: 12 }}
                   className="h-[320px] w-[220px] rounded-xl object-cover shadow-2xl ring-4 ring-white/5"
                 />
                 <div className="flex flex-col">
@@ -293,19 +321,25 @@ export default function AuthorDetailPage() {
                     )}
                   </div>
 
-                  {/* mô tả */}
-                  {!!activeDesc && <ExpandableClamp html={activeDesc} maxHeight={120} />}
+                  {/* mô tả  */}
+                  {!!activeDesc && <ExpandableClamp html={activeDesc} maxHeight={140} />}
 
                   <div className="mt-auto flex gap-3 pt-6">
+                    <Link
+                      to={`/books/${active.slug}`}
+                      className="rounded-xl bg-white px-5 py-2.5 font-medium text-slate-900 shadow hover:opacity-95"
+                    >
+                      Xem chi tiết
+                    </Link>
                     <button
                       onClick={handleAddToCart}
-                      className="rounded-xl border border-white/20 px-5 py-2.5 font-medium text-white/90 hover:bg-white/10 cursor-pointer"
+                      className="rounded-xl border border-white/20 px-5 py-2.5 font-medium text-white/90 hover:bg-white/10"
                     >
                       Thêm vào giỏ
                     </button>
                     <button
                       onClick={handleBuyNow}
-                      className="rounded-xl bg-rose-500/90 px-5 py-2.5 font-semibold text-white shadow hover:brightness-110 cursor-pointer"
+                      className="rounded-xl bg-rose-500/90 px-5 py-2.5 font-semibold text-white shadow hover:brightness-110"
                     >
                       Mua ngay
                     </button>
@@ -332,23 +366,24 @@ export default function AuthorDetailPage() {
                   to={`/books/${bk.slug}`}
                   className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 ring-1 ring-white/10 transition hover:-translate-y-0.5 hover:bg-white/10"
                 >
+                  {/* Image area  */}
                   <div className="relative">
                     <div className="aspect-[3/4] w-full">
                       <img
                         src={bk.cover}
                         alt={bk.title}
-                        className="h-full w-full rounded-t-2xl rounded-b-none object-cover"
+                        className="h-full w-full rounded-b-none rounded-t-2xl object-cover"
                       />
                     </div>
                     {hasSale && (
-                      <span className="pointer-events-none absolute top-3 left-3 rounded-md bg-rose-600/95 px-2 py-0.5 text-xs font-semibold text-white">
+                      <span className="pointer-events-none absolute left-3 top-3 rounded-md bg-rose-600/95 px-2 py-0.5 text-xs font-semibold text-white">
                         -
                         {Math.max(
                           0,
                           Math.round(
                             ((Number(bk.price) - Number(bk.salePrice ?? bk.price)) /
                               Number(bk.price || 1)) *
-                              100,
+                            100,
                           ),
                         )}
                         %
@@ -356,6 +391,7 @@ export default function AuthorDetailPage() {
                     )}
                   </div>
 
+                  {/* Text */}
                   <div className="p-3">
                     <div className="line-clamp-2 h-[2.6em] text-sm font-medium text-slate-100 group-hover:text-white">
                       {bk.title}
@@ -363,12 +399,8 @@ export default function AuthorDetailPage() {
                     <div className="mt-1 text-sm text-slate-300">
                       {hasSale ? (
                         <>
-                          <span className="font-semibold text-white">
-                            {nf.format(bk.salePrice!)} đ
-                          </span>
-                          <span className="ml-2 line-through opacity-60">
-                            {nf.format(bk.price)} đ
-                          </span>
+                          <span className="font-semibold text-white">{nf.format(bk.salePrice!)} đ</span>
+                          <span className="ml-2 line-through opacity-60">{nf.format(bk.price)} đ</span>
                         </>
                       ) : (
                         <span className="font-semibold text-white">{nf.format(bk.price)} đ</span>
@@ -381,12 +413,29 @@ export default function AuthorDetailPage() {
           </div>
         </section>
       )}
+
+      {/* ===== Optional quote / legacy ===== */}
+      {!!quote && (
+        <section className="pb-16">
+          <div className={`${SHELL}`}>
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.4 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="mx-auto max-w-3xl text-center text-lg italic text-slate-300"
+            >
+              “{quote}”
+            </motion.p>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-/* ========== mô tả rút gọn ========== */
-function ExpandableClamp({ html, maxHeight = 120 }: { html: string; maxHeight?: number }) {
+/* ========== Component ========== */
+function ExpandableClamp({ html, maxHeight = 140 }: { html: string; maxHeight?: number }) {
   const [expanded, setExpanded] = useState(false);
   const [realH, setRealH] = useState<number | null>(null);
   const ref = useRef<HTMLDivElement | null>(null);

@@ -115,7 +115,7 @@ export default function HeaderKpis({ from, to, prevFrom, prevTo }: Props) {
         tone="fuchsia"
       />
       <KpiCard
-        title="Số đơn"
+        title="Đơn hàng trong tháng"
         value={k.orders}
         format="number"
         compareLabel={compareLabel}
@@ -148,7 +148,7 @@ export default function HeaderKpis({ from, to, prevFrom, prevTo }: Props) {
         tone="emerald"
       />
       <KpiCard
-        title="Tổng số đơn"
+        title="Tổng đơn tích luỹ"
         value={k.totalOrders}
         format="number"
         compareLabel={compareLabel}

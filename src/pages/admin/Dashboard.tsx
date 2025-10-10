@@ -5,66 +5,30 @@ import HeaderKpis from "../../components/dashboard/HeaderKpi";
 import RevenueArea from "../../components/dashboard/RevenueArea";
 import TopProducts from "../../components/dashboard/TopProducts";
 import CategoryBar from "../../components/dashboard/CategoryBar";
+import { getRevenueDaily, getTopBooks, getCategorySales } from "../../services/admin/metrics";
+
 import {
-  getRevenueDaily,
-  getTopBooks,
-  getCategorySales,
-} from "../../services/admin/metrics";
-
-function fmtMonth(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-function parseMonthStr(mm: string): { y: number; m: number } {
-  const [ys, ms] = (mm ?? "").split("-") as [string, string];
-  const y = Number(ys), m = Number(ms);
-  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
-    const now = new Date(); return { y: now.getFullYear(), m: now.getMonth() + 1 };
-  }
-  return { y, m };
-}
-function isCurrentMonth(mm: string) { return mm === fmtMonth(); }
-
-function toOffsetString(
-  y: number, m: number, d: number,
-  hh = 0, mi = 0, ss = 0,
-  offsetMinutes = 7 * 60 // VN = +07:00
-) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const sign = offsetMinutes >= 0 ? "+" : "-";
-  const abs = Math.abs(offsetMinutes);
-  const oh = pad(Math.floor(abs / 60));
-  const om = pad(abs % 60);
-  return `${y}-${pad(m)}-${pad(d)}T${pad(hh)}:${pad(mi)}:${pad(ss)}${sign}${oh}:${om}`;
-}
-
-function nextMonth(y: number, m: number) {
-  return m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 };
-}
-
-function rangeForMonth(mm: string) {
-  const { y, m } = parseMonthStr(mm);
-  const from = toOffsetString(y, m, 1, 0, 0, 0, 7 * 60);
-  const { y: ny, m: nm } = nextMonth(y, m);
-  const to = isCurrentMonth(mm)
-    ? new Date().toISOString()
-    : toOffsetString(ny, nm, 1, 0, 0, 0, 7 * 60);
-  return { from, to };
-}
-
-function prevMonth(mm: string) {
-  const { y, m } = parseMonthStr(mm);
-  const d = m === 1 ? { y: y - 1, m: 12 } : { y, m: m - 1 };
-  return `${d.y}-${String(d.m).padStart(2, "0")}`;
-}
-
+  fmtMonthLocal,
+  parseMonthStr,
+  monthRangeVNInclusive,
+  prevMonthRangeVNInclusive,
+} from "../../utils/date-helpers";
 
 /* ================= Page ================= */
-export default function DashboardPage() {
-  const defaultMonth = fmtMonth();
-  const [month, setMonth] = useState(defaultMonth);
+export default function Dashboard() {
+  const [month, setMonth] = useState<string>(() => fmtMonthLocal());
 
-  const r = useMemo(() => rangeForMonth(month), [month]);
-  const prev = useMemo(() => rangeForMonth(prevMonth(month)), [month]);
+  // khoảng tháng hiện tại (đầu tháng -> cuối tháng 23:59:59, offset +07:00)
+  const r = useMemo(() => {
+    const { y, m } = parseMonthStr(month);
+    return monthRangeVNInclusive(y, m);
+  }, [month]);
+
+  // khoảng tháng trước (đầu → cuối tháng)
+  const prev = useMemo(() => {
+    const { y, m } = parseMonthStr(month);
+    return prevMonthRangeVNInclusive(y, m);
+  }, [month]);
 
   /* ----- Queries for charts/tables ----- */
   const { data: sales, isLoading: loadingSales } = useQuery({
@@ -88,10 +52,11 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
 
-        <div className="flex items-center gap-3 mb-4">
+        <div className="mb-4 flex items-center gap-3">
           <label className="text-sm text-gray-500">Chọn tháng</label>
           <input
             type="month"
+            lang="vi"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
             className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -99,11 +64,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* KPI header — nhận from/to của tháng hiện tại + tháng trước để so sánh */}
+      {/* KPI header */}
       <HeaderKpis from={r.from} to={r.to} prevFrom={prev.from} prevTo={prev.to} />
 
       {/* Charts + Top10 */}
-      <div className="mt-6 grid grid-cols-1 gap-6 2xl:grid-cols-3 items-stretch">
+      <div className="mt-6 grid grid-cols-1 items-stretch gap-6 2xl:grid-cols-3">
         <div className="2xl:col-span-2 h-full">
           <RevenueArea data={sales} loading={loadingSales} />
         </div>
