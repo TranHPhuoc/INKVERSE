@@ -50,7 +50,6 @@ import BooksPage from "./pages/admin/BooksPage";
 import UserPage from "./pages/admin/UserPage";
 import CategoriesPage from "./pages/admin/CategoriesPage";
 import MasterPage from "./pages/admin/MasterPage";
-import InventoryIndexPage from "./pages/Inventory/InventoryIndexPage";
 
 // Pages – Sale
 import SaleOrdersPage from "./pages/sale/SaleOrderPage";
@@ -410,14 +409,6 @@ export default function App() {
                 element={
                   <PageTransition>
                     <MasterPage />
-                  </PageTransition>
-                }
-              />
-              <Route
-                path="warehouse"
-                element={
-                  <PageTransition>
-                    <InventoryIndexPage />
                   </PageTransition>
                 }
               />
