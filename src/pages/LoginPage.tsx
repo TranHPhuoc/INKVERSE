@@ -22,26 +22,24 @@ function getRoles(): Set<string> {
 function isAllowedInternalPath(p: string | null | undefined): string | null {
   if (!p) return null;
   try {
-    // chỉ cho phép path nội bộ, không cho origin khác
     const url = new URL(p, window.location.origin);
     if (url.origin !== window.location.origin) return null;
     return url.pathname + url.search + url.hash;
   } catch {
-    // nếu chỉ là path (không phải URL đầy đủ) thì vẫn ok
     return p.startsWith("/") ? p : null;
   }
 }
 
 function pickHomeByRole(roles: Set<string>): string {
   const has = (r: string) => roles.has(r) || roles.has(r.replace("ROLE_", ""));
-  if (has("ROLE_ADMIN")) return "/admin";
-  if (has("ROLE_SALE")) return "/sale/orders";
+  if (has("ROLE_ADMIN")) return "/Admin";
+  if (has("ROLE_SALE")) return "/Sale/orders";
   return "/";
 }
 
 function canAccess(path: string, roles: Set<string>): boolean {
-  const isAdminArea = path.startsWith("/admin");
-  const isSaleArea = path.startsWith("/sale");
+  const isAdminArea = path.startsWith("/Admin");
+  const isSaleArea = path.startsWith("/Sale");
   const has = (r: string) => roles.has(r) || roles.has(r.replace("ROLE_", ""));
   if (isAdminArea) return has("ROLE_ADMIN");
   if (isSaleArea) return has("ROLE_SALE");
@@ -65,16 +63,13 @@ export default function LoginPage() {
   );
   const safeNext = useMemo(() => isAllowedInternalPath(rawNext), [rawNext]);
 
-  // Nếu đã đăng nhập sẵn thì đá khỏi trang login
   useEffect(() => {
     const roles = getRoles();
-    // có token thì localStorage thường cũng có user; có thể kiểm tra thêm 'auth.token' nếu muốn
     if (roles.size > 0) {
       const target = safeNext && canAccess(safeNext, roles) ? safeNext : pickHomeByRole(roles);
       navigate(target, { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // chạy 1 lần khi mở trang
+  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,11 +77,10 @@ export default function LoginPage() {
     setErr(null);
     setLoading(true);
     try {
-      await login({ username, password }); // đảm bảo hàm này set token + auth.user
+      await login({ username, password });
 
       const roles = getRoles();
 
-      // Nếu có ?next hợp lệ và user có quyền vào đó → dùng next
       const target = safeNext && canAccess(safeNext, roles) ? safeNext : pickHomeByRole(roles);
 
       navigate(target, { replace: true });

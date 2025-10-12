@@ -243,21 +243,21 @@ export default function AddBookModal({
       const res = await api.get("/api/v1/admin/publishers");
       setPublishers(toOptions(unwrap<ResOption[]>(res.data)));
     } catch {
-      addWarning("Không tải được NXB (/api/v1/admin/publishers).");
+      addWarning("Không tải được NXB (/api/v1/Admin/publishers).");
     }
 
     try {
       const res = await api.get("/api/v1/admin/suppliers");
       setSuppliers(toOptions(unwrap<ResOption[]>(res.data)));
     } catch {
-      addWarning("Không tải được NCC (/api/v1/admin/suppliers).");
+      addWarning("Không tải được NCC (/api/v1/Admin/suppliers).");
     }
 
     try {
       const res = await api.get("/api/v1/admin/authors");
       setAuthors(toOptions(unwrap<ResOption[]>(res.data)));
     } catch {
-      addWarning("Không tải được Tác giả (/api/v1/admin/authors).");
+      addWarning("Không tải được Tác giả (/api/v1/Admin/authors).");
     }
 
     try {

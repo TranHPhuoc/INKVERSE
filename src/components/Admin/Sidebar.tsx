@@ -1,4 +1,4 @@
-// src/components/admin/Sidebar.tsx
+// src/components/Admin/Sidebar.tsx
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
@@ -9,6 +9,7 @@ import {
   SquarePlus,
   ChevronLeft,
   ChevronRight,
+  Boxes
 } from "lucide-react";
 
 type Item = { to: string; label: string; icon: React.ElementType };
@@ -19,6 +20,8 @@ const items: Item[] = [
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/categories", label: "Categories", icon: Tags },
   { to: "/admin/masters", label: "Master Data", icon: SquarePlus },
+  { to: "/admin/warehouse", label: "Warehouse", icon: Boxes },
+
 ];
 
 export default function Sidebar() {
@@ -49,7 +52,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="mt-3 space-y-1 px-2">
         {items.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} end={to === "/admin"}>
+          <NavLink key={to} to={to} end={to === "/Admin"}>
             {({ isActive }) => (
               <div
                 className={`group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 cursor-pointer ${

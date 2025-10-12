@@ -1,4 +1,4 @@
-// src/pages/sale/SaleOrderPage.tsx
+// src/pages/Sale/SaleOrderPage.tsx
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -19,7 +19,7 @@ import type {
   PaymentStatus,
   ResOrderAdmin,
 } from "../../types/sale-order";
-import { PaymentStatusBadge } from "../../components/sale/StatusBadge";
+import { PaymentStatusBadge } from "../../components/Sale/StatusBadge";
 import {
   saleSearchOrders,
   type SearchParams,

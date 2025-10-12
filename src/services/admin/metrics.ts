@@ -1,4 +1,4 @@
-// src/services/admin/metrics.ts
+// src/services/Admin/metrics.ts
 import api from "../api";
 
 /* ===== Types ===== */
@@ -56,7 +56,7 @@ function normalizeDay(input: unknown): string {
   return "";
 }
 
-/* ===== API calls (prefix /api/v1/admin/metrics) ===== */
+/* ===== API calls (prefix /api/v1/Admin/metrics) ===== */
 
 export async function getKpi(params: { from: string; to: string }): Promise<ResAdminKpiDTO> {
   const res = await api.get("/api/v1/admin/metrics/kpi", { params });

@@ -8,22 +8,22 @@ function resolveTarget(roles: Set<string>, nextRaw: string | null) {
   const isAdmin = roles.has("ROLE_ADMIN") || roles.has("ADMIN");
   const isSale = roles.has("ROLE_SALE") || roles.has("SALE");
 
-  // ADMIN ưu tiên /admin (và chỉ cho next vào /admin)
+  // ADMIN ưu tiên /Admin (và chỉ cho next vào /Admin)
   if (isAdmin) {
-    if (next && next.startsWith("/admin")) return next;
-    return "/admin";
+    if (next && next.startsWith("/Admin")) return next;
+    return "/Admin";
   }
 
-  // SALE: chặn /admin; còn lại cho đi theo next, mặc định /sale/orders
+  // SALE: chặn /Admin; còn lại cho đi theo next, mặc định /Sale/orders
   if (isSale) {
-    if (next && !next.startsWith("/admin")) {
+    if (next && !next.startsWith("/Admin")) {
       return next;
     }
-    return "/sale/orders";
+    return "/Sale/orders";
   }
 
-  // User thường: chỉ cho next không thuộc /admin hoặc /sale
-  if (next && !next.startsWith("/admin") && !next.startsWith("/sale")) return next;
+  // User thường: chỉ cho next không thuộc /Admin hoặc /Sale
+  if (next && !next.startsWith("/Admin") && !next.startsWith("/Sale")) return next;
   return "/";
 }
 

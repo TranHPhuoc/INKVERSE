@@ -1,10 +1,10 @@
-// src/pages/admin/BooksPage.tsx
+// src/pages/Admin/BooksPage.tsx
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import api from "../../services/api";
 import { deleteBook } from "../../services/admin/books-admin";
-import AddBookModal from "../../components/admin/AddBookModal";
-import EditBookModal from "../../components/admin/EditBookModal";
+import AddBookModal from "../../components/Admin/AddBookModal";
+import EditBookModal from "../../components/Admin/EditBookModal";
 import { resolveThumb, PLACEHOLDER } from "../../types/img";
 
 /* =================== Types =================== */

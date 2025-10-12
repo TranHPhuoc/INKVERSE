@@ -1,10 +1,10 @@
-// src/pages/admin/DashboardPage.tsx
+// src/pages/Admin/DashboardPage.tsx
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import HeaderKpis from "../../components/dashboard/HeaderKpi";
-import RevenueArea from "../../components/dashboard/RevenueArea";
-import TopProducts from "../../components/dashboard/TopProducts";
-import CategoryBar from "../../components/dashboard/CategoryBar";
+import HeaderKpis from "../../components/Dashboard/HeaderKpi";
+import RevenueArea from "../../components/Dashboard/RevenueArea";
+import TopProducts from "../../components/Dashboard/TopProducts";
+import CategoryBar from "../../components/Dashboard/CategoryBar";
 import { getRevenueDaily, getTopBooks, getCategorySales } from "../../services/admin/metrics";
 
 import {
@@ -32,17 +32,17 @@ export default function Dashboard() {
 
   /* ----- Queries for charts/tables ----- */
   const { data: sales, isLoading: loadingSales } = useQuery({
-    queryKey: ["admin:sales-by-day", r.from, r.to],
+    queryKey: ["Admin:sales-by-day", r.from, r.to],
     queryFn: () => getRevenueDaily({ from: r.from, to: r.to }),
   });
 
   const { data: top, isLoading: loadingTop } = useQuery({
-    queryKey: ["admin:top-books", r.from, r.to],
+    queryKey: ["Admin:top-books", r.from, r.to],
     queryFn: () => getTopBooks({ from: r.from, to: r.to, metric: "sold", limit: 10 }),
   });
 
   const { data: cats, isLoading: loadingCats } = useQuery({
-    queryKey: ["admin:category-sales", r.from, r.to],
+    queryKey: ["Admin:category-sales", r.from, r.to],
     queryFn: () => getCategorySales({ from: r.from, to: r.to, limit: 10 }),
   });
 

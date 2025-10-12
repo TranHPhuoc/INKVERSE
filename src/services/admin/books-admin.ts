@@ -1,4 +1,4 @@
-// src/services/admin/books-admin.ts
+// src/services/Admin/books-Admin.ts
 import api from "../api";
 import type { BookDetail, SpringPage, BookListItem, ProductStatus } from "../../types/books";
 
@@ -100,19 +100,19 @@ export async function getBookDetailById(id: number): Promise<BookDetail> {
   return unwrap<BookDetail>(res.data);
 }
 
-/** POST /api/v1/admin/books */
+/** POST /api/v1/Admin/books */
 export async function createBook(payload: BookCreate): Promise<BookDetail> {
   const res = await api.post(`/api/v1/admin/books`, payload);
   return unwrap<BookDetail>(res.data);
 }
 
-/** PUT /api/v1/admin/books/:id */
+/** PUT /api/v1/Admin/books/:id */
 export async function updateBook(id: number, payload: BookUpdate): Promise<BookDetail> {
   const res = await api.put(`/api/v1/admin/books/${id}`, payload);
   return unwrap<BookDetail>(res.data);
 }
 
-/** DELETE /api/v1/admin/books/:id */
+/** DELETE /api/v1/Admin/books/:id */
 export async function deleteBook(id: number): Promise<void> {
   await api.delete(`/api/v1/admin/books/${id}`);
 }

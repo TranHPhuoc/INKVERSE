@@ -1,4 +1,4 @@
-// src/components/dashboard/HeaderKpis.tsx
+// src/components/Dashboard/HeaderKpis.tsx
 import { useQuery } from "@tanstack/react-query";
 import { getKpi, getRevenueDaily, type ResAdminRevenuePointDTO } from "../../services/admin/metrics";
 import KpiCard from "./KpiCard";

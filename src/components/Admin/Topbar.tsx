@@ -1,4 +1,4 @@
-// src/components/admin/TopBar.tsx
+// src/components/Admin/TopBar.tsx
 import { useRef, useState, useMemo } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";

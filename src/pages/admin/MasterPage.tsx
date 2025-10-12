@@ -1,4 +1,4 @@
-// src/pages/admin/MastersPage.tsx
+// src/pages/Admin/MastersPage.tsx
 import { useEffect, useState } from "react";
 import {
   listAuthors,

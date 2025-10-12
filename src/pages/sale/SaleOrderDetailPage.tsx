@@ -1,4 +1,4 @@
-// src/pages/sale/SaleOrderDetailPage.tsx
+// src/pages/Sale/SaleOrderDetailPage.tsx
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -32,8 +32,8 @@ import type {
   RefundMethod,
 } from "../../types/sale-order";
 
-import { OrderStatusBadge, PaymentStatusBadge } from "../../components/sale/StatusBadge";
-import OrderItemsTable from "../../components/sale/OrderItemsTable";
+import { OrderStatusBadge, PaymentStatusBadge } from "../../components/Sale/StatusBadge";
+import OrderItemsTable from "../../components/Sale/OrderItemsTable";
 
 /* ================= helpers ================= */
 const nf = new Intl.NumberFormat("vi-VN");

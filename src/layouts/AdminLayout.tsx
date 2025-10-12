@@ -1,8 +1,8 @@
 // src/layouts/AdminLayout.tsx
 import { Outlet } from "react-router-dom";
 import PageTransition from "../components/Animation/PageTransition";
-import Sidebar from "../components/admin/Sidebar";
-import Topbar from "../components/admin/Topbar";
+import Sidebar from "../components/Admin/Sidebar";
+import Topbar from "../components/Admin/Topbar";
 
 export default function AdminLayout() {
   return (

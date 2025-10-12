@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import SaleTopbar from "../../components/sale/SaleTopBar";
+import SaleTopbar from "../../components/Sale/SaleTopBar";
 
 export default function SaleLayout() {
     return (
