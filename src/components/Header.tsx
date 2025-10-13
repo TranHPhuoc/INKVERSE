@@ -1,237 +1,339 @@
-// src/components/HeaderCategoryMenu.tsx
-import React, { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
-import { getCategoryTree, type CategoryTree } from "../types/books";
-import type { LucideIcon } from "lucide-react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  BookOpen, Sparkles, ScrollText, Library, Feather, Layers, Bookmark, PenLine,
-  Globe2, BookMarked, GraduationCap, Book, BookCopy, PenSquare, Landmark, Wand2,
-  Boxes, Shapes, Star, Telescope, Atom, FlaskConical, BrainCircuit,
+  Home,
+  Phone,
+  ShoppingCart,
+  History,
+  User as UserIcon,
+  Heart,
+  LogOut,
+  Shield,
 } from "lucide-react";
+import { useAuth } from "../context/useAuth";
+import HeaderCategoryMenu from "./HeaderCategoryMenu";
+import PillNav from "../components/Animation/PillNav";
+import logo from "../assets/logoweb.png";
+import { getCart } from "../services/cart";
 
-type Props = {
-  /** Kiểu hiển thị; 'embedded' để hòa vào ô search (ghost button) */
-  variant?: "embedded" | "button";
-  /** Thêm class cho wrapper */
-  className?: string;
+/* ===== Layout container ===== */
+const SHELL = "mx-auto w-full max-w-[1440px] px-4 sm:px-6";
+
+/* ===== Cart badge cache (anti-jitter) ===== */
+const BADGE_KEY = "CART_BADGE_COUNT";
+let lastBadgeSetAt = 0;
+const getBadgeCache = () => {
+  const n = Number(localStorage.getItem(BADGE_KEY) || "0");
+  return Number.isFinite(n) ? n : 0;
 };
-
-const ease = [0.22, 0.61, 0.36, 1] as const;
-
-function stableHash(s: string) { let h = 5381; for (let i=0;i<s.length;i++) h=(h<<5)+h+s.charCodeAt(i); return Math.abs(h); }
-const hsl = (h:number,s:number,l:number)=>`hsl(${((h%360)+360)%360} ${s}% ${l}%)`;
-
-type Theme = { Icon: LucideIcon; hue:number; from:string; to:string; text:string; subtle:string; };
-
-const ICON_POOL: readonly LucideIcon[] = [
-  BookOpen,Sparkles,ScrollText,Library,Feather,Layers,Bookmark,PenLine,Globe2,
-  BookMarked,GraduationCap,Book,BookCopy,PenSquare,Landmark,Wand2,Boxes,Shapes,
-  Star,Telescope,Atom,FlaskConical,BrainCircuit,
-] as const;
-
-const ICON_OVERRIDES: Record<string, LucideIcon> = {
-  "thieu-nhi": Sparkles,
-  "lap-trinh": Library,
-  "sach-tieng-viet": Layers,
+const setBadgeCache = (n: number) => {
+  lastBadgeSetAt = Date.now();
+  localStorage.setItem(BADGE_KEY, String(Math.max(0, n | 0)));
 };
+const recentlySet = (ms = 900) => Date.now() - lastBadgeSetAt < ms;
 
-function makeTheme(input?: { slug?: string|null; name?: string|null }): Theme {
-  const key = (input?.slug || input?.name || "cat").toLowerCase().trim();
-  const hue = stableHash(key) % 360;
-  const text = hsl(hue,65,38), from = hsl(hue,85,97), to = hsl((hue+18)%360,78,92), subtle = hsl(hue,70,96);
-  const idx = stableHash(key+"_icon") % ICON_POOL.length;
-  const Icon = ICON_OVERRIDES[key] ?? ICON_POOL[idx]!;
-  return { Icon, hue, from, to, text, subtle };
+function extractUniqueCount(res: unknown): number {
+  const r = res as { uniqueItems?: number; distinctItems?: number; items?: unknown[] } | null;
+  if (!r) return 0;
+  if (typeof r.uniqueItems === "number") return r.uniqueItems;
+  if (typeof r.distinctItems === "number") return r.distinctItems;
+  if (Array.isArray(r.items)) return r.items.length;
+  return 0;
 }
 
-/* Ghost burger (không nền/viền/bóng) */
-const BurgerButton: React.FC<{ open:boolean; onClick:()=>void; ghost?:boolean; className?:string }> = ({
-                                                                                                         open, onClick, ghost = true, className = "",
-                                                                                                       }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-label={open ? "Đóng danh mục" : "Mở danh mục"}
-    className={[
-      "relative grid h-11 w-11 place-items-center select-none cursor-pointer",
-      ghost ? "bg-transparent border-0 shadow-none ring-0 hover:bg-transparent" : "rounded-full border bg-white shadow-sm hover:bg-slate-50",
-      className,
-    ].join(" ")}
-  >
-    <span className={["absolute block h-[2px] w-[20px] rounded-full bg-neutral-900 origin-center transition-transform duration-200 ease-[cubic-bezier(.22,.61,.36,1)]", open ? "translate-y-0 rotate-45" : "-translate-y-[4px] rotate-0"].join(" ")} />
-    <span className={["absolute block h-[2px] w-[20px] rounded-full bg-neutral-900 origin-center transition-transform duration-200 ease-[cubic-bezier(.22,.61,.36,1)]", open ? "translate-y-0 -rotate-45" : "translate-y-[4px] rotate-0"].join(" ")} />
-  </button>
-);
-
-export default function HeaderCategoryMenu({ variant = "embedded", className = "" }: Props) {
+const Header: React.FC = () => {
+  const { isAuthenticated, logout, user } = useAuth();
   const [open, setOpen] = useState(false);
-  const [cats, setCats] = useState<CategoryTree[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-  const [activeIdx, setActiveIdx] = useState(0);
-
-  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [cartCount, setCartCount] = useState<number>(() => getBadgeCache());
+  const [q, setQ] = useState("");
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  /* ---- Roles ---- */
+  const hasRole = (r: string) => (user?.role || "").toUpperCase() === r.toUpperCase();
+  const isAdmin = hasRole("ADMIN") || hasRole("ROLE_ADMIN");
+  const isSale = hasRole("SALE") || hasRole("ROLE_SALE");
+  const isUserOnly = hasRole("USER") || hasRole("ROLE_USER");
+
+  useEffect(() => setOpen(false), [pathname]);
+
+  /* ---- Cart badge sync ---- */
+  const refreshBadge = useCallback(async () => {
+    try {
+      if (!isAuthenticated) {
+        setCartCount(0);
+        setBadgeCache(0);
+        return;
+      }
+      if (recentlySet()) return;
+      const res = await getCart();
+      const n = extractUniqueCount(res);
+      setCartCount(n);
+      setBadgeCache(n);
+    } catch {
+      /* ignore */
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await getCategoryTree();
-        if (!alive) return;
-        setCats(Array.isArray(data) ? data : []);
-        setErr(null);
-      } catch { if (!alive) return; setErr("Không tải được danh mục"); }
-      finally { if (alive) setLoading(false); }
-    })();
-    return () => { alive = false; };
-  }, []);
+    void refreshBadge();
+  }, [isAuthenticated, refreshBadge]);
 
   useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (!open || !wrapRef.current) return;
-      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ uniqueItems?: number }>).detail;
+      if (typeof detail?.uniqueItems === "number") {
+        setCartCount(detail.uniqueItems);
+        setBadgeCache(detail.uniqueItems);
+      } else {
+        void refreshBadge();
+      }
     };
-    document.addEventListener("click", onDoc);
-    return () => document.removeEventListener("click", onDoc);
-  }, [open]);
+    window.addEventListener("cart:changed", handler as EventListener);
+    return () => window.removeEventListener("cart:changed", handler as EventListener);
+  }, [refreshBadge]);
 
-  const active = cats[activeIdx] ?? null;
-  const subs = active?.children ?? [];
+  /* ---- Search ---- */
+  const doSearch = useCallback(() => {
+    const keyword = q.trim();
+    navigate(keyword ? `/search?q=${encodeURIComponent(keyword)}` : "/search");
+  }, [q, navigate]);
+
+  /* ---- Pills ---- */
+  const pillItems = [
+    {
+      label: (
+        <span className="inline-flex items-center gap-1">
+          <Home className="h-[18px] w-[18px]" />
+          Trang chủ
+        </span>
+      ),
+      href: "/",
+    },
+    {
+      label: (
+        <span className="inline-flex items-center gap-1">
+          <Phone className="h-[18px] w-[18px]" />
+          Liên hệ
+        </span>
+      ),
+      href: "/lien-he",
+    },
+    {
+      label: (
+        <span className="inline-flex items-center gap-2">
+          <span className="relative mr-1.5 inline-flex">
+            <ShoppingCart className="h-[18px] w-[18px]" />
+            {cartCount > 0 && (
+              <motion.span
+                key={cartCount}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 500, damping: 26 }}
+                className="absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold text-white shadow-sm ring-2 ring-white"
+                aria-label={`Sản phẩm trong giỏ: ${cartCount}`}
+              >
+                {cartCount > 99 ? "99+" : cartCount}
+              </motion.span>
+            )}
+          </span>
+          Giỏ hàng
+        </span>
+      ),
+      href: "/gio-hang",
+      linkProps: {
+        onClick: (e: React.MouseEvent<HTMLAnchorElement>) => {
+          e.preventDefault();
+          navigate("/gio-hang");
+        },
+      },
+    },
+  ];
+
+  /* ---- Account menu hover ---- */
+  const hoverRef = useRef<HTMLDivElement | null>(null);
+  const hideTimer = useRef<number | null>(null);
+  const openMenu = () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setOpen(true);
+  };
+  const scheduleClose = () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setOpen(false), 120);
+  };
 
   return (
-    <div ref={wrapRef} className={`relative flex items-center ${className}`}>
-      {/* burger */}
-      <BurgerButton open={open} onClick={() => setOpen(v=>!v)} ghost={variant === "embedded"} />
-      {/* divider mảnh khi embedded */}
-      {variant === "embedded" && <span aria-hidden className="mx-1 h-6 w-px bg-slate-300/60" />}
+    <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl shadow-[0_10px_30px_-20px_rgba(2,6,23,.35)]">
+      <div className={SHELL}>
+        <div className="flex h-[72px] items-center justify-between gap-4">
+          {/* Logo */}
+          <Link to="/" className="flex shrink-0 items-center gap-2" aria-label="Về trang chủ">
+            <img src={logo} alt="INKVERSE" className="h-12 md:h-14 w-auto" />
+          </Link>
 
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="cat-panel"
-            initial={{ opacity: 0, y: -8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: 0.25, ease } }}
-            exit={{ opacity: 0, y: -8, scale: 0.98, transition: { duration: 0.18, ease } }}
-            className="absolute left-0 top-[120%] z-50 w-[1100px] overflow-hidden rounded-3xl border bg-white/70 shadow-2xl backdrop-blur-xl"
-            onMouseDown={(e) => e.preventDefault()}
-            role="menu"
-          >
-            <div className="pointer-events-none h-1 w-full bg-gradient-to-r from-fuchsia-100 via-rose-100 to-indigo-100" />
-            <div className="flex min-h-[400px]">
-              <div className="w-[270px] border-r bg-white/70 p-3">
-                {loading ? (
-                  <div className="p-4 text-sm text-gray-600">Đang tải danh mục…</div>
-                ) : err ? (
-                  <div className="p-4 text-sm text-rose-600">{err}</div>
-                ) : cats.length === 0 ? (
-                  <div className="p-4 text-sm text-gray-600">Chưa có danh mục.</div>
-                ) : (
-                  <ul className="space-y-1">
-                    {cats.map((root, i) => {
-                      const isActive = i === activeIdx;
-                      const theme = makeTheme(root);
-                      return (
-                        <li key={root.id}>
-                          <button
-                            onMouseEnter={() => setActiveIdx(i)}
-                            onClick={() => { setOpen(false); navigate(`/danh-muc/${root.slug}`); }}
-                            className={[
-                              "group flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[14px] font-medium cursor-pointer transition-all duration-200",
-                              isActive ? "text-gray-900 shadow-sm" : "text-gray-700 hover:bg-gray-50",
-                            ].join(" ")}
-                            style={isActive ? { background: `linear-gradient(90deg, ${theme.subtle}, #fff)` } : undefined}
-                          >
-                            <span
-                              className="grid h-7 w-7 place-items-center rounded-lg ring-1 ring-black/5"
-                              style={{ background: `linear-gradient(135deg, ${theme.from}, ${theme.to})` }}
-                            >
-                              <theme.Icon className="h-4 w-4" style={{ color: theme.text }} />
-                            </span>
-                            <span className="truncate font-semibold">{root.name}</span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={active?.id ?? "empty"}
-                  initial={{ opacity: 0, x: 30 }}
-                  animate={{ opacity: 1, x: 0, transition: { duration: 0.25, ease } }}
-                  exit={{ opacity: 0, x: -20, transition: { duration: 0.18, ease } }}
-                  className="relative flex flex-1 flex-col justify-between"
-                >
-                  <div
-                    className="absolute inset-0 bg-cover bg-center opacity-30"
-                    style={{
-                      backgroundImage: `url(${
-                        active
-                          ? `https://source.unsplash.com/1200x800/?book,${encodeURIComponent(active.name)}`
-                          : "https://source.unsplash.com/1200x800/?books"
-                      })`,
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px]" />
-
-                  <div className="relative z-10 px-8 py-6">
-                    <div className="mb-3 flex items-center justify-between">
-                      <h3 className="text-lg font-extrabold uppercase tracking-wide text-gray-900 drop-shadow-sm">
-                        {active?.name}
-                      </h3>
-                      {active && (
-                        <Link
-                          to={`/danh-muc/${active.slug}`}
-                          onClick={() => setOpen(false)}
-                          className="rounded-full px-3 py-1 text-[12px] font-semibold text-white shadow transition-colors"
-                          style={{
-                            background: `linear-gradient(90deg,
-                              ${hsl(stableHash(active.slug ?? active.name ?? "") % 360, 75, 55)},
-                              ${hsl(((stableHash(active.slug ?? active.name ?? "") % 360) + 20) % 360, 75, 55)}
-                            )`,
-                          }}
-                        >
-                          Xem tất cả
-                        </Link>
-                      )}
-                    </div>
-
-                    {subs.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                        {subs.slice(0, 9).map((s) => {
-                          const th = makeTheme(s);
-                          return (
-                            <Link
-                              key={s.id}
-                              to={`/danh-muc/${s.slug}`}
-                              onClick={() => setOpen(false)}
-                              className="group relative cursor-pointer overflow-hidden rounded-xl border border-black/5 bg-white/60 px-4 py-3 text-sm text-gray-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/90 hover:shadow-lg"
-                            >
-                              <span className="relative z-10 font-medium">{s.name}</span>
-                              <span
-                                className="absolute bottom-0 left-0 h-0.5 w-0 transition-all duration-200 group-hover:w-full"
-                                style={{ background: `linear-gradient(90deg, ${th.text}, ${hsl((th.hue + 20) % 360, 65, 38)})` }}
-                              />
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="mt-6 text-sm italic text-gray-500">Danh mục này chưa có danh mục con.</p>
-                    )}
-                  </div>
-
-                </motion.div>
-              </AnimatePresence>
+          {/* Search + Category (embedded) */}
+          <div className="flex flex-1 justify-center">
+            <div className="group relative flex w-full max-w-[820px] items-center overflow-visible rounded-full bg-white/70 ring-1 ring-slate-200 backdrop-blur-xl shadow-[0_6px_20px_-8px_rgba(0,0,0,.25)] transition-all hover:ring-indigo-400/60">
+              <HeaderCategoryMenu variant="embedded" className="ml-1 cursor-pointer" />
+              <span className="mx-2 h-6 w-px bg-slate-200 group-hover:bg-slate-300/90" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && doSearch()}
+                placeholder="Tìm kiếm sách, tác giả..."
+                className="h-11 flex-1 border-0 bg-transparent px-2 text-[15px] placeholder:text-slate-500 focus:outline-none"
+                aria-label="Ô tìm kiếm"
+              />
+              <button
+                onClick={doSearch}
+                className="cursor-pointer h-10 shrink-0 rounded-full bg-[#ec0040] px-5 text-[15px] font-semibold text-white shadow-md transition-all hover:brightness-110 active:scale-[0.97]"
+              >
+                Tìm kiếm
+              </button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+          </div>
+
+          {/* Actions */}
+          <div className="hidden md:flex items-center">
+            <PillNav
+              items={pillItems}
+              activeHref={pathname}
+              className="ml-2"
+              ease="power2.easeOut"
+              pillColor="#ffffff"
+              hoverCircleColor="#0f172a"
+              hoveredTextColor="#ffffff"
+              textColor="#0f172a"
+              borderColor="#94A3B8"
+              navHeight="44px"
+              gap="10px"
+              fontSize="16px"
+            />
+
+            {!isAuthenticated ? (
+              <Link
+                to="/dang-ky"
+                className="ml-2 inline-flex h-11 items-center gap-1 rounded-full border px-4 text-[16px] font-medium text-slate-900 transition-colors hover:bg-slate-900 hover:text-white"
+              >
+                <UserIcon className="h-[18px] w-[18px]" />
+                Tài khoản
+              </Link>
+            ) : (
+              <div
+                ref={hoverRef}
+                className="relative ml-2"
+                onMouseEnter={openMenu}
+                onMouseLeave={scheduleClose}
+                onFocus={openMenu}
+                onBlur={scheduleClose}
+              >
+                <button
+                  type="button"
+                  className="inline-flex h-11 items-center gap-1 rounded-full border px-4 text-[16px] font-medium text-slate-900 transition-colors hover:bg-slate-900 hover:text-white cursor-pointer"
+                  onClick={() => navigate("/tai-khoan/ho-so-cua-toi")}
+                >
+                  <UserIcon className="h-[18px] w-[18px]" />
+                  Tài khoản
+                </button>
+
+                <AnimatePresence>
+                  {open && (
+                    <motion.div
+                      key="acc-dd"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.18 }}
+                      className="absolute right-0 z-50 mt-3 w-60 overflow-hidden rounded-xl border bg-white shadow-lg"
+                      onMouseEnter={openMenu}
+                      onMouseLeave={scheduleClose}
+                    >
+                      {/* USER */}
+                      {isUserOnly && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setOpen(false);
+                              navigate("/tai-khoan/ho-so-cua-toi");
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 cursor-pointer"
+                          >
+                            <UserIcon className="h-4 w-4" /> Quản lý tài khoản
+                          </button>
+                          <Link
+                            to="/yeu-thich"
+                            className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
+                            onClick={() => setOpen(false)}
+                          >
+                            <Heart className="h-4 w-4" /> Sản phẩm yêu thích
+                          </Link>
+                          <Link
+                            to="/don-hang"
+                            className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
+                            onClick={() => setOpen(false)}
+                          >
+                            <ShoppingCart className="h-4 w-4" /> Đơn hàng của tôi
+                          </Link>
+                          <Link
+                            to="/lich-su-mua-hang"
+                            className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
+                            onClick={() => setOpen(false)}
+                          >
+                            <History className="h-4 w-4 text-gray-600" /> Lịch sử mua hàng
+                          </Link>
+                        </>
+                      )}
+
+                      {/* SALE */}
+                      {isSale && (
+                        <>
+                          <Link to="/" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50" onClick={() => setOpen(false)}>
+                            <Home className="h-4 w-4" /> HomePage
+                          </Link>
+                          <Link to="/sale" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50" onClick={() => setOpen(false)}>
+                            <ShoppingCart className="h-4 w-4" /> SalePage
+                          </Link>
+                        </>
+                      )}
+
+                      {/* ADMIN */}
+                      {isAdmin && (
+                        <>
+                          <Link to="/" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50" onClick={() => setOpen(false)}>
+                            <Home className="h-4 w-4" /> HomePage
+                          </Link>
+                          <Link to="/sale" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50" onClick={() => setOpen(false)}>
+                            <ShoppingCart className="h-4 w-4" /> SalePage
+                          </Link>
+                          <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50" onClick={() => setOpen(false)}>
+                            <Shield className="h-4 w-4" /> AdminPage
+                          </Link>
+                        </>
+                      )}
+
+                      {/* Logout */}
+                      <button
+                        onClick={() => {
+                          logout();
+                          setOpen(false);
+                          sessionStorage.setItem("intro.skip.once", "1");
+                          navigate("/dang-nhap?skipIntro=1", { replace: true });
+                        }}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-rose-600 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <LogOut className="h-4 w-4" /> Đăng xuất
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
   );
-}
+};
+
+export default Header;

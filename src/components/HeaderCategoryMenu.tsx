@@ -1,38 +1,18 @@
-// src/components/HeaderCategoryMenu.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { getCategoryTree, type CategoryTree } from "../types/books";
 import type { LucideIcon } from "lucide-react";
 import {
-  BookOpen,
-  Sparkles,
-  ScrollText,
-  Library,
-  Feather,
-  Layers,
-  Bookmark,
-  PenLine,
-  Globe2,
-  BookMarked,
-  GraduationCap,
-  Book,
-  BookCopy,
-  PenSquare,
-  Landmark,
-  Wand2,
-  Boxes,
-  Shapes,
-  Star,
-  Telescope,
-  Atom,
-  FlaskConical,
-  BrainCircuit,
+  BookOpen, Sparkles, ScrollText, Library, Feather, Layers, Bookmark, PenLine, Globe2,
+  BookMarked, GraduationCap, Book, BookCopy, PenSquare, Landmark, Wand2, Boxes, Shapes,
+  Star, Telescope, Atom, FlaskConical, BrainCircuit,
 } from "lucide-react";
 
-/* ───────── animation ───────── */
+/* ========= animation ========= */
 const ease = [0.22, 0.61, 0.36, 1] as const;
 
+/* ========= color + icon theming ========= */
 function stableHash(s: string): number {
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = (h << 5) + h + s.charCodeAt(i);
@@ -40,39 +20,12 @@ function stableHash(s: string): number {
 }
 const hsl = (h: number, s: number, l: number) => `hsl(${((h % 360) + 360) % 360} ${s}% ${l}%)`;
 
-type Theme = {
-  Icon: LucideIcon;
-  hue: number;
-  from: string;
-  to: string;
-  text: string;
-  subtle: string;
-};
+type Theme = { Icon: LucideIcon; hue: number; from: string; to: string; text: string; subtle: string };
 
 const ICON_POOL: readonly LucideIcon[] = [
-  BookOpen,
-  Sparkles,
-  ScrollText,
-  Library,
-  Feather,
-  Layers,
-  Bookmark,
-  PenLine,
-  Globe2,
-  BookMarked,
-  GraduationCap,
-  Book,
-  BookCopy,
-  PenSquare,
-  Landmark,
-  Wand2,
-  Boxes,
-  Shapes,
-  Star,
-  Telescope,
-  Atom,
-  FlaskConical,
-  BrainCircuit,
+  BookOpen, Sparkles, ScrollText, Library, Feather, Layers, Bookmark, PenLine, Globe2,
+  BookMarked, GraduationCap, Book, BookCopy, PenSquare, Landmark, Wand2, Boxes, Shapes,
+  Star, Telescope, Atom, FlaskConical, BrainCircuit,
 ] as const;
 
 const ICON_OVERRIDES: Record<string, LucideIcon> = {
@@ -84,24 +37,19 @@ const ICON_OVERRIDES: Record<string, LucideIcon> = {
 function makeTheme(input?: { slug?: string | null; name?: string | null }): Theme {
   const key = (input?.slug || input?.name || "cat").toLowerCase().trim();
   const hue = stableHash(key) % 360;
-
   const text = hsl(hue, 65, 38);
   const from = hsl(hue, 85, 97);
   const to = hsl((hue + 18) % 360, 78, 92);
   const subtle = hsl(hue, 70, 96);
-
   const idx = stableHash(key + "_icon") % ICON_POOL.length;
   const Icon: LucideIcon = ICON_OVERRIDES[key] ?? ICON_POOL[idx]!;
-
   return { Icon, hue, from, to, text, subtle };
 }
 
-/* ───────── Burger button  ───────── */
+/* ========= Burger button (ghost) ========= */
 const BurgerButton: React.FC<{ open: boolean; onClick: () => void; className?: string }> = ({
-  open,
-  onClick,
-  className = "",
-}) => (
+                                                                                              open, onClick, className = "",
+                                                                                            }) => (
   <button
     type="button"
     onClick={onClick}
@@ -131,8 +79,12 @@ const BurgerButton: React.FC<{ open: boolean; onClick: () => void; className?: s
   </button>
 );
 
-/* ───────── Component ───────── */
-export default function HeaderCategoryMenu() {
+/* ========= Component ========= */
+type MenuProps = { variant?: "embedded" | "default"; className?: string };
+
+const HeaderCategoryMenu: React.FC<MenuProps> = ({ variant = "default", className = "" }) => {
+  const isEmbedded = variant === "embedded"; // <-- dùng variant (fix no-unused-vars)
+
   const [open, setOpen] = useState(false);
   const [cats, setCats] = useState<CategoryTree[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,7 +94,7 @@ export default function HeaderCategoryMenu() {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
 
-  // fetch
+  // fetch categories
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -159,12 +111,10 @@ export default function HeaderCategoryMenu() {
         if (alive) setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
-  // click outside
+  // close when click outside
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (!open || !wrapRef.current) return;
@@ -177,12 +127,13 @@ export default function HeaderCategoryMenu() {
   const active = cats[activeIdx] ?? null;
   const subs = active?.children ?? [];
 
+  // class phụ thuộc variant (để ESLint thấy có sử dụng)
+  const panelTopClass = isEmbedded ? "top-[115%]" : "top-[120%]";
+  const panelWidthClass = isEmbedded ? "w-[1080px]" : "w-[1100px]";
+
   return (
-    <div ref={wrapRef} className="relative flex items-center">
-      {/* Nút ghost */}
+    <div ref={wrapRef} className={["relative flex items-center", className].join(" ")}>
       <BurgerButton open={open} onClick={() => setOpen((v) => !v)} />
-      {/* Vạch ngăn mảnh để “hòa” với ô search (xoá nếu không cần) */}
-      <span aria-hidden className="mx-1 h-6 w-px bg-slate-300/60" />
 
       <AnimatePresence initial={false}>
         {open && (
@@ -191,14 +142,18 @@ export default function HeaderCategoryMenu() {
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: 0.25, ease } }}
             exit={{ opacity: 0, y: -8, scale: 0.98, transition: { duration: 0.18, ease } }}
-            className="absolute top-[120%] left-0 z-50 w-[1100px] overflow-hidden rounded-3xl border bg-white/70 shadow-2xl backdrop-blur-xl"
+            className={[
+              "absolute left-0 z-50 overflow-hidden rounded-3xl border bg-white/70 shadow-2xl backdrop-blur-xl",
+              panelTopClass,
+              panelWidthClass,
+            ].join(" ")}
             onMouseDown={(e) => e.preventDefault()}
             role="menu"
           >
             <div className="pointer-events-none h-1 w-full bg-gradient-to-r from-fuchsia-100 via-rose-100 to-indigo-100" />
 
             <div className="flex min-h-[400px]">
-              {/* LEFT: roots */}
+              {/* LEFT: list roots */}
               <div className="w-[270px] border-r bg-white/70 p-3">
                 {loading ? (
                   <div className="p-4 text-sm text-gray-600">Đang tải danh mục…</div>
@@ -211,7 +166,6 @@ export default function HeaderCategoryMenu() {
                     {cats.map((root, i) => {
                       const isActive = i === activeIdx;
                       const theme = makeTheme(root);
-
                       return (
                         <li key={root.id}>
                           <button
@@ -223,9 +177,7 @@ export default function HeaderCategoryMenu() {
                             className={[
                               "group flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[14px] font-medium",
                               "cursor-pointer transition-all duration-200",
-                              isActive
-                                ? "text-gray-900 shadow-sm"
-                                : "text-gray-700 hover:bg-gray-50",
+                              isActive ? "text-gray-900 shadow-sm" : "text-gray-700 hover:bg-gray-50",
                             ].join(" ")}
                             style={
                               isActive
@@ -235,9 +187,7 @@ export default function HeaderCategoryMenu() {
                           >
                             <span
                               className="grid h-7 w-7 place-items-center rounded-lg ring-1 ring-black/5"
-                              style={{
-                                background: `linear-gradient(135deg, ${theme.from}, ${theme.to})`,
-                              }}
+                              style={{ background: `linear-gradient(135deg, ${theme.from}, ${theme.to})` }}
                             >
                               <theme.Icon className="h-4 w-4" style={{ color: theme.text }} />
                             </span>
@@ -317,9 +267,7 @@ export default function HeaderCategoryMenu() {
                         })}
                       </div>
                     ) : (
-                      <p className="mt-6 text-sm text-gray-500 italic">
-                        Danh mục này chưa có danh mục con.
-                      </p>
+                      <p className="mt-6 text-sm text-gray-500 italic">Danh mục này chưa có danh mục con.</p>
                     )}
                   </div>
                 </motion.div>
@@ -330,4 +278,6 @@ export default function HeaderCategoryMenu() {
       </AnimatePresence>
     </div>
   );
-}
+};
+
+export default HeaderCategoryMenu;
