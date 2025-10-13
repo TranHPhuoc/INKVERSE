@@ -1,116 +1,16 @@
-// src/pages/OrdersListPage.tsx
+// src/pages/PurchaseHistoryPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Clock,
-  ClipboardCheck,
-  Boxes,
-  Truck,
-  CheckCircle2,
-  BadgeCheck,
-  XCircle,
-} from "lucide-react";
-
+import { History } from "lucide-react"; // icon mới cho trang lịch sử
 import { listMyOrders } from "../services/order";
 import type { ResOrderDetail, SpringPage } from "../types/order";
 import { vnd } from "../utils/currency";
-import type React from "react";
 
-/* ---------- types ---------- */
-type OrderStatus =
-  | "PENDING"
-  | "CONFIRMED"
-  | "PROCESSING"
-  | "SHIPPED"
-  | "DELIVERED"
-  | "COMPLETED"
-  | "CANCELED"
-  | "CANCEL_REQUESTED";
+type OrderStatus = "COMPLETED" | "CANCELED" | "CANCEL_REQUESTED";
 
-/* ---------- Tabs ---------- */
-type TabId =
-  | "pending"
-  | "confirmed"
-  | "processing"
-  | "shipping"
-  | "delivered"
-  | "completed"
-  | "canceled";
-
-type Tab = {
-  id: TabId;
-  label: string;
-  statuses: OrderStatus[];
-  icon: React.ReactNode;
-  color: string; 
-};
-
-const TABS: Tab[] = [
-  {
-    id: "pending",
-    label: "Chờ xử lý",
-    statuses: ["PENDING"],
-    icon: <Clock className="h-4 w-4" />,
-    color: "text-amber-700 bg-amber-50",
-  },
-  {
-    id: "confirmed",
-    label: "Đã xác nhận",
-    statuses: ["CONFIRMED"],
-    icon: <ClipboardCheck className="h-4 w-4" />,
-    color: "text-blue-700 bg-blue-50",
-  },
-  {
-    id: "processing",
-    label: "Đang xử lý",
-    statuses: ["PROCESSING"],
-    icon: <Boxes className="h-4 w-4" />,
-    color: "text-indigo-700 bg-indigo-50",
-  },
-  {
-    id: "shipping",
-    label: "Đang giao",
-    statuses: ["SHIPPED"],
-    icon: <Truck className="h-4 w-4" />,
-    color: "text-cyan-700 bg-cyan-50",
-  },
-  {
-    id: "delivered",
-    label: "Đã giao",
-    statuses: ["DELIVERED"],
-    icon: <CheckCircle2 className="h-4 w-4" />,
-    color: "text-green-700 bg-green-50",
-  },
-  {
-    id: "completed",
-    label: "Hoàn tất",
-    statuses: ["COMPLETED"],
-    icon: <BadgeCheck className="h-4 w-4" />,
-    color: "text-emerald-700 bg-emerald-50",
-  },
-  {
-    id: "canceled",
-    label: "Đã huỷ",
-    statuses: ["CANCELED", "CANCEL_REQUESTED"],
-    icon: <XCircle className="h-4 w-4" />,
-    color: "text-rose-700 bg-rose-50",
-  },
-];
-
-/* ---------- helpers ---------- */
 const viStatus = (s?: string) => {
   switch ((s || "").toUpperCase()) {
-    case "PENDING":
-      return "Chờ xử lý";
-    case "CONFIRMED":
-      return "Đã xác nhận";
-    case "PROCESSING":
-      return "Đang xử lý";
-    case "SHIPPED":
-      return "Đang giao";
-    case "DELIVERED":
-      return "Đã giao";
     case "COMPLETED":
       return "Hoàn tất";
     case "CANCELED":
@@ -129,7 +29,9 @@ const fmtTime = (t: unknown): string => {
   else return String(t ?? "");
   return isNaN(d.getTime())
     ? String(t ?? "")
-    : d.toLocaleTimeString("vi-VN", { hour12: false }) + " " + d.toLocaleDateString("vi-VN");
+    : d.toLocaleTimeString("vi-VN", { hour12: false }) +
+    " " +
+    d.toLocaleDateString("vi-VN");
 };
 
 type OrderItemLite = {
@@ -146,55 +48,36 @@ type OrderItemLite = {
 };
 
 const getThumb = (o: ResOrderDetail): string => {
-  const first = (o.items?.[0] ?? null) as unknown;
-  if (first && typeof first === "object") {
-    const it = first as OrderItemLite;
-    const t =
-      (typeof it.thumbnail === "string" && it.thumbnail) ||
-      (typeof it.imageUrl === "string" && it.imageUrl) ||
-      (it.book && (it.book.thumbnail || it.book.imageUrl)) ||
-      null;
-    if (t) return t;
-  }
-  return "/placeholder.svg";
+  const first = (o.items?.[0] ?? null) as OrderItemLite | null;
+  if (!first) return "/placeholder.svg";
+  const t =
+    first.thumbnail ||
+    first.imageUrl ||
+    first.book?.thumbnail ||
+    first.book?.imageUrl ||
+    null;
+  return t || "/placeholder.svg";
 };
 
 const getTitle = (o: ResOrderDetail): string => {
-  const first = (o.items?.[0] ?? null) as unknown;
-  if (first && typeof first === "object") {
-    const it = first as OrderItemLite;
-    const t =
-      (typeof it.title === "string" && it.title) ||
-      (it.book && typeof it.book.title === "string" && it.book.title) ||
-      null;
-    if (t) return t;
-  }
-  return "Sản phẩm";
+  const first = (o.items?.[0] ?? null) as OrderItemLite | null;
+  if (!first) return "Sản phẩm";
+  return first.title || first.book?.title || "Sản phẩm";
 };
 
-/** Luôn ưu tiên điều hướng bằng bookId để tránh lỗi BE /slug/{number} */
 const getFirstProductLinkById = (o: ResOrderDetail): string | null => {
-  const first = (o.items?.[0] ?? null) as unknown;
-  if (!first || typeof first !== "object") return null;
-  const it = first as OrderItemLite;
-  const id = Number(it.book?.id ?? it.bookId ?? 0) || null;
-  return id ? `/books/${id}?by=id` : null; // giữ ?by=id
+  const first = (o.items?.[0] ?? null) as OrderItemLite | null;
+  if (!first) return null;
+  const id = Number(first.book?.id ?? first.bookId ?? 0) || null;
+  return id ? `/books/${id}?by=id` : null;
 };
 
-/* ---------- page ---------- */
-export default function OrdersListPage() {
+export default function PurchaseHistoryPage() {
   const [params, setParams] = useSearchParams();
-
   const [page, setPage] = useState<number>(Number(params.get("page") ?? 0));
   const [size, setSize] = useState<number>(Number(params.get("size") ?? 10));
   const [data, setData] = useState<SpringPage<ResOrderDetail> | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-
-  const activeTabId = (params.get("tab") as TabId) || "pending";
-  const activeTab = useMemo<Tab>(
-    () => TABS.find((t) => t.id === activeTabId) ?? TABS[0]!,
-    [activeTabId],
-  );
 
   useEffect(() => {
     let mounted = true;
@@ -211,61 +94,24 @@ export default function OrdersListPage() {
 
   const items = useMemo(() => {
     if (!data) return [];
-    const wanted = new Set(activeTab.statuses);
-    return (data.content ?? []).filter((o) =>
-      wanted.has(((o.status || "") as string).toUpperCase() as OrderStatus),
-    );
-  }, [data, activeTab]);
-
-  function switchTab(id: TabId) {
-    const p = new URLSearchParams(params);
-    p.set("tab", id);
-    p.set("page", "0");
-    setParams(p, { replace: true });
-    setPage(0);
-  }
+    return (data.content ?? []).filter((o) => {
+      const status = ((o.status || "") as string).toUpperCase() as OrderStatus;
+      return status === "COMPLETED" || status === "CANCELED" || status === "CANCEL_REQUESTED";
+    });
+  }, [data]);
 
   return (
     <div className="container mx-auto space-y-5 px-4 py-8">
-      <h1 className="text-2xl font-semibold">Đơn hàng của tôi</h1>
-
-      {/* Tabs */}
-      <div className="rounded-2xl bg-white/80 p-2 shadow-sm ring-1 ring-black/5 backdrop-blur">
-        <div className="relative flex flex-wrap gap-2">
-          {TABS.map((t) => {
-            const active = t.id === activeTabId;
-            return (
-              <motion.button
-                key={t.id}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => switchTab(t.id)}
-                className={`relative flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 transition ${
-                  active
-                    ? `font-semibold ring-1 ring-black/5 ${t.color}`
-                    : "bg-white/70 text-gray-700 ring-1 ring-gray-200 hover:bg-white"
-                }`}
-              >
-                {t.icon}
-                <span>{t.label}</span>
-                {active && (
-                  <motion.span
-                    layoutId="tab-underline"
-                    className="absolute inset-0 -z-10 rounded-xl"
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
-                )}
-              </motion.button>
-            );
-          })}
-        </div>
+      <div className="flex items-center gap-2">
+        <History className="h-6 w-6 text-emerald-600" />
+        <h1 className="text-2xl font-semibold">Lịch sử mua hàng</h1>
       </div>
 
-      {/* List */}
       <div className="rounded-2xl bg-white/90 p-3 shadow-sm ring-1 ring-black/5 backdrop-blur">
         {loading ? (
           <div className="py-10 text-center text-gray-500">Đang tải...</div>
         ) : items.length === 0 ? (
-          <div className="py-10 text-center text-gray-500">Không có đơn</div>
+          <div className="py-10 text-center text-gray-500">Chưa có đơn hàng nào</div>
         ) : (
           <AnimatePresence mode="popLayout">
             <div className="divide-y divide-gray-200">
@@ -273,8 +119,9 @@ export default function OrdersListPage() {
                 const thumb = getThumb(o);
                 const title = getTitle(o);
                 const extra = Math.max(0, (o.items?.length ?? 1) - 1);
-                const isCompleted = activeTabId === "completed";
                 const productLink = getFirstProductLinkById(o);
+                const status = (o.status || "").toUpperCase() as OrderStatus;
+                const isCompleted = status === "COMPLETED";
 
                 return (
                   <motion.div
@@ -315,7 +162,13 @@ export default function OrdersListPage() {
 
                       <div className="text-right">
                         <div className="text-sm text-gray-500">Trạng thái</div>
-                        <span className="mt-1 inline-block rounded-full bg-gray-50 px-2.5 py-1 text-xs font-semibold ring-1 ring-gray-200">
+                        <span
+                          className={`mt-1 inline-block rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
+                            isCompleted
+                              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                              : "bg-rose-50 text-rose-700 ring-rose-200"
+                          }`}
+                        >
                           {viStatus(o.status)}
                         </span>
 
@@ -326,7 +179,6 @@ export default function OrdersListPage() {
                       </div>
                     </div>
 
-                    {/* Actions (right) */}
                     <div className="flex gap-2 md:flex-col md:items-end">
                       <Link
                         to={`/orders/${o.code}`}
@@ -335,21 +187,30 @@ export default function OrdersListPage() {
                         Chi tiết
                       </Link>
 
-                      {isCompleted && productLink && (
+                      {productLink && isCompleted && (
                         <div className="flex gap-2">
                           <Link
-                            to={`${productLink}&action=review`} // /books/{id}?by=id&action=review
+                            to={`${productLink}&action=review`}
                             className="inline-flex cursor-pointer items-center rounded-xl bg-emerald-600 px-3.5 py-2.5 text-white hover:bg-emerald-500"
                           >
                             Đánh giá
                           </Link>
                           <Link
-                            to={productLink} // /books/{id}?by=id
+                            to={productLink}
                             className="inline-flex cursor-pointer items-center rounded-xl bg-rose-600 px-3.5 py-2.5 text-white hover:bg-rose-500"
                           >
                             Mua lại
                           </Link>
                         </div>
+                      )}
+
+                      {!isCompleted && productLink && (
+                        <Link
+                          to={productLink}
+                          className="inline-flex cursor-pointer items-center rounded-xl bg-rose-600 px-3.5 py-2.5 text-white hover:bg-rose-500"
+                        >
+                          Mua lại
+                        </Link>
                       )}
                     </div>
                   </motion.div>
@@ -360,7 +221,6 @@ export default function OrdersListPage() {
         )}
       </div>
 
-      {/* Pagination */}
       {data && data.totalPages > 1 && (
         <div className="mt-6 flex items-center justify-center gap-2">
           <button

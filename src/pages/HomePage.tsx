@@ -1,5 +1,5 @@
 // src/pages/HomePage.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,7 +18,7 @@ import {
   useInView,
   useAnimationControls,
   useMotionValue,
-  useTransform as fmTransform,
+  animate as fmAnimate,
 } from "framer-motion";
 
 import ProductCard from "../components/ProductCard";
@@ -87,63 +87,103 @@ const HeroBanner: React.FC<{ images: string[]; intervalMs?: number; className?: 
   intervalMs = 3000,
   className,
 }) => {
+  const hasCarousel = images.length >= 2;
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let ok = true;
+    const preload = async () => {
+      await Promise.all(
+        images.map(
+          (src) =>
+            new Promise<void>((res) => {
+              const img = new Image();
+              img.onload = () => res();
+              img.onerror = () => res();
+              img.src = src;
+            }),
+        ),
+      );
+      if (ok) setLoaded(true);
+    };
+    if (images.length) void preload();
+    return () => {
+      ok = false;
+    };
+  }, [images]);
+
   const [index, setIndex] = useState(1);
-  const [withTransition, setWithTransition] = useState(true);
   const timerRef = useRef<number | null>(null);
   const isHoverRef = useRef(false);
-
+  const isAnimatingRef = useRef(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
-  const [wrapW, setWrapW] = useState(0);
+  const [wrapW, setWrapW] = useState(1);
 
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setWrapW(el.clientWidth));
+    const ro = new ResizeObserver(() => setWrapW(Math.max(1, el.clientWidth || 1)));
     ro.observe(el);
-    setWrapW(el.clientWidth);
+    setWrapW(Math.max(1, el.clientWidth || 1));
     return () => ro.disconnect();
   }, []);
 
-  const slides = images.length >= 1 ? [images.at(-1)!, ...images, images[0]!] : [];
+  const x = useMotionValue(0);
+  const slides = useMemo(
+    () => (images.length ? [images.at(-1)!, ...images, images[0]!] : []),
+    [images],
+  );
 
   useEffect(() => {
-    if (images.length < 2) return;
-    const stop = (): void => {
-      if (timerRef.current != null) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+    x.set(-index * wrapW);
+  }, [wrapW]);
+
+  // autoplay
+  useEffect(() => {
+    if (!hasCarousel || !loaded) return;
+    const stop = () => {
+      if (timerRef.current != null) clearInterval(timerRef.current);
+      timerRef.current = null;
     };
-    const start = (): void => {
+    const start = () => {
       stop();
       timerRef.current = window.setInterval(() => {
-        if (!isHoverRef.current) setIndex((i) => i + 1);
+        if (!isHoverRef.current && !isAnimatingRef.current) {
+          setIndex((i) => i + 1);
+        }
       }, intervalMs);
     };
     start();
     return stop;
-  }, [images.length, intervalMs]);
+  }, [hasCarousel, loaded, intervalMs]);
 
-  const x = useMotionValue(0);
+  const transition: Transition = { duration: DURATION, ease: [0.22, 1, 0.36, 1] };
 
-  const onTransitionSettled = (): void => {
-    if (images.length < 1) return;
-    if (index === slides.length - 1) {
-      setWithTransition(false);
-      setIndex(1);
-      x.set(-wrapW);
-      requestAnimationFrame(() => setWithTransition(true));
-    } else if (index === 0) {
-      setWithTransition(false);
-      setIndex(slides.length - 2);
-      x.set(-wrapW * (slides.length - 2));
-      requestAnimationFrame(() => setWithTransition(true));
-    }
-  };
+  useEffect(() => {
+    if (!slides.length) return;
+    const total = slides.length;
+    const w = Math.max(1, wrapW);
+    isAnimatingRef.current = true;
 
-  const trackTransition: Transition = {
-    duration: withTransition ? DURATION : 0,
-    ...(withTransition ? { type: "tween" as const, ease: EASE } : {}),
+    const controls = fmAnimate(x, -index * w, transition);
+    controls.then(() => {
+      isAnimatingRef.current = false;
+
+      if (index === total - 1) {
+        x.set(-1 * w);
+        setIndex(1);
+      } else if (index === 0) {
+        x.set(-1 * (total - 2) * w);
+        setIndex(total - 2);
+      }
+    });
+    return () => controls.stop();
+  }, [index, slides.length, wrapW, x]);
+
+  const go = (dir: -1 | 1) => {
+    if (!hasCarousel || !loaded) return;
+    if (isAnimatingRef.current) return;
+    setIndex((i) => i + dir);
   };
 
   return (
@@ -152,54 +192,41 @@ const HeroBanner: React.FC<{ images: string[]; intervalMs?: number; className?: 
       className={`relative aspect-[2240/1109] max-h-[820px] w-full overflow-hidden rounded-xl bg-gray-100 ${className ?? ""}`}
       onMouseEnter={() => (isHoverRef.current = true)}
       onMouseLeave={() => (isHoverRef.current = false)}
-      tabIndex={0}
-      aria-roledescription="carousel"
-      aria-label="Banner"
     >
-      <motion.div
-        className="flex h-full will-change-transform"
-        style={{ x, perspective: 1200, transformStyle: "preserve-3d" }}
-        animate={{ x: -index * wrapW }}
-        transition={trackTransition}
-        onAnimationComplete={onTransitionSettled}
-      >
-        {slides.map((src, i) => {
-          const range = [-(i + 1) * wrapW, -i * wrapW, -(i - 1) * wrapW];
-          const rotateY = fmTransform(x, range, [18, 0, -18], { clamp: false });
-          const scale = fmTransform(x, range, [0.94, 1, 0.94]);
-          const opacity = fmTransform(x, range, [0.6, 1, 0.6]);
-          return (
-            <motion.div
-              key={`${src}-${i}`}
-              className="relative h-full min-w-full"
-              style={{ rotateY, scale, opacity }}
-            >
+      {!loaded ? (
+        <div className="h-full w-full animate-pulse bg-gray-100" />
+      ) : (
+        <motion.div className="flex h-full will-change-transform" style={{ x }}>
+          {slides.map((src, i) => (
+            <div key={i} className="relative h-full min-w-full">
               <img
                 src={src}
                 alt={`banner-${i}`}
                 className="absolute inset-0 h-full w-full object-cover"
                 draggable={false}
               />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/15 via-transparent to-white/0" />
-            </motion.div>
-          );
-        })}
-      </motion.div>
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/10 via-transparent to-white/0" />
+            </div>
+          ))}
+        </motion.div>
+      )}
 
-      <button
-        onClick={() => setIndex((i) => i - 1)}
-        className="absolute top-1/2 left-3 -translate-y-1/2 rounded-full bg-white/25 p-2 text-white backdrop-blur transition hover:bg-white/70 hover:text-gray-900"
-        aria-label="Ảnh trước"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </button>
-      <button
-        onClick={() => setIndex((i) => i + 1)}
-        className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full bg-white/25 p-2 text-white backdrop-blur transition hover:bg-white/70 hover:text-gray-900"
-        aria-label="Ảnh sau"
-      >
-        <ChevronRight className="h-5 w-5" />
-      </button>
+      {hasCarousel && loaded && (
+        <>
+          <button
+            onClick={() => go(-1)}
+            className="absolute top-1/2 left-3 -translate-y-1/2 rounded-full bg-white/25 p-2 text-white backdrop-blur transition hover:bg-white/70 hover:text-gray-900"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => go(1)}
+            className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full bg-white/25 p-2 text-white backdrop-blur transition hover:bg-white/70 hover:text-gray-900"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </>
+      )}
     </div>
   );
 };

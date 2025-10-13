@@ -1,4 +1,3 @@
-// src/pages/OrderDetailPage.tsx
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type {
@@ -24,7 +23,6 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 
-/* ===== Labels ===== */
 const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   COD: "Tiền mặt (COD)",
   VNPAY: "VNPay",
@@ -49,7 +47,6 @@ const ORDER_STATUS_VI: Record<OrderStatus, string> = {
   CANCEL_REQUESTED: "Yêu cầu huỷ",
 };
 
-/* ===== Helpers ===== */
 function fmtVND(n: string | number) {
   const x = Number(n);
   return Number.isFinite(x) ? `${x.toLocaleString("vi-VN")} ₫` : String(n);
@@ -98,7 +95,6 @@ function badgeClassByPaymentStatus(s: PaymentStatus) {
   }
 }
 
-/* ===== Status order ===== */
 const STATUS_ORDER: OrderStatus[] = [
   "PENDING",
   "CONFIRMED",
@@ -109,22 +105,7 @@ const STATUS_ORDER: OrderStatus[] = [
   "CANCEL_REQUESTED",
   "CANCELED",
 ];
-const STEP_TO_MIN_STATUS: Record<
-  "createdAt" | "confirmedAt" | "shippedAt" | "completedAt",
-  OrderStatus
-> = {
-  createdAt: "PENDING",
-  confirmedAt: "CONFIRMED",
-  shippedAt: "SHIPPED",
-  completedAt: "COMPLETED",
-};
-function isStepDoneByStatus(stepKey: keyof typeof STEP_TO_MIN_STATUS, status: OrderStatus) {
-  const cur = STATUS_ORDER.indexOf(status);
-  const need = STATUS_ORDER.indexOf(STEP_TO_MIN_STATUS[stepKey]);
-  return cur >= need;
-}
 
-/* ===== Cancel config ===== */
 const CANCELABLE_STATUSES: OrderStatus[] = ["PENDING", "CONFIRMED", "PROCESSING"];
 const CANCEL_REASONS = [
   "Đặt nhầm sản phẩm",
@@ -136,7 +117,6 @@ const CANCEL_REASONS = [
   "Khác",
 ];
 
-/* ===== Page ===== */
 export default function OrderDetailPage() {
   const { code = "" } = useParams<{ code: string }>();
 
@@ -144,7 +124,6 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // cancel modal state
   const [showCancel, setShowCancel] = useState(false);
   const [reasonChecks, setReasonChecks] = useState<string[]>([]);
   const [cancelReason, setCancelReason] = useState("");
@@ -185,16 +164,61 @@ export default function OrderDetailPage() {
   const paymentMethod =
     (data as unknown as { paymentMethod?: PaymentMethod | null })?.paymentMethod ?? null;
 
-  const timeline = [
+  const canceledAt = (data as unknown as { canceledAt?: string | null })?.canceledAt ?? null;
+
+  const isCanceledLike =
+    !!data && (data.status === "CANCELED" || data.status === "CANCEL_REQUESTED");
+
+  type StepKey = "createdAt" | "confirmedAt" | "shippedAt" | "completedAt" | "canceled";
+
+  const baseTimeline = [
     { key: "createdAt" as const, label: "Tạo đơn", at: data?.createdAt, icon: Package },
     { key: "confirmedAt" as const, label: "Xác nhận", at: data?.confirmedAt, icon: CheckCircle2 },
     { key: "shippedAt" as const, label: "Đang giao", at: data?.shippedAt, icon: Truck },
     { key: "completedAt" as const, label: "Hoàn tất", at: data?.completedAt, icon: CreditCard },
   ];
-  const isDone = (stepKey: (typeof timeline)[number]["key"], dt?: string | null) =>
-    !!dt || (data ? isStepDoneByStatus(stepKey, data.status) : false);
 
-  // điều kiện enable hủy
+  type TimelineStep = {
+    key: StepKey;
+    label: string;
+    at: string | null | undefined;
+    icon: React.ElementType;
+  };
+
+  const timeline: TimelineStep[] = isCanceledLike
+    ? ([
+        baseTimeline[0],
+        baseTimeline[1],
+        baseTimeline[2],
+        {
+          key: "canceled" as const,
+          label: data!.status === "CANCELED" ? "Đã huỷ" : "Yêu cầu huỷ",
+          at: canceledAt,
+          icon: CircleX,
+        },
+      ] as TimelineStep[])
+    : (baseTimeline as TimelineStep[]);
+
+  const STEP_TO_MIN_STATUS: Record<Exclude<StepKey, "canceled">, OrderStatus> = {
+    createdAt: "PENDING",
+    confirmedAt: "CONFIRMED",
+    shippedAt: "SHIPPED",
+    completedAt: "COMPLETED",
+  };
+  function isStepDoneByStatus(stepKey: Exclude<StepKey, "canceled">, status: OrderStatus) {
+    const cur = STATUS_ORDER.indexOf(status);
+    const need = STATUS_ORDER.indexOf(STEP_TO_MIN_STATUS[stepKey]);
+    return cur >= need;
+  }
+  const isDone = (stepKey: StepKey, dt?: string | null) => {
+    if (stepKey === "canceled") return false;
+    if (isCanceledLike) return !!dt;
+    return (
+      !!dt ||
+      (data ? isStepDoneByStatus(stepKey as Exclude<StepKey, "canceled">, data.status) : false)
+    );
+  };
+
   const canCancel =
     !!data && CANCELABLE_STATUSES.includes(data.status) && data.paymentStatus !== "PAID";
 
@@ -208,7 +232,6 @@ export default function OrderDetailPage() {
     setCancelErr(null);
   }
 
-  // gọi API hủy (có fallback)
   async function performCancel() {
     if (!data) return;
     setCancelling(true);
@@ -217,32 +240,38 @@ export default function OrderDetailPage() {
       const combinedReason = [...reasonChecks, cancelReason.trim()].filter(Boolean).join(" | ");
       const payload = combinedReason ? { reason: combinedReason } : undefined;
 
-      // 1) cancel
-      let ok = false;
+      let result: "canceled" | "requested" | null = null;
+
       try {
         const r1 = await api.post(`/api/v1/orders/${data.code}/cancel`, payload, {
           validateStatus: (s: number) => s < 500,
         });
-        if (r1.status >= 200 && r1.status < 300) ok = true;
-        else if (r1.status === 405 || r1.status === 404) ok = false;
+        if (r1.status >= 200 && r1.status < 300) result = "canceled";
+        else if (r1.status === 405 || r1.status === 404) result = null;
         else if (r1.status >= 400)
           throw new Error((r1.data?.message as string) || "Huỷ đơn thất bại");
-      } catch {
-        // fallback below
-      }
+      } catch {}
 
-      // 2) fallback request-cancel
-      if (!ok) {
+      if (!result) {
         const r2 = await api.post(`/api/v1/orders/${data.code}/request-cancel`, payload, {
           validateStatus: (s: number) => s < 500,
         });
-        if (!(r2.status >= 200 && r2.status < 300)) {
-          throw new Error((r2.data?.message as string) || "Gửi yêu cầu huỷ thất bại");
-        }
+        if (r2.status >= 200 && r2.status < 300) result = "requested";
+        else throw new Error((r2.data?.message as string) || "Gửi yêu cầu huỷ thất bại");
       }
 
-      await refetch();
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: result === "canceled" ? "CANCELED" : "CANCEL_REQUESTED",
+              ...(result === "canceled" ? { canceledAt: new Date().toISOString() } : {}),
+            }
+          : prev,
+      );
+
       closeCancelModal();
+      refetch();
     } catch (e) {
       const msg =
         (e as { message?: string })?.message ||
@@ -254,7 +283,6 @@ export default function OrderDetailPage() {
     }
   }
 
-  /* ===== render ===== */
   if (loading && !data) {
     return (
       <div className="container mx-auto px-4 py-16">
@@ -294,7 +322,6 @@ export default function OrderDetailPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
@@ -331,7 +358,7 @@ export default function OrderDetailPage() {
               onClick={() => canCancel && setShowCancel(true)}
               className={`ml-2 rounded-xl px-4 py-2 text-sm font-semibold shadow ${
                 canCancel
-                  ? "bg-rose-600 text-white hover:bg-rose-500"
+                  ? "cursor-pointer bg-rose-600 text-white hover:bg-rose-500"
                   : "cursor-not-allowed bg-gray-200 text-gray-500"
               }`}
               title={
@@ -345,11 +372,23 @@ export default function OrderDetailPage() {
           </div>
         </div>
 
-        {/* Timeline */}
         <div className="bg-white/70 px-5 py-4">
           <ol className="relative ml-1 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {timeline.map(({ key, label, at, icon: Icon }, idx) => {
               const done = isDone(key, at);
+              if (key === "canceled") {
+                return (
+                  <li key={idx} className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white shadow-sm">
+                      <X className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">{label}</div>
+                      <div className="text-xs text-gray-500">{fmtDate(at ?? undefined)}</div>
+                    </div>
+                  </li>
+                );
+              }
               return (
                 <li key={idx} className="flex items-center gap-3">
                   <div
@@ -361,7 +400,7 @@ export default function OrderDetailPage() {
                   </div>
                   <div>
                     <div className="text-sm font-medium">{label}</div>
-                    <div className="text-xs text-gray-500">{fmtDate(at)}</div>
+                    <div className="text-xs text-gray-500">{fmtDate(at ?? undefined)}</div>
                   </div>
                 </li>
               );
@@ -371,7 +410,6 @@ export default function OrderDetailPage() {
       </motion.div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left: items */}
         <div className="space-y-3 lg:col-span-2">
           {items.map((it: ResOrderItem) => (
             <motion.div
@@ -419,7 +457,6 @@ export default function OrderDetailPage() {
           )}
         </div>
 
-        {/* Right: summary + shipping */}
         <div className="h-fit space-y-6 lg:sticky lg:top-24">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -475,7 +512,6 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
-      {/* Cancel modal */}
       {showCancel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
@@ -497,7 +533,6 @@ export default function OrderDetailPage() {
               </span>
             </p>
 
-            {/* Lý do gợi ý (CHECKBOXES) */}
             <div className="mt-4">
               <div className="mb-2 text-sm font-medium text-gray-700">Chọn lý do</div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -526,7 +561,6 @@ export default function OrderDetailPage() {
               </div>
             </div>
 
-            {/* Ghi chú thêm */}
             <label className="mt-4 block text-sm font-medium text-gray-700">
               Ghi chú thêm (tuỳ chọn)
             </label>
@@ -542,7 +576,7 @@ export default function OrderDetailPage() {
 
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
-                className="rounded-xl px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 cursor-pointer"
+                className="cursor-pointer rounded-xl px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                 onClick={closeCancelModal}
                 disabled={cancelling}
               >
@@ -551,7 +585,7 @@ export default function OrderDetailPage() {
               <button
                 onClick={performCancel}
                 disabled={cancelling}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-rose-500 disabled:opacity-60 cursor-pointer"
+                className="cursor-pointer rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-rose-500 disabled:opacity-60"
               >
                 {cancelling ? "Đang xử lý..." : "Xác nhận hủy đơn"}
               </button>
@@ -563,7 +597,6 @@ export default function OrderDetailPage() {
   );
 }
 
-/* ===== Small UI ===== */
 function Row({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between py-1.5 text-sm">

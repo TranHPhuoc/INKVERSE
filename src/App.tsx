@@ -32,6 +32,7 @@ import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import OrderListPage from "./pages/OrderListPage";
+import PurchaseHistoryPage from "./pages/PurchaseHistoryPage";
 import FavoritesPage from "./pages/FavoritePage.tsx";
 import RelatedAllPage from "./pages/RelatedAllPage";
 import VNPayReturnPage from "./pages/VNPayReturnPage";
@@ -217,6 +218,7 @@ export default function App() {
                 }
               />
 
+
               {/* Products */}
               <Route
                 path="/books/:bookSlug"
@@ -283,6 +285,13 @@ export default function App() {
                     <OrderSuccessPage />
                   </PageTransition>
                 }
+              />
+              <Route path="/lich-su-mua-hang"
+                     element={
+                       <PageTransition>
+                         <PurchaseHistoryPage />
+                       </PageTransition>
+                     }
               />
 
               <Route

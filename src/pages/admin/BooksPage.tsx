@@ -38,15 +38,12 @@ const isStatus = (v: string): v is BookListItem["status"] =>
   (STATUS_OPTIONS as readonly string[]).includes(v);
 
 /* =================== Layout constants =================== */
-// grid: [ID][Sách(expand)][Giá][Đã bán][Trạng thái][Hành động]
 const GRID_COLS =
   "grid grid-cols-[56px_minmax(0,1fr)_210px_90px_140px_140px] items-center gap-3";
-// width của khối thumbnail ở cột "Sách" (giống phần row để header thẳng hàng)
 const THUMB_W = 88;
 
 /* =================== Page =================== */
 export default function BooksPage() {
-  // filters
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"" | BookListItem["status"]>("");
   const [page, setPage] = useState(0);
