@@ -333,13 +333,13 @@ export default function AuthorDetailPage() {
                     </Link>
                     <button
                       onClick={handleAddToCart}
-                      className="rounded-xl border border-white/20 px-5 py-2.5 font-medium text-white/90 hover:bg-white/10"
+                      className="rounded-xl border border-white/20 px-5 py-2.5 font-medium text-white/90 hover:bg-white/10 cursor-pointer"
                     >
                       Thêm vào giỏ
                     </button>
                     <button
                       onClick={handleBuyNow}
-                      className="rounded-xl bg-rose-500/90 px-5 py-2.5 font-semibold text-white shadow hover:brightness-110"
+                      className="rounded-xl bg-rose-500/90 px-5 py-2.5 font-semibold text-white shadow hover:brightness-110 cursor-pointer"
                     >
                       Mua ngay
                     </button>

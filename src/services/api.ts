@@ -65,7 +65,7 @@ function applyTokenToOriginal(original: InternalAxiosRequestConfig, token: strin
   const h = AxiosHeaders.from(original.headers);
   h.set("Authorization", `Bearer ${token}`);
   h.set("x-retried", "1");
-  original.headers = h; // gán lại đúng kiểu AxiosHeaders cho Axios v1
+  original.headers = h;
 }
 
 api.interceptors.response.use(
@@ -75,22 +75,18 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const path = normalizeUrl(original?.url);
 
-    // Không có config hoặc không phải 401 -> ném tiếp
     if (!original || status !== 401) throw error;
 
-    // Public APIs/refresh API: không retry
     if (isPublic(path) || path.endsWith("/api/v1/auth/refresh")) {
       throw error;
     }
 
     const alreadyRetried = AxiosHeaders.from(original.headers).get("x-retried") === "1";
 
-    // Chưa retry lần nào
     if (!alreadyRetried) {
       if (!isRefreshing) {
         isRefreshing = true;
         try {
-          // Gọi refresh bằng axios gốc để tránh bị interceptor của api “ăn”
           const r = await axios.post<RefreshResp>(
             `${api.defaults.baseURL}/api/v1/auth/refresh`,
             {},
@@ -108,16 +104,13 @@ api.interceptors.response.use(
             localStorage.removeItem(AUTH_TOKEN_KEY);
           }
 
-          // đánh thức các request đang chờ
           pendingQueue.forEach((ok) => ok(next ?? null));
           pendingQueue = [];
 
-          // retry request ban đầu bằng cách mutate headers của original
           if (next) {
             applyTokenToOriginal(original, next);
             return api.request(original);
           }
-          // không có token mới
           throw error;
         } catch (e) {
           pendingQueue.forEach((ok) => ok(null));
@@ -129,7 +122,6 @@ api.interceptors.response.use(
         }
       }
 
-      // Đang refresh: chờ token rồi retry
       const token = await new Promise<string | null>((resolve) => pendingQueue.push(resolve));
       if (!token) throw error;
 

@@ -34,6 +34,7 @@ import banner3 from "../assets/backgroundbooks.png";
 import banner4 from "../assets/INKVERSE.SITE1.jpg";
 import banner5 from "../assets/INKVERSE.SITE2.png";
 import FeaturedAuthorsTabs from "../components/FeaturedAuthor";
+import TopSellingByCategory from "../components/TopSellingByCategory.tsx";
 
 /* ===== constants ===== */
 const BANNERS = [banner1, banner2, banner3];
@@ -424,6 +425,23 @@ export default function HomePage() {
               </div>
             </div>
           </Reveal>
+
+          {/* Top Selling */}
+          <Reveal>
+            <div className="py-6">
+              <div className={SHELL}>
+                <GradientSectionCard
+                  label="BẢNG XẾP HẠNG BÁN CHẠY THEO TUẦN"
+                  startHex="#059669"
+                  endHex="#10B981"
+                  Icon={TrendingUp}
+                >
+                  <TopSellingByCategory limit={5} />
+                </GradientSectionCard>
+              </div>
+            </div>
+          </Reveal>
+
 
           {/* Newest */}
           <Reveal>
