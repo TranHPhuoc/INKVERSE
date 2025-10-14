@@ -280,7 +280,7 @@ const Header: React.FC = () => {
                             className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
                             onClick={() => setOpen(false)}
                           >
-                            <History className="h-4 w-4 text-gray-600" /> Lịch sử mua hàng
+                            <History className="h-4 w-4 " /> Lịch sử mua hàng
                           </Link>
                         </>
                       )}

@@ -1,7 +1,8 @@
+// src/components/FeaturedAuthorsTabs.tsx
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
-/* Images */
+/* ===== Images ===== */
 import NguyenNhatAnh from "../assets/authors/NguyenNhatAnh.jpg";
 import ToHoai from "../assets/authors/ToHoai.jpg";
 import NamCao from "../assets/authors/NamCao.jpg";
@@ -18,7 +19,7 @@ import WarrenBuffett from "../assets/authors/warrenbuffett.webp";
 import ArthurConanDoyle from "../assets/authors/ArthurConanDoyle.jpg";
 import NapoleonHill from "../assets/authors/NapoleonHill.jpg";
 
-/* ================= Types ================= */
+/* ===== Types ===== */
 type TabKey = "vn" | "intl";
 
 type FeaturedAuthorItem = {
@@ -28,7 +29,7 @@ type FeaturedAuthorItem = {
   slug?: string;
 };
 
-/* ================= Slug map  ================= */
+/* ===== Slug Map ===== */
 const SLUG_MAP: Record<string, string> = {
   "Nguyễn Nhật Ánh": "nguyen-nhat-anh",
   "Tô Hoài": "to-hoai",
@@ -46,9 +47,9 @@ const SLUG_MAP: Record<string, string> = {
   "Napoleon Hill": "napoleon-hill",
 };
 
-/* ================= Data ================= */
+/* ===== Data ===== */
 const DOMESTIC: FeaturedAuthorItem[] = [
-  { id: 11, name: "Nguyễn Nhật Ánh", avatar: NguyenNhatAnh }, //11
+  { id: 11, name: "Nguyễn Nhật Ánh", avatar: NguyenNhatAnh },
   { id: 52, name: "Tô Hoài", avatar: ToHoai },
   { id: 18, name: "Nam Cao", avatar: NamCao },
   { id: 19, name: "Vũ Trọng Phụng", avatar: VuTrongPhung },
@@ -74,7 +75,7 @@ const TABS: { key: TabKey; label: string; data: FeaturedAuthorItem[] }[] = [
 
 const easeOutBezier = [0.22, 1, 0.36, 1] as const;
 
-/* ================= Helpers ================= */
+/* ===== Helpers ===== */
 function toSlug(name: string, fallback?: string): string {
   if (fallback && fallback.trim()) return fallback.trim();
   const mapped = SLUG_MAP[name];
@@ -89,16 +90,16 @@ function initialsOf(name: string): string {
   return ini || (name[0]?.toUpperCase() ?? "A");
 }
 
-/* ================= Grid ================= */
+/* ===== Author Grid ===== */
 function AuthorGrid({ authors }: { authors: FeaturedAuthorItem[] }) {
   return (
     <motion.ul
       key={authors[0]?.name ?? "grid"}
-      className="grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-4"
-      initial={{ opacity: 0, y: 14 }}
+      className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-5"
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.38, ease: easeOutBezier }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.4, ease: easeOutBezier }}
     >
       {authors.map((a, i) => {
         const slug = toSlug(a.name, a.slug);
@@ -113,7 +114,7 @@ function AuthorGrid({ authors }: { authors: FeaturedAuthorItem[] }) {
             className="flex flex-col items-center"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.045, duration: 0.28, ease: easeOutBezier }}
+            transition={{ delay: i * 0.04, duration: 0.3, ease: easeOutBezier }}
           >
             <a
               href={href}
@@ -123,7 +124,7 @@ function AuthorGrid({ authors }: { authors: FeaturedAuthorItem[] }) {
               aria-label={`Xem thông tin của ${a.name}`}
             >
               <motion.div
-                className="relative h-24 w-24 overflow-hidden rounded-full border bg-white shadow"
+                className="relative h-24 w-24 overflow-hidden rounded-full border border-neutral-700 bg-neutral-800 shadow-md ring-0 transition-all duration-300 group-hover:ring-2 group-hover:ring-red-500/40"
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 420, damping: 28 }}
@@ -137,14 +138,15 @@ function AuthorGrid({ authors }: { authors: FeaturedAuthorItem[] }) {
                     draggable={false}
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-gray-700">
+                  <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-gray-400">
                     {initialsOf(a.name)}
                   </div>
                 )}
-                <div className="pointer-events-none absolute inset-0 rounded-full ring-0 transition-[box-shadow,ring-width] duration-300 group-hover:ring-4 group-hover:ring-rose-100/70" />
               </motion.div>
 
-              <div className="mt-2 line-clamp-1 text-center text-sm text-gray-700">{a.name}</div>
+              <div className="mt-2 line-clamp-1 text-center text-sm text-gray-300 group-hover:text-white transition-colors">
+                {a.name}
+              </div>
             </a>
           </motion.li>
         );
@@ -153,7 +155,7 @@ function AuthorGrid({ authors }: { authors: FeaturedAuthorItem[] }) {
   );
 }
 
-/* ================= Main ================= */
+/* ===== Main Component ===== */
 export default function FeaturedAuthorsTabs({ className = "" }: { className?: string }) {
   const [active, setActive] = useState<TabKey>("vn");
   const current = useMemo<FeaturedAuthorItem[]>(
@@ -162,35 +164,47 @@ export default function FeaturedAuthorsTabs({ className = "" }: { className?: st
   );
 
   return (
-    <div className={className}>
+    <div
+      className={`rounded-2xl border border-neutral-800 bg-[#0a0a0a] p-6 shadow-[0_0_20px_rgba(255,255,255,0.05)] ${className}`}
+    >
+      <h2 className="mb-6 text-center text-2xl font-semibold text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.15)]">
+        TÁC GIẢ NỔI BẬT
+      </h2>
+
       {/* Tabs */}
-      <div className="relative flex gap-6 border-b px-4 pt-3">
-        {TABS.map((t) => {
-          const isActive = active === t.key;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setActive(t.key)}
-              className={`relative cursor-pointer pb-2 text-sm font-semibold transition-colors ${
-                isActive ? "text-rose-600" : "text-gray-600 hover:text-gray-900"
-              }`}
-              aria-pressed={isActive}
-            >
-              {t.label}
-              {isActive && (
-                <motion.span
-                  layoutId="authors-underline"
-                  className="absolute inset-x-0 -bottom-[2px] h-[2px] bg-rose-600"
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                />
-              )}
-            </button>
-          );
-        })}
+      <div className="relative mb-6">
+        {/* line trắng mờ ngăn cách */}
+        <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
+        <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
+          {TABS.map((t) => {
+            const isActive = active === t.key;
+            return (
+              <motion.button
+                key={t.key}
+                onClick={() => setActive(t.key)}
+                whileHover={{ scale: 1.05 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                className={`relative pb-2 text-sm md:text-base font-medium transition-colors duration-200 ${
+                  isActive ? "text-red-500" : "text-gray-400 hover:text-white"
+                }`}
+                aria-pressed={isActive}
+              >
+                {t.label}
+                {isActive && (
+                  <motion.span
+                    layoutId="authors-underline"
+                    className="absolute left-0 right-0 -bottom-[1px] h-[2px] rounded-full bg-gradient-to-r from-red-500 to-red-300"
+                    transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                  />
+                )}
+              </motion.button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Grid */}
-      <div className="p-4">
+      <div className="p-2">
         <AnimatePresence mode="wait">
           <AuthorGrid key={active} authors={current} />
         </AnimatePresence>

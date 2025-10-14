@@ -430,14 +430,7 @@ export default function HomePage() {
           <Reveal>
             <div className="py-6">
               <div className={SHELL}>
-                <GradientSectionCard
-                  label="BẢNG XẾP HẠNG BÁN CHẠY THEO TUẦN"
-                  startHex="#059669"
-                  endHex="#10B981"
-                  Icon={TrendingUp}
-                >
                   <TopSellingByCategory limit={5} />
-                </GradientSectionCard>
               </div>
             </div>
           </Reveal>
@@ -479,14 +472,7 @@ export default function HomePage() {
           <Reveal>
             <div className="py-6">
               <div className={SHELL}>
-                <GradientSectionCard
-                  label="TÁC GIẢ NỔI BẬT"
-                  startHex="#7E22CE"
-                  endHex="#3B82F6"
-                  Icon={PenTool}
-                >
                   <FeaturedAuthorsTabs />
-                </GradientSectionCard>
               </div>
             </div>
           </Reveal>

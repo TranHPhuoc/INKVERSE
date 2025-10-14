@@ -8,8 +8,6 @@ import {
   Boxes,
   Truck,
   CheckCircle2,
-  BadgeCheck,
-  XCircle,
 } from "lucide-react";
 
 import { listMyOrders } from "../services/order";
@@ -24,9 +22,6 @@ type OrderStatus =
   | "PROCESSING"
   | "SHIPPED"
   | "DELIVERED"
-  | "COMPLETED"
-  | "CANCELED"
-  | "CANCEL_REQUESTED";
 
 /* ---------- Tabs ---------- */
 type TabId =
@@ -35,8 +30,7 @@ type TabId =
   | "processing"
   | "shipping"
   | "delivered"
-  | "completed"
-  | "canceled";
+
 
 type Tab = {
   id: TabId;
@@ -82,20 +76,6 @@ const TABS: Tab[] = [
     icon: <CheckCircle2 className="h-4 w-4" />,
     color: "text-green-700 bg-green-50",
   },
-  {
-    id: "completed",
-    label: "Hoàn tất",
-    statuses: ["COMPLETED"],
-    icon: <BadgeCheck className="h-4 w-4" />,
-    color: "text-emerald-700 bg-emerald-50",
-  },
-  {
-    id: "canceled",
-    label: "Đã huỷ",
-    statuses: ["CANCELED", "CANCEL_REQUESTED"],
-    icon: <XCircle className="h-4 w-4" />,
-    color: "text-rose-700 bg-rose-50",
-  },
 ];
 
 /* ---------- helpers ---------- */
@@ -120,16 +100,6 @@ const viStatus = (s?: string) => {
     default:
       return "Không rõ";
   }
-};
-
-const fmtTime = (t: unknown): string => {
-  let d: Date;
-  if (t instanceof Date) d = t;
-  else if (typeof t === "string" || typeof t === "number") d = new Date(t);
-  else return String(t ?? "");
-  return isNaN(d.getTime())
-    ? String(t ?? "")
-    : d.toLocaleTimeString("vi-VN", { hour12: false }) + " " + d.toLocaleDateString("vi-VN");
 };
 
 type OrderItemLite = {
@@ -172,14 +142,6 @@ const getTitle = (o: ResOrderDetail): string => {
   return "Sản phẩm";
 };
 
-/** Luôn ưu tiên điều hướng bằng bookId để tránh lỗi BE /slug/{number} */
-const getFirstProductLinkById = (o: ResOrderDetail): string | null => {
-  const first = (o.items?.[0] ?? null) as unknown;
-  if (!first || typeof first !== "object") return null;
-  const it = first as OrderItemLite;
-  const id = Number(it.book?.id ?? it.bookId ?? 0) || null;
-  return id ? `/books/${id}?by=id` : null; // giữ ?by=id
-};
 
 /* ---------- page ---------- */
 export default function OrdersListPage() {
@@ -273,8 +235,6 @@ export default function OrdersListPage() {
                 const thumb = getThumb(o);
                 const title = getTitle(o);
                 const extra = Math.max(0, (o.items?.length ?? 1) - 1);
-                const isCompleted = activeTabId === "completed";
-                const productLink = getFirstProductLinkById(o);
 
                 return (
                   <motion.div
@@ -306,13 +266,6 @@ export default function OrdersListPage() {
                         </div>
                       </div>
 
-                      <div>
-                        <div className="text-sm text-gray-500">
-                          {isCompleted ? "Ngày hoàn thành" : "Ngày tạo"}
-                        </div>
-                        <div className="font-medium">{fmtTime(o.createdAt)}</div>
-                      </div>
-
                       <div className="text-right">
                         <div className="text-sm text-gray-500">Trạng thái</div>
                         <span className="mt-1 inline-block rounded-full bg-gray-50 px-2.5 py-1 text-xs font-semibold ring-1 ring-gray-200">
@@ -334,23 +287,6 @@ export default function OrdersListPage() {
                       >
                         Chi tiết
                       </Link>
-
-                      {isCompleted && productLink && (
-                        <div className="flex gap-2">
-                          <Link
-                            to={`${productLink}&action=review`} // /books/{id}?by=id&action=review
-                            className="inline-flex cursor-pointer items-center rounded-xl bg-emerald-600 px-3.5 py-2.5 text-white hover:bg-emerald-500"
-                          >
-                            Đánh giá
-                          </Link>
-                          <Link
-                            to={productLink} // /books/{id}?by=id
-                            className="inline-flex cursor-pointer items-center rounded-xl bg-rose-600 px-3.5 py-2.5 text-white hover:bg-rose-500"
-                          >
-                            Mua lại
-                          </Link>
-                        </div>
-                      )}
                     </div>
                   </motion.div>
                 );

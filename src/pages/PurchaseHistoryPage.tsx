@@ -2,12 +2,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { History } from "lucide-react"; // icon mới cho trang lịch sử
+import { History } from "lucide-react";
 import { listMyOrders } from "../services/order";
 import type { ResOrderDetail, SpringPage } from "../types/order";
 import { vnd } from "../utils/currency";
 
+/* ---------- helpers ---------- */
 type OrderStatus = "COMPLETED" | "CANCELED" | "CANCEL_REQUESTED";
+
+/** Một số BE có trả về các mốc thời gian dưới đây */
+type OrderMetaDates = {
+  completedAt?: string | null;
+  canceledAt?: string | null;
+  updatedAt?: string | null;
+};
+type OrderWithMeta = ResOrderDetail & Partial<OrderMetaDates>;
+
+const asWithMeta = (o: ResOrderDetail): OrderWithMeta => o as unknown as OrderWithMeta;
 
 const viStatus = (s?: string) => {
   switch ((s || "").toUpperCase()) {
@@ -22,16 +33,11 @@ const viStatus = (s?: string) => {
   }
 };
 
-const fmtTime = (t: unknown): string => {
-  let d: Date;
-  if (t instanceof Date) d = t;
-  else if (typeof t === "string" || typeof t === "number") d = new Date(t);
-  else return String(t ?? "");
-  return isNaN(d.getTime())
-    ? String(t ?? "")
-    : d.toLocaleTimeString("vi-VN", { hour12: false }) +
-    " " +
-    d.toLocaleDateString("vi-VN");
+const fmtTime = (t?: string | null): string => {
+  if (!t) return "—";
+  const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return String(t);
+  return `${d.toLocaleTimeString("vi-VN", { hour12: false })} ${d.toLocaleDateString("vi-VN")}`;
 };
 
 type OrderItemLite = {
@@ -50,28 +56,61 @@ type OrderItemLite = {
 const getThumb = (o: ResOrderDetail): string => {
   const first = (o.items?.[0] ?? null) as OrderItemLite | null;
   if (!first) return "/placeholder.svg";
-  const t =
+  return (
     first.thumbnail ||
     first.imageUrl ||
     first.book?.thumbnail ||
     first.book?.imageUrl ||
-    null;
-  return t || "/placeholder.svg";
+    "/placeholder.svg"
+  );
 };
 
 const getTitle = (o: ResOrderDetail): string => {
   const first = (o.items?.[0] ?? null) as OrderItemLite | null;
-  if (!first) return "Sản phẩm";
-  return first.title || first.book?.title || "Sản phẩm";
+  return first?.title || first?.book?.title || "Sản phẩm";
 };
 
 const getFirstProductLinkById = (o: ResOrderDetail): string | null => {
   const first = (o.items?.[0] ?? null) as OrderItemLite | null;
-  if (!first) return null;
-  const id = Number(first.book?.id ?? first.bookId ?? 0) || null;
+  const id = Number(first?.book?.id ?? first?.bookId ?? 0);
   return id ? `/books/${id}?by=id` : null;
 };
 
+/** Lấy label + value ngày theo trạng thái */
+const getDisplayDate = (
+  o: ResOrderDetail,
+  status: OrderStatus,
+): { label: string; value: string } => {
+  const meta = asWithMeta(o);
+  if (status === "COMPLETED") {
+    return {
+      label: "Ngày hoàn thành",
+      value: fmtTime(meta.completedAt ?? o.createdAt),
+    };
+  }
+  if (status === "CANCELED" || status === "CANCEL_REQUESTED") {
+    return {
+      label: "Ngày huỷ",
+      value: fmtTime(meta.canceledAt ?? meta.updatedAt ?? o.createdAt),
+    };
+  }
+  return { label: "Ngày tạo", value: fmtTime(o.createdAt) };
+};
+
+/** Thời điểm dùng để sort (mới nhất lên đầu) */
+const getComparableTime = (o: ResOrderDetail): number => {
+  const meta = asWithMeta(o);
+  const raw =
+    meta.completedAt ??
+    meta.canceledAt ??
+    meta.updatedAt ??
+    o.createdAt ??
+    null;
+  const t = raw ? new Date(raw).getTime() : 0;
+  return Number.isFinite(t) ? t : 0;
+};
+
+/* ---------- page ---------- */
 export default function PurchaseHistoryPage() {
   const [params, setParams] = useSearchParams();
   const [page, setPage] = useState<number>(Number(params.get("page") ?? 0));
@@ -94,10 +133,12 @@ export default function PurchaseHistoryPage() {
 
   const items = useMemo(() => {
     if (!data) return [];
-    return (data.content ?? []).filter((o) => {
-      const status = ((o.status || "") as string).toUpperCase() as OrderStatus;
-      return status === "COMPLETED" || status === "CANCELED" || status === "CANCEL_REQUESTED";
-    });
+    return (data.content ?? [])
+      .filter((o) => {
+        const s = ((o.status || "") as string).toUpperCase() as OrderStatus;
+        return s === "COMPLETED" || s === "CANCELED" || s === "CANCEL_REQUESTED";
+      })
+      .sort((a, b) => getComparableTime(b) - getComparableTime(a));
   }, [data]);
 
   return (
@@ -122,6 +163,7 @@ export default function PurchaseHistoryPage() {
                 const productLink = getFirstProductLinkById(o);
                 const status = (o.status || "").toUpperCase() as OrderStatus;
                 const isCompleted = status === "COMPLETED";
+                const { label: dateLabel, value: dateValue } = getDisplayDate(o, status);
 
                 return (
                   <motion.div
@@ -130,37 +172,39 @@ export default function PurchaseHistoryPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ type: "spring", stiffness: 350, damping: 26 }}
-                    className="flex flex-col gap-3 rounded-xl bg-white p-4 md:flex-row md:items-start md:gap-4"
+                    className="flex flex-col gap-4 rounded-xl bg-white p-4"
                   >
-                    <img
-                      src={thumb}
-                      alt={title}
-                      className="h-24 w-20 flex-shrink-0 rounded-lg object-cover ring-1 ring-gray-200 md:h-28 md:w-24"
-                    />
-
-                    <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 md:grid-cols-4 md:gap-4">
-                      <div className="col-span-2">
-                        <div className="text-sm text-gray-500">Mã đơn</div>
-                        <Link
-                          to={`/orders/${o.code}`}
-                          className="font-semibold break-all hover:underline"
-                        >
-                          {o.code}
-                        </Link>
-                        <div className="mt-1 line-clamp-1 text-sm text-gray-600">
-                          {title}
-                          {extra > 0 ? ` + ${extra} sp khác` : ""}
+                    <div className="grid min-w-0 items-start gap-4 md:grid-cols-[minmax(0,2fr)_220px_220px_220px]">
+                      {/* Col 1: Info */}
+                      <div className="flex min-w-0 items-start gap-4">
+                        <img
+                          src={thumb}
+                          alt={title}
+                          className="h-24 w-20 flex-shrink-0 rounded-lg object-cover ring-1 ring-gray-200 md:h-28 md:w-24"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-sm text-gray-500">Mã đơn</div>
+                          <Link
+                            to={`/orders/${o.code}`}
+                            className="break-all font-semibold hover:underline"
+                          >
+                            {o.code}
+                          </Link>
+                          <div className="mt-1 line-clamp-1 text-sm text-gray-600">
+                            {title}
+                            {extra > 0 ? ` + ${extra} sp khác` : ""}
+                          </div>
                         </div>
                       </div>
 
-                      <div>
-                        <div className="text-sm text-gray-500">
-                          {isCompleted ? "Ngày hoàn thành" : "Ngày tạo"}
-                        </div>
-                        <div className="font-medium">{fmtTime(o.createdAt)}</div>
+                      {/* Col 2: Date */}
+                      <div className="md:w-[220px]">
+                        <div className="text-sm text-gray-500">{dateLabel}</div>
+                        <div className="font-medium">{dateValue}</div>
                       </div>
 
-                      <div className="text-right">
+                      {/* Col 3: Status + Total */}
+                      <div className="md:w-[220px] text-right">
                         <div className="text-sm text-gray-500">Trạng thái</div>
                         <span
                           className={`mt-1 inline-block rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
@@ -171,47 +215,47 @@ export default function PurchaseHistoryPage() {
                         >
                           {viStatus(o.status)}
                         </span>
-
                         <div className="mt-3 text-sm text-gray-500">Tổng tiền</div>
                         <div className="text-lg font-semibold text-rose-600">
                           {vnd(o.grandTotal)}
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex gap-2 md:flex-col md:items-end">
-                      <Link
-                        to={`/orders/${o.code}`}
-                        className="inline-flex items-center rounded-xl bg-white px-3.5 py-2.5 ring-1 ring-gray-200 hover:bg-gray-50"
-                      >
-                        Chi tiết
-                      </Link>
+                      {/* Col 4: Actions */}
+                      <div className="md:w-[220px] flex flex-wrap gap-2 md:justify-end">
+                        <Link
+                          to={`/orders/${o.code}`}
+                          className="inline-flex items-center rounded-xl bg-white px-3.5 py-2.5 ring-1 ring-gray-200 hover:bg-gray-50"
+                        >
+                          Chi tiết
+                        </Link>
 
-                      {productLink && isCompleted && (
-                        <div className="flex gap-2">
-                          <Link
-                            to={`${productLink}&action=review`}
-                            className="inline-flex cursor-pointer items-center rounded-xl bg-emerald-600 px-3.5 py-2.5 text-white hover:bg-emerald-500"
-                          >
-                            Đánh giá
-                          </Link>
+                        {productLink && isCompleted && (
+                          <>
+                            <Link
+                              to={`${productLink}&action=review`}
+                              className="inline-flex cursor-pointer items-center rounded-xl bg-emerald-600 px-3.5 py-2.5 text-white hover:bg-emerald-500"
+                            >
+                              Đánh giá
+                            </Link>
+                            <Link
+                              to={productLink}
+                              className="inline-flex cursor-pointer items-center rounded-xl bg-rose-600 px-3.5 py-2.5 text-white hover:bg-rose-500"
+                            >
+                              Mua lại
+                            </Link>
+                          </>
+                        )}
+
+                        {productLink && !isCompleted && (
                           <Link
                             to={productLink}
                             className="inline-flex cursor-pointer items-center rounded-xl bg-rose-600 px-3.5 py-2.5 text-white hover:bg-rose-500"
                           >
                             Mua lại
                           </Link>
-                        </div>
-                      )}
-
-                      {!isCompleted && productLink && (
-                        <Link
-                          to={productLink}
-                          className="inline-flex cursor-pointer items-center rounded-xl bg-rose-600 px-3.5 py-2.5 text-white hover:bg-rose-500"
-                        >
-                          Mua lại
-                        </Link>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 );
@@ -221,6 +265,7 @@ export default function PurchaseHistoryPage() {
         )}
       </div>
 
+      {/* Pagination */}
       {data && data.totalPages > 1 && (
         <div className="mt-6 flex items-center justify-center gap-2">
           <button

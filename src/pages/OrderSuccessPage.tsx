@@ -77,7 +77,7 @@ export default function OrderSuccessPage() {
           </Link>
           <button
             onClick={() => navigate("/don-hang")}
-            className="mt-4 w-full bg-gray-100 hover:bg-gray-200 rounded-lg py-3"
+            className="mt-4 w-full bg-gray-100 hover:bg-gray-200 rounded-lg py-3 cursor-pointer"
           >
             Xem đơn hàng của tôi
           </button>

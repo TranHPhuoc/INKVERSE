@@ -38,6 +38,8 @@ import RelatedAllPage from "./pages/RelatedAllPage";
 import VNPayReturnPage from "./pages/VNPayReturnPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
 import AuthorDetailPage from "./pages/AuthorDetailPage";
+import TopSellingAllPage from "./pages/TopSellingAllPage";
+
 
 // Pages – User
 import AccountLayout from "./pages/user/AccountLayout";
@@ -245,6 +247,14 @@ export default function App() {
                 }
               />
               <Route
+                path="/top-selling"
+                element={
+                  <PageTransition>
+                    <TopSellingAllPage />
+                  </PageTransition>
+                }
+              />
+              <Route
                 path="/search"
                 element={
                   <PageTransition>
@@ -252,6 +262,7 @@ export default function App() {
                   </PageTransition>
                 }
               />
+
 
               {/* Cart / Orders */}
               <Route
