@@ -8,10 +8,13 @@ import { applyFavoriteToggle } from "../store/favorite-store";
 type Props = {
   bookId: number;
   initialLiked?: boolean;
-  initialCount?: number; // nếu undefined -> ẩn số
-  size?: number; // px
+  initialCount?: number;
+  size?: number;
   className?: string;
   onChange?: (liked: boolean, count: number) => void;
+  onToggle?: (liked: boolean, count: number) => void;
+  hideZero?: boolean;
+  disabled?: boolean;
 };
 
 export default function FavoriteHeart({
@@ -21,6 +24,9 @@ export default function FavoriteHeart({
   size = 18,
   className = "",
   onChange,
+  onToggle, // ✅ nhận prop
+  hideZero = false,
+  disabled = false,
 }: Props) {
   const { isAuthenticated } = useAuth();
 
@@ -29,9 +35,8 @@ export default function FavoriteHeart({
   const [loading, setLoading] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
 
-  async function onToggle() {
+  async function handleToggle() {
     if (!isAuthenticated) {
-      // lưu trang hiện tại để quay lại sau đăng nhập
       try {
         localStorage.setItem(
           "redirectAfterLogin",
@@ -43,38 +48,44 @@ export default function FavoriteHeart({
       setShowPrompt(true);
       return;
     }
-    if (loading) return;
+    if (loading || disabled) return;
 
     setLoading(true);
 
-    // optimistic update
-    const nextLiked = !liked;
-    const nextCount = Math.max(0, count + (nextLiked ? 1 : -1));
+    const prevLiked = liked;
+    const prevCount = count;
+
+    const nextLiked = !prevLiked;
+    const nextCount = Math.max(0, prevCount + (nextLiked ? 1 : -1));
     setLiked(nextLiked);
     setCount(nextCount);
+    onToggle?.(nextLiked, nextCount);
     onChange?.(nextLiked, nextCount);
 
     try {
       const serverLiked = await toggleFavorite(bookId);
 
       if (serverLiked !== nextLiked) {
-        const fixed = Math.max(0, nextCount + (serverLiked ? 1 : -1) * 2);
+        const corrected = Math.max(0, prevCount + (serverLiked ? 1 : -1));
         setLiked(serverLiked);
-        setCount(fixed);
-        onChange?.(serverLiked, fixed);
+        setCount(corrected);
+        onToggle?.(serverLiked, corrected);
+        onChange?.(serverLiked, corrected);
       }
 
       applyFavoriteToggle(bookId, serverLiked);
       window.dispatchEvent(new CustomEvent("favorite:ids-updated"));
     } catch {
-      // rollback
-      setLiked(!nextLiked);
-      setCount(Math.max(0, count));
-      onChange?.(!nextLiked, Math.max(0, count));
+      setLiked(prevLiked);
+      setCount(prevCount);
+      onToggle?.(prevLiked, prevCount);
+      onChange?.(prevLiked, prevCount);
     } finally {
       setLoading(false);
     }
   }
+
+  const showCount = !(hideZero && count === 0);
 
   return (
     <>
@@ -83,13 +94,13 @@ export default function FavoriteHeart({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          onToggle();
+          handleToggle();
         }}
         className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-1.5 py-0.5 select-none ${className}`}
         aria-pressed={liked}
         aria-label={liked ? "Bỏ yêu thích" : "Thêm vào yêu thích"}
         title={liked ? "Bỏ yêu thích" : "Yêu thích"}
-        disabled={loading}
+        disabled={loading || disabled}
       >
         <motion.svg
           key={liked ? "liked" : "unliked"}
@@ -110,10 +121,11 @@ export default function FavoriteHeart({
           />
         </motion.svg>
 
-        {/* muốn ẩn khi =0 thì đổi thành: {count > 0 && <span>… */}
-        <span className="translate-y-[1px] text-[11px] leading-none font-semibold tabular-nums">
-          {count}
-        </span>
+        {showCount && (
+          <span className="translate-y-[1px] text-[11px] leading-none font-semibold tabular-nums">
+            {count}
+          </span>
+        )}
       </button>
 
       {/* Modal yêu cầu đăng nhập */}

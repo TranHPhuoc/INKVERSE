@@ -1,3 +1,4 @@
+// src/components/Header.tsx
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,6 +17,7 @@ import HeaderCategoryMenu from "./HeaderCategoryMenu";
 import PillNav from "../components/Animation/PillNav";
 import logo from "../assets/logoweb.png";
 import { getCart } from "../services/cart";
+import SearchBox from "./SearchBox";
 
 /* ===== Layout container ===== */
 const SHELL = "mx-auto w-full max-w-[1440px] px-4 sm:px-6";
@@ -46,7 +48,6 @@ const Header: React.FC = () => {
   const { isAuthenticated, logout, user } = useAuth();
   const [open, setOpen] = useState(false);
   const [cartCount, setCartCount] = useState<number>(() => getBadgeCache());
-  const [q, setQ] = useState("");
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
@@ -93,12 +94,6 @@ const Header: React.FC = () => {
     window.addEventListener("cart:changed", handler as EventListener);
     return () => window.removeEventListener("cart:changed", handler as EventListener);
   }, [refreshBadge]);
-
-  /* ---- Search ---- */
-  const doSearch = useCallback(() => {
-    const keyword = q.trim();
-    navigate(keyword ? `/search?q=${encodeURIComponent(keyword)}` : "/search");
-  }, [q, navigate]);
 
   /* ---- Pills ---- */
   const pillItems = [
@@ -174,23 +169,12 @@ const Header: React.FC = () => {
 
           {/* Search + Category (embedded) */}
           <div className="flex flex-1 justify-center">
-            <div className="group relative flex w-full max-w-[820px] items-center overflow-visible rounded-full bg-white/70 ring-1 ring-slate-200 backdrop-blur-xl shadow-[0_6px_20px_-8px_rgba(0,0,0,.25)] transition-all hover:ring-indigo-400/60">
+            {/* Không dùng overflow-hidden để không chặn portal của SearchBox */}
+            <div className="flex w-full max-w-[820px] items-center gap-2 rounded-full bg-white/70 ring-1 ring-slate-200 backdrop-blur-xl shadow-[0_6px_20px_-8px_rgba(0,0,0,.25)] px-2 py-1">
               <HeaderCategoryMenu variant="embedded" className="ml-1 cursor-pointer" />
-              <span className="mx-2 h-6 w-px bg-slate-200 group-hover:bg-slate-300/90" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && doSearch()}
-                placeholder="Tìm kiếm sách, tác giả..."
-                className="h-11 flex-1 border-0 bg-transparent px-2 text-[15px] placeholder:text-slate-500 focus:outline-none"
-                aria-label="Ô tìm kiếm"
-              />
-              <button
-                onClick={doSearch}
-                className="cursor-pointer h-10 shrink-0 rounded-full bg-[#ec0040] px-5 text-[15px] font-semibold text-white shadow-md transition-all hover:brightness-110 active:scale-[0.97]"
-              >
-                Tìm kiếm
-              </button>
+              <span className="h-6 w-px bg-slate-200" />
+              {/* SearchBox auto handle submit + suggestions */}
+              <SearchBox className="flex-1" />
             </div>
           </div>
 

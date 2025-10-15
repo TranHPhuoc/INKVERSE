@@ -5,6 +5,7 @@ import bgPoster from "../assets/backgroundbooks.png";
 import { FcGoogle } from "react-icons/fc";
 import type { ApiErrorBody } from "../types/http";
 import { isAxiosError } from "axios";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function RegisterPage() {
     fullName: "",
     phone: "",
   });
+  const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -57,6 +59,7 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <main className="relative flex flex-1 items-center justify-center px-4 py-10 text-white">
+        {/* background */}
         <div className="absolute inset-0 z-0">
           <img
             src={bgPoster}
@@ -68,6 +71,7 @@ export default function RegisterPage() {
           <div className="absolute inset-0 bg-black/40" />
         </div>
 
+        {/* card */}
         <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/10 bg-black/70 p-6 shadow-xl md:p-8">
           <h2 className="mb-6 text-center text-2xl font-bold md:text-3xl">Tạo Tài Khoản</h2>
 
@@ -86,19 +90,30 @@ export default function RegisterPage() {
               required
               value={form.email}
               onChange={onChange}
-              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:font-medium focus:text-gray-900 focus:text-white focus:opacity-100 focus:ring-0 focus:outline-none md:px-4 md:py-3 md:text-base"
+              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:text-white focus:opacity-100 focus:outline-none md:px-4 md:py-3 md:text-base"
             />
 
-            <input
-              name="password"
-              type="password"
-              placeholder="Mật khẩu"
-              autoComplete="new-password"
-              required
-              value={form.password}
-              onChange={onChange}
-              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:font-medium focus:text-gray-900 focus:text-white focus:opacity-100 focus:ring-0 focus:outline-none md:px-4 md:py-3 md:text-base"
-            />
+            <div className="relative">
+              <input
+                name="password"
+                type={showPwd ? "text" : "password"}
+                placeholder="Mật khẩu"
+                autoComplete="new-password"
+                required
+                value={form.password}
+                onChange={onChange}
+                className="w-full border-b px-3 py-2 pr-11 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:text-white focus:opacity-100 focus:outline-none md:px-4 md:py-3 md:text-base"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((s) => !s)}
+                aria-label={showPwd ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                className="absolute inset-y-0 right-2 flex items-center cursor-pointer"
+                tabIndex={-1}
+              >
+                {showPwd ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
 
             <input
               name="username"
@@ -107,7 +122,7 @@ export default function RegisterPage() {
               autoComplete="username"
               value={form.username}
               onChange={onChange}
-              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:font-medium focus:text-gray-900 focus:text-white focus:opacity-100 focus:ring-0 focus:outline-none md:px-4 md:py-3 md:text-base"
+              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:text-white focus:opacity-100 focus:outline-none md:px-4 md:py-3 md:text-base"
             />
 
             <input
@@ -117,7 +132,7 @@ export default function RegisterPage() {
               autoComplete="name"
               value={form.fullName}
               onChange={onChange}
-              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:font-medium focus:text-gray-900 focus:text-white focus:opacity-100 focus:ring-0 focus:outline-none md:px-4 md:py-3 md:text-base"
+              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:text-white focus:opacity-100 focus:outline-none md:px-4 md:py-3 md:text-base"
             />
 
             <input
@@ -127,7 +142,7 @@ export default function RegisterPage() {
               autoComplete="tel"
               value={form.phone}
               onChange={onChange}
-              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:font-medium focus:text-gray-900 focus:text-white focus:opacity-100 focus:ring-0 focus:outline-none md:px-4 md:py-3 md:text-base"
+              className="w-full border-b px-3 py-2 text-sm opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:text-white focus:opacity-100 focus:outline-none md:px-4 md:py-3 md:text-base"
             />
 
             <button

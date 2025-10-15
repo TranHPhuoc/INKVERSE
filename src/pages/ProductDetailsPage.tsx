@@ -1,4 +1,3 @@
-// src/pages/ProductDetailsPage.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import type { BookDetail } from "../types/books";
@@ -17,11 +16,14 @@ import { isFavorite, getCount as getFavCount } from "../store/favorite-store";
 import ReviewModal from "../components/ReviewModal";
 import RelatedBooksGrid from "../components/RelatedBooksGrid";
 import ProductDescription from "../components/ProductDescription";
+import { toast } from "react-hot-toast";
 
 type BookDetailView = BookDetail & {
   likedByMe?: boolean;
   favoriteCount?: number;
 };
+
+type ToastKind = "cart" | "fav";
 
 /* ===== Helpers ===== */
 function formatVND(n?: number | null): string {
@@ -134,6 +136,7 @@ export default function ProductDetailsPage() {
 
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState<string>("");
+  const [toastKind, setToastKind] = useState<ToastKind>("cart");
 
   const [summary, setSummary] = useState<{ average?: number; count?: number }>({});
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -258,6 +261,7 @@ export default function ProductDetailsPage() {
     const mainEl = getCurrentMainImageEl();
     if (mainEl) await animateFlyToCart(mainEl);
 
+    setToastKind("cart"); // ✅ icon tick
     setToastMsg("Sản phẩm đã được thêm vào giỏ hàng!");
     setToastOpen(true);
     window.setTimeout(() => setToastOpen(false), 1400);
@@ -265,12 +269,25 @@ export default function ProductDetailsPage() {
 
   async function handleBuyNow() {
     if (!isAuthenticated) {
-      const ok = await guard.ensureReady();
+      if (data?.id) {
+        localStorage.setItem("pendingBuyNow", JSON.stringify({ bookId: data.id, qty }));
+      }
+
+      toast.error("Bạn chưa đăng nhập/đăng ký. Vui lòng đăng nhập để tiếp tục mua hàng", {
+        duration: 3000,
+        style: {
+          background: "#1f1f1f",
+          color: "#fff",
+          borderRadius: "12px",
+          fontWeight: 500,
+        },
+      });
+      const ok = await guard.ensureReady(); // logic cũ
       if (ok) navigate("/checkout");
       return;
     }
-    if (!data?.id) return;
 
+    if (!data?.id) return;
     const safeQty = Math.min(Math.max(1, qty | 0), 99);
     try {
       await addAndSelectOne({ bookId: data.id, qty: safeQty });
@@ -278,15 +295,21 @@ export default function ProductDetailsPage() {
       const mainEl = getCurrentMainImageEl();
       if (mainEl) await animateFlyToCart(mainEl);
 
-      setToastMsg("Đã thêm vào giỏ. Chuyển tới thanh toán…");
-      setToastOpen(true);
-      window.setTimeout(() => setToastOpen(false), 1000);
+      toast.success("Đã thêm vào giỏ. Chuyển tới thanh toán…", {
+        duration: 2000,
+        style: {
+          background: "#1f1f1f",
+          color: "#fff",
+          borderRadius: "12px",
+          fontWeight: 500,
+        },
+      });
 
       const ok = await guard.ensureReady();
       if (ok) navigate("/checkout");
     } catch (e) {
       console.error(e);
-      alert("Không thể mua ngay. Vui lòng thử lại.");
+      toast.error("Không thể mua ngay. Vui lòng thử lại.");
     }
   }
 
@@ -333,7 +356,10 @@ export default function ProductDetailsPage() {
           <div className="grid grid-cols-1 gap-8 md:grid-cols-[520px_minmax(0,1fr)]">
             {/* ===== Left: Gallery + Actions ===== */}
             <div className="md:sticky md:top-20 md:self-start">
-              <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white/70 p-3 shadow-[0_10px_30px_-12px_rgba(244,63,94,.25)] backdrop-blur">
+              <div
+                ref={galleryWrapRef}
+                className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white/70 p-3 shadow-[0_10px_30px_-12px_rgba(244,63,94,.25)] backdrop-blur"
+              >
                 <BookGallery images={gallery} initialIndex={0} />
                 {discountPercent > 0 && (
                   <span className="pointer-events-none absolute left-3 top-3 rounded-xl bg-rose-600/95 px-2.5 py-1 text-xl font-semibold text-white shadow">
@@ -373,6 +399,20 @@ export default function ProductDetailsPage() {
                     initialCount={initialCount}
                     size={22}
                     className="ml-1 translate-y-[1px] rounded-full border bg-white/80 px-2 py-1 backdrop-blur"
+                    onToggle={(liked) => {
+                      if (liked) {
+                        setToastKind("fav");
+                        setToastMsg("Đã thêm vào mục yêu thích!");
+                        setToastOpen(true);
+                        window.setTimeout(() => setToastOpen(false), 1400);
+                      } else {
+                        // Alert khi bỏ yêu thích
+                        setToastKind("fav");
+                        setToastMsg("Đã xoá khỏi mục yêu thích");
+                        setToastOpen(true);
+                        window.setTimeout(() => setToastOpen(false), 1200);
+                      }
+                    }}
                   />
                 </div>
 
@@ -494,27 +534,38 @@ export default function ProductDetailsPage() {
             </div>
           </div>
 
-          {/* Description – dùng component, tự ẩn nếu mô tả <= 200 ký tự */}
+          {/* Description */}
           <ProductDescription description={data.description} />
         </div>
       </main>
 
-      {/* Toast mini */}
-      {(
-        <div className={`${toastOpen ? "" : "pointer-events-none"} fixed inset-0 z-[1000] grid place-items-center`}>
-          {toastOpen && <div className="absolute inset-0 bg-black/10" />}
-          {toastOpen && (
-            <div className="pointer-events-auto mx-4 flex animate-[fadeIn_.2s] items-center gap-3 rounded-2xl bg-neutral-800/95 px-6 py-5 text-white shadow-2xl ring-1 ring-white/10">
+      {/* Toast mini (đa dụng: cart | fav) */}
+      <div className={`${toastOpen ? "" : "pointer-events-none"} fixed inset-0 z-[1000] grid place-items-center`}>
+        {toastOpen && <div className="absolute inset-0 bg-black/10" />}
+        {toastOpen && (
+          <div className="pointer-events-auto mx-4 flex animate-[fadeIn_.2s] items-center gap-3 rounded-2xl bg-neutral-800/95 px-6 py-5 text-white shadow-2xl ring-1 ring-white/10">
+            {toastKind === "cart" ? (
               <div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-500/20 ring-1 ring-emerald-400/40">
+                {/* tick xanh */}
                 <svg viewBox="0 0 24 24" className="h-6 w-6 text-emerald-400">
                   <path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" />
                 </svg>
               </div>
-              <div className="text-base font-medium">{toastMsg}</div>
-            </div>
-          )}
-        </div>
-      )}
+            ) : (
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-rose-500/20 ring-1 ring-rose-400/40">
+                {/* trái tim hồng */}
+                <svg viewBox="0 0 24 24" className="h-6 w-6 text-rose-400">
+                  <path
+                    fill="currentColor"
+                    d="M12 21s-6.72-4.35-9.33-7.06A5.88 5.88 0 0 1 12 4.44a5.88 5.88 0 0 1 9.33 9.5C18.72 16.65 12 21 12 21z"
+                  />
+                </svg>
+              </div>
+            )}
+            <div className="text-base font-medium">{toastMsg}</div>
+          </div>
+        )}
+      </div>
 
       {/* Reviews & Comments */}
       {data.id ? (
@@ -562,22 +613,6 @@ export default function ProductDetailsPage() {
           }}
         />
       )}
-
-      {/* Mobile bottom action bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-2 gap-2 border-t border-gray-200 bg-white/90 p-3 backdrop-blur md:hidden">
-        <button
-          onClick={handleAddToCart}
-          className="h-11 cursor-pointer rounded-xl border-2 border-rose-600/90 bg-white font-medium text-rose-600"
-        >
-          Thêm vào giỏ
-        </button>
-        <button
-          onClick={handleBuyNow}
-          className="h-11 cursor-pointer rounded-xl bg-rose-600 font-semibold text-white"
-        >
-          Mua ngay
-        </button>
-      </div>
     </div>
   );
 }

@@ -118,11 +118,19 @@ const HeaderCategoryMenu: React.FC<MenuProps> = ({ variant = "default", classNam
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (!open || !wrapRef.current) return;
-      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as HTMLElement | null;
+
+      // 🩵 Bỏ qua nếu click vào ô tìm kiếm (SearchBox)
+      if (target?.closest("form[role='search']")) return;
+
+      // Nếu click ngoài menu thì đóng
+      if (!wrapRef.current.contains(target)) setOpen(false);
     };
-    document.addEventListener("click", onDoc);
-    return () => document.removeEventListener("click", onDoc);
+
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
+
 
   const active = cats[activeIdx] ?? null;
   const subs = active?.children ?? [];

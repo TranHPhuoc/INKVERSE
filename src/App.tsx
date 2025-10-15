@@ -16,6 +16,8 @@ import ScrollToTop from "./components/ScrollToTop";
 import PageTransition from "./components/Animation/PageTransition";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import Intro from "./components/Animation/Intro";
+import { Toaster } from "react-hot-toast";
+
 
 // Pages – Public
 import HomePage from "./pages/HomePage";
@@ -57,6 +59,7 @@ import MasterPage from "./pages/admin/MasterPage";
 // Pages – Sale
 import SaleOrdersPage from "./pages/sale/SaleOrderPage";
 import SaleOrderDetailPage from "./pages/sale/SaleOrderDetailPage";
+
 
 function useVnpBootstrap() {
   const nav = useNavigate();
@@ -474,6 +477,7 @@ export default function App() {
           </Routes>
         </AnimatePresence>
       </IntroGate>
+      <Toaster position="top-center" reverseOrder={false} />
     </>
   );
 }

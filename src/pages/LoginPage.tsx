@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 import type { ApiErrorBody } from "../types/http";
+import { addAndSelectOne } from "../services/cart"; // ✅ để restore pendingBuyNow
 import bgPoster from "../assets/backgroundbooks.png";
 import { useAuth } from "../context/useAuth";
 import { FcGoogle } from "react-icons/fc";
+import { Eye, EyeOff } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 /* ───────── helpers ───────── */
 type RolesLike = { role?: string; roles?: string[] };
@@ -51,6 +54,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -69,6 +73,7 @@ export default function LoginPage() {
       const target = safeNext && canAccess(safeNext, roles) ? safeNext : pickHomeByRole(roles);
       navigate(target, { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -79,10 +84,28 @@ export default function LoginPage() {
     try {
       await login({ username, password });
 
+      // ✅ Restore pendingBuyNow nếu có
+      const pendingRaw = localStorage.getItem("pendingBuyNow");
+      if (pendingRaw) {
+        try {
+          const { bookId, qty } = JSON.parse(pendingRaw) as { bookId?: number; qty?: number };
+          if (bookId) {
+            await addAndSelectOne({ bookId, qty: qty ?? 1 });
+            localStorage.removeItem("pendingBuyNow");
+            navigate("/checkout", { replace: true });
+            toast.success("Đã thêm sản phẩm vào thanh toán", {
+              duration: 1800,
+              style: { background: "#1f1f1f", color: "#fff", borderRadius: "12px", fontWeight: 500 },
+            });
+            return;
+          }
+        } catch {
+          localStorage.removeItem("pendingBuyNow");
+        }
+      }
+
       const roles = getRoles();
-
       const target = safeNext && canAccess(safeNext, roles) ? safeNext : pickHomeByRole(roles);
-
       navigate(target, { replace: true });
     } catch (e: unknown) {
       const axiosErr = e as AxiosError<ApiErrorBody>;
@@ -111,6 +134,7 @@ export default function LoginPage() {
           <h2 className="mb-6 text-center text-2xl font-bold md:text-3xl">Đăng nhập</h2>
 
           <form className="space-y-4" onSubmit={onSubmit} noValidate>
+            {/* username */}
             <input
               type="text"
               placeholder="Tên đăng nhập"
@@ -121,15 +145,27 @@ export default function LoginPage() {
               className="w-full border-b px-3 py-2 text-sm text-white opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:opacity-100 focus:outline-none md:px-4 md:py-3 md:text-base"
             />
 
-            <input
-              type="password"
-              placeholder="Mật khẩu"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border-b px-3 py-2 text-sm text-white opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:opacity-100 focus:outline-none md:px-4 md:py-3 md:text-base"
-            />
+            {/* password with eye toggle */}
+            <div className="relative">
+              <input
+                type={showPwd ? "text" : "password"}
+                placeholder="Mật khẩu"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full border-b px-3 py-2 pr-11 text-sm text-white opacity-60 transition focus:border-b-2 focus:border-blue-500 focus:opacity-100 focus:outline-none md:px-4 md:py-3 md:text-base"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((s) => !s)}
+                aria-label={showPwd ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                className="absolute inset-y-0 right-2 flex items-center cursor-pointer"
+                tabIndex={-1}
+              >
+                {showPwd ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
 
             {err && <p className="text-sm text-red-400 md:text-base">{err}</p>}
 
@@ -146,6 +182,7 @@ export default function LoginPage() {
             >
               {loading ? "Đang xử lý..." : "Đăng nhập"}
             </button>
+
             <button
               type="button"
               className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 py-3 transition hover:bg-white/10 active:scale-[0.99]"

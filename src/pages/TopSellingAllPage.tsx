@@ -9,10 +9,13 @@ import {
   type ResBookTopWithTrendDTO,
   type TopSellingMap,
 } from "../services/bookTop";
+import RelatedBooksGrid from "../components/RelatedBooksGrid";
+
 
 /* ===== helpers ===== */
 const nf = new Intl.NumberFormat("vi-VN");
 const cx = (...a: Array<string | false | undefined>) => a.filter(Boolean).join(" ");
+
 
 /* small parts */
 function Arrow({ dir }: { dir: "up" | "down" | "flat" }) {
@@ -198,6 +201,11 @@ export default function TopSellingAllPage() {
             ))}
           </ul>
         </div>
+        {list.length > 0 && (
+          <div className="mt-16">
+            <RelatedBooksGrid bookId={list[0]?.bookId ?? 0} />
+          </div>
+        )}
       </div>
     </div>
   );

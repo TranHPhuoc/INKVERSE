@@ -6,7 +6,6 @@ import { AuthProvider } from "./context/AuthContext";
 import App from "./App";
 import "./index.css";
 
-// Tạo 1 QueryClient dùng cho toàn app
 const queryClient = new QueryClient();
 
 createRoot(document.getElementById("root")!).render(

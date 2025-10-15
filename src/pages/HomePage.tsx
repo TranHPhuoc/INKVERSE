@@ -52,10 +52,10 @@ const fadeUp: Variants = {
 };
 
 function Reveal({
-  children,
-  index = 0,
-  className,
-}: {
+                  children,
+                  index = 0,
+                  className,
+                }: {
   children: React.ReactNode;
   index?: number;
   className?: string;
@@ -84,10 +84,10 @@ function Reveal({
 const DURATION = 0.65;
 
 const HeroBanner: React.FC<{ images: string[]; intervalMs?: number; className?: string }> = ({
-  images,
-  intervalMs = 3000,
-  className,
-}) => {
+                                                                                               images,
+                                                                                               intervalMs = 3000,
+                                                                                               className,
+                                                                                             }) => {
   const hasCarousel = images.length >= 2;
   const [loaded, setLoaded] = useState(false);
 
@@ -238,9 +238,9 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const n =
     m.length === 3
       ? m
-          .split("")
-          .map((c) => c + c)
-          .join("")
+        .split("")
+        .map((c) => c + c)
+        .join("")
       : m;
   const int = parseInt(n, 16);
   return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 };
@@ -310,11 +310,12 @@ const GradientSectionCard: React.FC<{
       <div
         className="pointer-events-none absolute inset-0 z-0 rounded-2xl"
         style={{
+          /* GIỮ gradient dọc từ TRÊN xuống DƯỚI – chỉ đổi sang tone lạnh, tối hơn */
           background: `linear-gradient(180deg,
             ${rgba(startHex, 0.65)} 0%,
             ${rgba(endHex, 0.32)} 40%,
             ${rgba(endHex, 0.12)} 75%,
-            ${rgba(endHex, 0.0)} 100%)`,
+            ${rgba(endHex, 0.00)} 100%)`,
         }}
       />
       <div className="relative z-10">
@@ -430,11 +431,10 @@ export default function HomePage() {
           <Reveal>
             <div className="py-6">
               <div className={SHELL}>
-                  <TopSellingByCategory limit={5} />
+                <TopSellingByCategory limit={5} />
               </div>
             </div>
           </Reveal>
-
 
           {/* Newest */}
           <Reveal>
@@ -442,20 +442,20 @@ export default function HomePage() {
               <div className={SHELL}>
                 <GradientSectionCard
                   label="SẢN PHẨM MỚI"
-                  startHex="#2563EB"
-                  endHex="#38BDF8"
+                  startHex="#1E1B4B"   // Indigo-950
+                  endHex="#3B82F6"
                   Icon={Sprout}
                 >
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4 md:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
                     {newest.length > 0
                       ? newest.map((b, i) => (
-                          <Reveal key={b.id ?? `${i}`} index={i}>
-                            <ProductCard item={b} />
-                          </Reveal>
-                        ))
+                        <Reveal key={b.id ?? `${i}`} index={i}>
+                          <ProductCard item={b} />
+                        </Reveal>
+                      ))
                       : Array.from({ length: 10 }).map((_, i) => (
-                          <div key={i} className="h-64 animate-pulse rounded bg-gray-100" />
-                        ))}
+                        <div key={i} className="h-64 animate-pulse rounded bg-gray-100" />
+                      ))}
                   </div>
                   <Pagination
                     page={newPage}
@@ -472,7 +472,7 @@ export default function HomePage() {
           <Reveal>
             <div className="py-6">
               <div className={SHELL}>
-                  <FeaturedAuthorsTabs />
+                <FeaturedAuthorsTabs />
               </div>
             </div>
           </Reveal>
@@ -483,8 +483,8 @@ export default function HomePage() {
               <div className={SHELL}>
                 <GradientSectionCard
                   label="SẢN PHẨM BÁN CHẠY"
-                  startHex="#10B981"
-                  endHex="#34D399"
+                  startHex="#0F766E"   // Teal-700
+                  endHex="#67E8F9"   // cyan-500 (xuống dưới nhạt lạnh)
                   Icon={TrendingUp}
                 >
                   <ProductCarousel

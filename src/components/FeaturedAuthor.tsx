@@ -184,7 +184,7 @@ export default function FeaturedAuthorsTabs({ className = "" }: { className?: st
                 onClick={() => setActive(t.key)}
                 whileHover={{ scale: 1.05 }}
                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                className={`relative pb-2 text-sm md:text-base font-medium transition-colors duration-200 ${
+                className={`relative pb-2 text-sm md:text-base font-medium transition-colors duration-200 cursor-pointer${
                   isActive ? "text-red-500" : "text-gray-400 hover:text-white"
                 }`}
                 aria-pressed={isActive}
