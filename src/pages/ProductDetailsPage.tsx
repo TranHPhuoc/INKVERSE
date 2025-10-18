@@ -355,14 +355,14 @@ export default function ProductDetailsPage() {
 
           <div className="grid grid-cols-1 gap-8 md:grid-cols-[520px_minmax(0,1fr)]">
             {/* ===== Left: Gallery + Actions ===== */}
-            <div className="md:sticky md:top-20 md:self-start">
+            <div className="relative z-[120] md:sticky md:top-20 md:self-start">
               <div
                 ref={galleryWrapRef}
-                className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white/70 p-3 shadow-[0_10px_30px_-12px_rgba(244,63,94,.25)] backdrop-blur"
+                className="relative z-[130] rounded-2xl border border-gray-100 bg-white/70 p-3 shadow-[0_10px_30px_-12px_rgba(244,63,94,.25)] backdrop-blur"
               >
-                <BookGallery images={gallery} initialIndex={0} />
+              <BookGallery images={gallery} initialIndex={0} />
                 {discountPercent > 0 && (
-                  <span className="pointer-events-none absolute left-3 top-3 rounded-xl bg-rose-600/95 px-2.5 py-1 text-xl font-semibold text-white shadow">
+                  <span className="pointer-events-none absolute right-3 top-3 rounded-xl bg-rose-600/95 px-2.5 py-1 text-xl font-semibold text-white shadow">
                     -{discountPercent}%
                   </span>
                 )}

@@ -159,7 +159,7 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl shadow-[0_10px_30px_-20px_rgba(2,6,23,.35)]">
+    <header className="sticky top-0 z-300 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl shadow-[0_10px_30px_-20px_rgba(2,6,23,.35)]">
       <div className={SHELL}>
         <div className="flex h-[72px] items-center justify-between gap-4">
           {/* Logo */}

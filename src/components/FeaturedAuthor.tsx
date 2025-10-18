@@ -1,4 +1,3 @@
-// src/components/FeaturedAuthorsTabs.tsx
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -68,12 +67,18 @@ const INTERNATIONAL: FeaturedAuthorItem[] = [
   { id: 43, name: "Napoleon Hill", avatar: NapoleonHill },
 ];
 
-const TABS: { key: TabKey; label: string; data: FeaturedAuthorItem[] }[] = [
-  { key: "vn", label: "Tác giả Việt Nam", data: DOMESTIC },
-  { key: "intl", label: "Tác giả nước ngoài", data: INTERNATIONAL },
+const TABS = [
+  { key: "vn" as const, label: "Tác giả Việt Nam", data: DOMESTIC },
+  { key: "intl" as const, label: "Tác giả nước ngoài", data: INTERNATIONAL },
 ];
 
 const easeOutBezier = [0.22, 1, 0.36, 1] as const;
+
+/* ===== Tab theme ===== */
+const TAB_THEME: Record<TabKey, { text: string; start: string; end: string }> = {
+  vn: { text: "#92400E", start: "#B45309", end: "#F59E0B" },
+  intl: { text: "#1e3a8a", start: "#3b82f6", end: "#93c5fd" },
+};
 
 /* ===== Helpers ===== */
 function toSlug(name: string, fallback?: string): string {
@@ -103,10 +108,7 @@ function AuthorGrid({ authors }: { authors: FeaturedAuthorItem[] }) {
     >
       {authors.map((a, i) => {
         const slug = toSlug(a.name, a.slug);
-        const href =
-          a.id != null
-            ? `/author/${encodeURIComponent(slug)}?authorId=${a.id}`
-            : `/author/${encodeURIComponent(slug)}`;
+        const href = a.id != null ? `/author/${encodeURIComponent(slug)}?authorId=${a.id}` : `/author/${encodeURIComponent(slug)}`;
 
         return (
           <motion.li
@@ -124,27 +126,21 @@ function AuthorGrid({ authors }: { authors: FeaturedAuthorItem[] }) {
               aria-label={`Xem thông tin của ${a.name}`}
             >
               <motion.div
-                className="relative h-24 w-24 overflow-hidden rounded-full border border-neutral-700 bg-neutral-800 shadow-md ring-0 transition-all duration-300 group-hover:ring-2 group-hover:ring-red-500/40"
+                className="relative h-24 w-24 overflow-hidden rounded-full border border-neutral-700 bg-neutral-800 shadow-md ring-0 transition-all duration-300 group-hover:ring-2 group-hover:ring-amber-500/40"
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 420, damping: 28 }}
               >
                 {a.avatar ? (
-                  <img
-                    src={a.avatar}
-                    alt={a.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                    draggable={false}
-                  />
+                  <img src={a.avatar} alt={a.name} loading="lazy" className="h-full w-full object-cover" draggable={false} />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-gray-400">
+                  <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-gray-500">
                     {initialsOf(a.name)}
                   </div>
                 )}
               </motion.div>
 
-              <div className="mt-2 line-clamp-1 text-center text-sm text-gray-300 group-hover:text-white transition-colors">
+              <div className="mt-2 line-clamp-1 text-center text-sm text-slate-800/90 transition-colors group-hover:text-slate-900">
                 {a.name}
               </div>
             </a>
@@ -164,36 +160,57 @@ export default function FeaturedAuthorsTabs({ className = "" }: { className?: st
   );
 
   return (
-    <div
-      className={`rounded-2xl border border-neutral-800 bg-[#0a0a0a] p-6 shadow-[0_0_20px_rgba(255,255,255,0.05)] ${className}`}
-    >
-      <h2 className="mb-6 text-center text-2xl font-semibold text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.15)]">
+    <div className={`relative overflow-hidden rounded-2xl border border-amber-300/40 p-6 shadow-[0_10px_30px_rgba(146,84,0,0.25)] ${className}`}>
+      {/* BG */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{ backgroundImage: `linear-gradient(180deg, #FFB330 0%, #FFD676 40%, #FFEFA8 75%, #FFFCCE 100%)` }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          backgroundImage: `
+            radial-gradient(120% 60% at 50% -10%, rgba(0,0,0,0.14), transparent 60%),
+            repeating-linear-gradient(45deg, rgba(0,0,0,0.04) 0, rgba(0,0,0,0.04) 1px, transparent 1px, transparent 22px),
+            repeating-linear-gradient(-45deg, rgba(0,0,0,0.04) 0, rgba(0,0,0,0.04) 1px, transparent 1px, transparent 22px)
+          `,
+          mixBlendMode: "soft-light",
+        }}
+      />
+
+      <h2 className="relative z-10 mb-6 text-center text-2xl font-semibold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]">
         TÁC GIẢ NỔI BẬT
       </h2>
 
       {/* Tabs */}
-      <div className="relative mb-6">
-        {/* line trắng mờ ngăn cách */}
-        <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
-        <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
+      <div className="relative z-10 mb-6">
+        <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+        <div className="no-scrollbar flex items-center gap-6 overflow-x-auto">
           {TABS.map((t) => {
             const isActive = active === t.key;
+            const theme = TAB_THEME[t.key];
+            const activeStyle = isActive ? ({ color: theme.text } as React.CSSProperties) : undefined;
+
             return (
               <motion.button
                 key={t.key}
                 onClick={() => setActive(t.key)}
                 whileHover={{ scale: 1.05 }}
                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                className={`relative pb-2 text-sm md:text-base font-medium transition-colors duration-200 cursor-pointer${
-                  isActive ? "text-red-500" : "text-gray-400 hover:text-white"
+                className={`relative cursor-pointer pb-2 text-sm font-medium md:text-base transition-colors duration-200 ${
+                  isActive ? "drop-shadow-[0_1px_0_rgba(255,255,255,0.75)]" : "text-slate-800/80 hover:text-slate-900"
                 }`}
+                style={activeStyle as unknown as import("framer-motion").MotionStyle}
                 aria-pressed={isActive}
               >
                 {t.label}
                 {isActive && (
                   <motion.span
                     layoutId="authors-underline"
-                    className="absolute left-0 right-0 -bottom-[1px] h-[2px] rounded-full bg-gradient-to-r from-red-500 to-red-300"
+                    className="absolute left-0 right-0 -bottom-[1px] h-[2px] rounded-full"
+                    style={{ background: `linear-gradient(90deg, ${theme.start}, ${theme.end})` }}
                     transition={{ type: "spring", stiffness: 400, damping: 28 }}
                   />
                 )}
@@ -204,7 +221,7 @@ export default function FeaturedAuthorsTabs({ className = "" }: { className?: st
       </div>
 
       {/* Grid */}
-      <div className="p-2">
+      <div className="relative z-10 p-2">
         <AnimatePresence mode="wait">
           <AuthorGrid key={active} authors={current} />
         </AnimatePresence>

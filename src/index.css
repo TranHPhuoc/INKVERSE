@@ -1,7 +1,6 @@
 /* src/index.css */
 @import "tailwindcss";
 
-/* Apply font cho toàn bộ app */
 body {
     font-family: 'Tinos', 'Times New Roman', serif;
     background:

@@ -6,9 +6,7 @@ import {
   Headphones,
   ShieldCheck,
   Truck,
-  Zap,
   Sprout,
-  PenTool,
   TrendingUp,
 } from "lucide-react";
 import {
@@ -35,6 +33,10 @@ import banner4 from "../assets/INKVERSE.SITE1.jpg";
 import banner5 from "../assets/INKVERSE.SITE2.png";
 import FeaturedAuthorsTabs from "../components/FeaturedAuthor";
 import TopSellingByCategory from "../components/TopSellingByCategory.tsx";
+import FlashSaleCarousel from "../components/FlashSaleCarousel.tsx";
+import BestSellerCarousel from "../components/BestSellerCarousel";
+
+
 
 /* ===== constants ===== */
 const BANNERS = [banner1, banner2, banner3];
@@ -52,10 +54,10 @@ const fadeUp: Variants = {
 };
 
 function Reveal({
-                  children,
-                  index = 0,
-                  className,
-                }: {
+  children,
+  index = 0,
+  className,
+}: {
   children: React.ReactNode;
   index?: number;
   className?: string;
@@ -84,10 +86,10 @@ function Reveal({
 const DURATION = 0.65;
 
 const HeroBanner: React.FC<{ images: string[]; intervalMs?: number; className?: string }> = ({
-                                                                                               images,
-                                                                                               intervalMs = 3000,
-                                                                                               className,
-                                                                                             }) => {
+  images,
+  intervalMs = 3000,
+  className,
+}) => {
   const hasCarousel = images.length >= 2;
   const [loaded, setLoaded] = useState(false);
 
@@ -238,9 +240,9 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const n =
     m.length === 3
       ? m
-        .split("")
-        .map((c) => c + c)
-        .join("")
+          .split("")
+          .map((c) => c + c)
+          .join("")
       : m;
   const int = parseInt(n, 16);
   return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 };
@@ -251,50 +253,6 @@ const rgba = (hex: string, a: number) => {
 };
 
 /* ===== FlashSaleCard ===== */
-const FlashSaleCard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const RED = "#DC2626";
-  return (
-    <div className="relative overflow-hidden rounded-2xl shadow ring-1 ring-black/5">
-      <div
-        className="pointer-events-none absolute inset-0 z-0 rounded-2xl"
-        style={{
-          background: `linear-gradient(180deg,
-            ${rgba(RED, 0.78)} 0%,
-            ${rgba(RED, 0.42)} 32%,
-            ${rgba(RED, 0.16)} 68%,
-            ${rgba(RED, 0.0)} 100%),
-            radial-gradient(110% 65% at 50% -10%, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0) 55%)`,
-        }}
-      />
-      <div className="relative z-10">
-        <div className="flex items-center justify-center rounded-t-2xl px-4 py-3">
-          <h2
-            className="text-lg font-semibold tracking-tight text-white md:text-xl"
-            style={{ textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}
-          >
-            FLASH SALES
-          </h2>
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
-
-      <motion.div
-        className="absolute -top-2 left-4 z-[1] opacity-25"
-        animate={{ y: [0, 6, 0], opacity: [0.18, 0.32, 0.18] }}
-        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-      >
-        <Zap className="h-9 w-9 text-white" />
-      </motion.div>
-      <motion.div
-        className="absolute top-8 right-6 z-[1] rotate-12 opacity-20"
-        animate={{ y: [0, -5, 0], opacity: [0.15, 0.28, 0.15] }}
-        transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut", delay: 0.35 }}
-      >
-        <Zap className="h-11 w-11 text-white" />
-      </motion.div>
-    </div>
-  );
-};
 
 type LucideIcon = React.FC<React.SVGProps<SVGSVGElement>>;
 
@@ -310,17 +268,16 @@ const GradientSectionCard: React.FC<{
       <div
         className="pointer-events-none absolute inset-0 z-0 rounded-2xl"
         style={{
-          /* GIỮ gradient dọc từ TRÊN xuống DƯỚI – chỉ đổi sang tone lạnh, tối hơn */
           background: `linear-gradient(180deg,
             ${rgba(startHex, 0.65)} 0%,
             ${rgba(endHex, 0.32)} 40%,
             ${rgba(endHex, 0.12)} 75%,
-            ${rgba(endHex, 0.00)} 100%)`,
+            ${rgba(endHex, 0.0)} 100%)`,
         }}
       />
       <div className="relative z-10">
         <div className="flex items-center justify-center rounded-t-2xl px-4 py-3">
-          <h2 className="text-lg font-semibold tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] md:text-xl">
+          <h2 className="relative z-10 mb-6 text-center text-2xl font-semibold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]">
             {label}
           </h2>
         </div>
@@ -382,7 +339,6 @@ export default function HomePage() {
     })();
   }, [newPage]);
 
-  const flash = feed?.featuredSale ?? [];
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
@@ -413,16 +369,44 @@ export default function HomePage() {
 
           {/* Flash Sales */}
           <Reveal>
+            <FlashSaleCarousel
+              items={feed?.featuredSale ?? []}
+              endpoint="/books"
+              params={{ status: "ACTIVE", sort: "createdAt", direction: "DESC" }}
+              pageSize={6}
+            />
+
+          </Reveal>
+
+
+          {/* Newest */}
+          <Reveal>
             <div className="py-6">
               <div className={SHELL}>
-                <FlashSaleCard>
-                  <ProductCarousel
-                    items={flash}
-                    rows={1}
-                    cols={6}
-                    emptyHint={flash.length === 0 ? "Hiện chưa có chương trình Flash Sale." : ""}
+                <GradientSectionCard
+                  label="SẢN PHẨM MỚI"
+                  startHex="#1E1B4B"
+                  endHex="#3B82F6"
+                  Icon={Sprout}
+                >
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4 md:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
+                    {newest.length > 0
+                      ? newest.map((b, i) => (
+                          <Reveal key={b.id ?? `${i}`} index={i}>
+                            <ProductCard item={b} />
+                          </Reveal>
+                        ))
+                      : Array.from({ length: 10 }).map((_, i) => (
+                          <div key={i} className="h-64 animate-pulse rounded bg-gray-100" />
+                        ))}
+                  </div>
+                  <Pagination
+                    page={newPage}
+                    totalPages={newTotalPages}
+                    onChange={setNewPage}
+                    autoScrollTop
                   />
-                </FlashSaleCard>
+                </GradientSectionCard>
               </div>
             </div>
           </Reveal>
@@ -432,38 +416,6 @@ export default function HomePage() {
             <div className="py-6">
               <div className={SHELL}>
                 <TopSellingByCategory limit={5} />
-              </div>
-            </div>
-          </Reveal>
-
-          {/* Newest */}
-          <Reveal>
-            <div className="py-6">
-              <div className={SHELL}>
-                <GradientSectionCard
-                  label="SẢN PHẨM MỚI"
-                  startHex="#1E1B4B"   // Indigo-950
-                  endHex="#3B82F6"
-                  Icon={Sprout}
-                >
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4 md:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
-                    {newest.length > 0
-                      ? newest.map((b, i) => (
-                        <Reveal key={b.id ?? `${i}`} index={i}>
-                          <ProductCard item={b} />
-                        </Reveal>
-                      ))
-                      : Array.from({ length: 10 }).map((_, i) => (
-                        <div key={i} className="h-64 animate-pulse rounded bg-gray-100" />
-                      ))}
-                  </div>
-                  <Pagination
-                    page={newPage}
-                    totalPages={newTotalPages}
-                    onChange={setNewPage}
-                    autoScrollTop
-                  />
-                </GradientSectionCard>
               </div>
             </div>
           </Reveal>
@@ -483,18 +435,11 @@ export default function HomePage() {
               <div className={SHELL}>
                 <GradientSectionCard
                   label="SẢN PHẨM BÁN CHẠY"
-                  startHex="#0F766E"   // Teal-700
-                  endHex="#67E8F9"   // cyan-500 (xuống dưới nhạt lạnh)
+                  startHex="#0F766E"
+                  endHex="#67E8F9"
                   Icon={TrendingUp}
                 >
-                  <ProductCarousel
-                    items={feed?.bestSellers ?? []}
-                    rows={2}
-                    cols={6}
-                    emptyHint={
-                      (feed?.bestSellers?.length ?? 0) === 0 ? "Chưa có sản phẩm bán chạy." : ""
-                    }
-                  />
+                  <BestSellerCarousel items={feed?.bestSellers ?? []} />
                 </GradientSectionCard>
               </div>
             </div>

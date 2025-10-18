@@ -325,12 +325,6 @@ export default function AuthorDetailPage() {
                   {!!activeDesc && <ExpandableClamp html={activeDesc} maxHeight={140} />}
 
                   <div className="mt-auto flex gap-3 pt-6">
-                    <Link
-                      to={`/books/${active.slug}`}
-                      className="rounded-xl bg-white px-5 py-2.5 font-medium text-slate-900 shadow hover:opacity-95"
-                    >
-                      Xem chi tiết
-                    </Link>
                     <button
                       onClick={handleAddToCart}
                       className="rounded-xl border border-white/20 px-5 py-2.5 font-medium text-white/90 hover:bg-white/10 cursor-pointer"

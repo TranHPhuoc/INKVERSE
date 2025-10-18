@@ -1,5 +1,5 @@
-// src/pages/TopSellingByCategory.tsx
-import { useEffect, useMemo, useState } from "react";
+// src/components/TopSellingByCategory.tsx
+import { useEffect, useMemo, useState, useLayoutEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -66,7 +66,7 @@ function StockArrow({ dir }: { dir: "up" | "down" | "flat" }) {
   if (dir === "flat") {
     return (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path d="M4 12 L20 12" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" />
+        <path d="M4 12 L20 12" stroke="#64748B" strokeWidth="2" strokeLinecap="round" />
       </svg>
     );
   }
@@ -80,32 +80,14 @@ function StockArrow({ dir }: { dir: "up" | "down" | "flat" }) {
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        <path
-          d="M20 6 L20 11 M20 6 L15 6"
-          stroke="#10B981"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M20 6 L20 11 M20 6 L15 6" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M3 7 L9 14 L14 10 L20 18"
-        stroke="#DC2626"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M20 18 L20 13 M20 18 L15 18"
-        stroke="#DC2626"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M3 7 L9 14 L14 10 L20 18" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 18 L20 13 M20 18 L15 18" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -115,17 +97,11 @@ function RankCell({ rank, growth }: { rank: number; growth: number }) {
   const flat = growth === 0 || !isFinite(growth);
   const dir: "up" | "down" | "flat" = flat ? "flat" : up ? "up" : "down";
   const rankColor =
-    rank === 1
-      ? "text-emerald-600"
-      : rank === 2
-        ? "text-sky-600"
-        : rank === 3
-          ? "text-indigo-600"
-          : "text-slate-500";
+    rank === 1 ? "text-emerald-600" : rank === 2 ? "text-sky-600" : rank === 3 ? "text-indigo-600" : "text-slate-600";
 
   return (
     <div className="flex w-11 flex-col items-center justify-center">
-      <div className={cls("text-sm font-semibold", rankColor)}>{String(rank)}</div>
+      <div className={cls("text-sm font-bold", rankColor)}>{String(rank)}</div>
       <div className="mt-1">
         <StockArrow dir={dir} />
       </div>
@@ -133,7 +109,7 @@ function RankCell({ rank, growth }: { rank: number; growth: number }) {
         className={cls(
           "mt-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none ring-1",
           flat
-            ? "bg-slate-50 text-slate-600 ring-slate-200"
+            ? "bg-slate-50 text-slate-700 ring-slate-200"
             : up
               ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
               : "bg-rose-50 text-rose-700 ring-rose-200",
@@ -145,7 +121,6 @@ function RankCell({ rank, growth }: { rank: number; growth: number }) {
     </div>
   );
 }
-
 
 /* ===== component ===== */
 export default function TopSellingByCategory({ limit = 5 }: { limit?: number }) {
@@ -160,9 +135,7 @@ export default function TopSellingByCategory({ limit = 5 }: { limit?: number }) 
 
   const categories = useMemo<string[]>(() => {
     if (!data || typeof data !== "object") return [];
-
     const entries = Object.entries(data) as [string, ResBookTopWithTrendDTO[]][];
-
     const sorted = entries
       .filter(([, arr]) => Array.isArray(arr) && arr.length > 0)
       .sort((a, b) => {
@@ -171,10 +144,8 @@ export default function TopSellingByCategory({ limit = 5 }: { limit?: number }) 
         if (sumB !== sumA) return sumB - sumA;
         return a[0].localeCompare(b[0]);
       });
-
     return sorted.map(([k]) => k);
   }, [data]);
-
 
   const [activeCat, setActiveCat] = useState<string | null>(null);
   useEffect(() => {
@@ -194,7 +165,6 @@ export default function TopSellingByCategory({ limit = 5 }: { limit?: number }) 
     if (first) setHoverId(first.bookId);
   }, [list, hoverId]);
 
-  // Prefetch detail khi hover
   useEffect(() => {
     if (hoverId != null) {
       void qc.prefetchQuery({
@@ -212,206 +182,289 @@ export default function TopSellingByCategory({ limit = 5 }: { limit?: number }) 
     staleTime: 120_000,
   });
 
-  // Click mở chi tiết
   const openBook = (bookId: number) => {
     const cached = qc.getQueryData<ResBookDetailDTO>(["book-detail", bookId]);
     const slug = cached?.slug;
     nav(slug ? `/books/${slug}` : `/books/id/${bookId}`);
   };
 
+  /* ---------- Tabs underline (smooth x + width) ---------- */
+  const tabsWrapRef = useRef<HTMLDivElement | null>(null);
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [bar, setBar] = useState({ x: 0, w: 0 });
+
+  const updateBar = useCallback(() => {
+    const wrap = tabsWrapRef.current;
+    const btn = activeCat ? tabRefs.current[activeCat] : null;
+    if (!wrap || !btn) return;
+    const wb = wrap.getBoundingClientRect();
+    const bb = btn.getBoundingClientRect();
+    setBar({ x: bb.left - wb.left + wrap.scrollLeft, w: bb.width });
+  }, [activeCat]);
+
+  useLayoutEffect(() => {
+    updateBar();
+  }, [updateBar, categories.length]);
+
+  useEffect(() => {
+    const onResize = () => updateBar();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [updateBar]);
+
+  useEffect(() => {
+    const wrap = tabsWrapRef.current;
+    const btn = activeCat ? tabRefs.current[activeCat] : null;
+    if (wrap && btn) {
+      const off = btn.offsetLeft - wrap.clientWidth / 2 + btn.clientWidth / 2;
+      wrap.scrollTo({ left: off, behavior: "smooth" });
+    }
+  }, [activeCat]);
+
   if (isLoading) {
-    return <div className="rounded-2xl bg-neutral-900 p-6 text-gray-300">Đang tải bảng xếp hạng…</div>;
+    return (
+      <div className="rounded-2xl border border-slate-200/50 bg-gradient-to-b from-sky-50 to-indigo-50 p-6 text-slate-800">
+        Đang tải bảng xếp hạng…
+      </div>
+    );
   }
   if (isError || !data || categories.length === 0) {
-    return <div className="rounded-2xl bg-neutral-900 p-6 text-gray-300">Không có dữ liệu bảng xếp hạng.</div>;
+    return (
+      <div className="rounded-2xl border border-slate-200/50 bg-gradient-to-b from-sky-50 to-indigo-50 p-6 text-slate-800">
+        Không có dữ liệu bảng xếp hạng.
+      </div>
+    );
   }
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-      className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-neutral-950 to-neutral-900 p-6 shadow-[0_0_20px_rgba(255,255,255,0.05)]"
+      transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
+      className="relative overflow-hidden rounded-2xl border border-slate-200/70 p-6 shadow-[0_12px_40px_rgba(2,6,23,0.14)]"
     >
-      {/* HEADER */}
-      <h2 className="mb-6 text-center text-2xl font-semibold tracking-wide text-white">
-        BẢNG XẾP HẠNG BÁN CHẠY THEO TUẦN
-      </h2>
-
-      {/* Tabs */}
-      <div className="relative mb-6">
-        {/* thanh trắng mờ phía dưới */}
-        <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent pointer-events-none" />
-
-        <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
-          {categories.map((cat) => {
-            const active = activeCat === cat;
-            return (
-              <motion.button
-                key={cat}
-                onClick={() => {
-                  setActiveCat(cat);
-                  setHoverId(null);
-                }}
-                whileHover={{ scale: 1.05 }}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                className={cls(
-                  "relative pb-2 text-sm md:text-base font-medium transition-colors duration-200 cursor-pointer",
-                  active
-                    ? "text-red-500"
-                    : "text-gray-400 hover:text-white",
-                )}
-              >
-                {cat}
-
-                {active && (
-                  <motion.span
-                    layoutId="tab-underline"
-                    className="absolute left-0 right-0 -bottom-[1px] h-[2px] bg-gradient-to-r from-red-500 to-red-300 rounded-full"
-                    transition={{ type: "spring", stiffness: 400, damping: 28 }}
-                  />
-                )}
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
-
+      {/* BRIGHTER BG */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          backgroundImage: `
+            radial-gradient(160% 100% at 50% -20%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.55) 25%, rgba(255,255,255,0.15) 55%, transparent 70%),
+            linear-gradient(180deg, #EAF3FF 0%, #DCEBFF 28%, #CFE5FF 55%, #BEDBFF 78%, #B4D6FF 100%)
+          `,
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 mix-blend-soft-light"
+        style={{
+          backgroundImage: `
+            repeating-linear-gradient(45deg, rgba(30,64,175,0.06) 0, rgba(30,64,175,0.06) 1px, transparent 1px, transparent 18px),
+            radial-gradient(60% 30% at 85% 10%, rgba(59,130,246,0.25), transparent 60%)
+          `,
+        }}
+      />
 
       {/* CONTENT */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
-        {/* LEFT LIST */}
-        <div className="space-y-3 md:col-span-5">
-          {list.map((b) => {
-            const active = hoverId === b.bookId;
-            return (
+      <div className="relative z-10">
+        <h2 className="mb-6 text-center text-2xl font-extrabold tracking-wide text-slate-800">
+          BẢNG XẾP HẠNG BÁN CHẠY THEO TUẦN
+        </h2>
+
+        {/* Tabs */}
+        <div className="relative mb-6">
+          <div className="rounded-xl bg-white/60 p-2 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md ring-1 ring-white/70 shadow-sm">
+            <div
+              ref={tabsWrapRef}
+              className="relative flex items-center gap-8 overflow-x-auto no-scrollbar pb-1"
+              role="tablist"
+              aria-label="Top categories"
+            >
+              {categories.map((cat, idx) => {
+                const isActive = activeCat === cat;
+                return (
+                  <button
+                    key={cat}
+                    ref={(el) => {
+                      tabRefs.current[cat] = el;
+                    }}
+                    role="tab"
+                    aria-selected={isActive}
+                    tabIndex={isActive ? 0 : -1}
+                    onClick={() => {
+                      setActiveCat(cat);
+                      setHoverId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (!categories.length) return;
+                      if (e.key === "ArrowRight") {
+                        e.preventDefault();
+                        const next = categories[(idx + 1) % categories.length];
+                        setActiveCat(next ?? null);
+                        setHoverId(null);
+                      } else if (e.key === "ArrowLeft") {
+                        e.preventDefault();
+                        const prev = categories[(idx - 1 + categories.length) % categories.length];
+                        setActiveCat(prev ?? null);
+                        setHoverId(null);
+                      }
+                    }}
+                    className={cls(
+                      "relative whitespace-nowrap font-semibold transition-colors",
+                      isActive ? "text-rose-700" : "text-slate-600 hover:text-slate-800 cursor-pointer"
+                    )}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+
+              {/* underline */}
               <motion.div
-                key={b.bookId}
-                whileHover={{ scale: 1.02, x: 6 }}
-                transition={{ type: "spring", stiffness: 250, damping: 18 }}
-                onMouseEnter={() => setHoverId(b.bookId)}
-                onClick={() => openBook(b.bookId)}
-                className={cls(
-                  "flex cursor-pointer items-center gap-3 rounded-xl border border-transparent p-3 backdrop-blur-sm transition-all",
-                  active
-                    ? "border-red-500/40 bg-neutral-800/90 shadow-[0_0_12px_rgba(255,0,0,0.2)]"
-                    : "bg-neutral-900/70 hover:border-red-500/20 hover:bg-neutral-800",
-                )}
-                title="Xem chi tiết"
-              >
-                {/* Ô xếp hạng: số → mũi tên xanh/đỏ/xám → % (giữ NGUYÊN như cũ) */}
-                <RankCell rank={b.rank} growth={b.growthPercent} />
-
-                <div className="h-16 w-12 shrink-0 overflow-hidden rounded-md ring-1 ring-neutral-700">
-                  {b.imageUrl ? (
-                    <img src={b.imageUrl ?? ""} alt={b.title ?? ""} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full bg-neutral-800" />
-                  )}
-                </div>
-
-                <div className="flex-1 text-gray-300">
-                  <div className="line-clamp-1 font-medium text-white">{b.title}</div>
-                  <div className="line-clamp-1 text-sm text-gray-400">{b.authorNames}</div>
-                  <div className="mt-1 text-xs text-gray-500">Tuần này: {nf.format(b.sold)}</div>
-                </div>
-              </motion.div>
-            );
-          })}
+                className="absolute bottom-0 h-[2px] rounded-full bg-rose-600 shadow-[0_0_10px_rgba(225,29,72,.25)]"
+                animate={{ x: bar.x, width: bar.w }}
+                transition={{ type: "spring", stiffness: 520, damping: 36 }}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* RIGHT DETAIL */}
-        <div className="md:col-span-7">
-          <AnimatePresence mode="wait">
-            {detail && (
-              <motion.div
-                key={detail.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.4 }}
-                onClick={() => nav(detail.slug ? `/books/${detail.slug}` : `/books/id/${detail.id}`)}
-                className="cursor-pointer rounded-2xl border border-neutral-700 bg-neutral-800/60 p-5 shadow-[0_0_12px_rgba(255,255,255,0.05)] transition-all hover:shadow-[0_0_16px_rgba(255,255,255,0.1)]"
-                title="Xem chi tiết"
-              >
-                <div className="flex flex-col gap-6 sm:flex-row">
-                  <div className="aspect-[3/4] w-full overflow-hidden rounded-xl ring-1 ring-neutral-700 sm:w-1/3">
-                    <motion.img
-                      key={detail.id}
-                      src={
-                        detail.images?.find((i) => i.sortOrder === 0)?.url ??
-                        detail.cover ??
-                        detail.thumbnail ??
-                        detail.imageUrl ??
-                        ""
-                      }
-                      alt={detail.title}
-                      className="h-full w-full object-cover"
-                      whileHover={{ scale: 1.05 }}
-                      transition={{ type: "spring", stiffness: 200 }}
-                    />
+        {/* CONTENT */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
+          {/* LEFT LIST */}
+          <div className="space-y-3 md:col-span-5">
+            {list.map((b) => {
+              const active = hoverId === b.bookId;
+              return (
+                <motion.div
+                  key={b.bookId}
+                  whileHover={{ scale: 1.015, x: 6 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                  onMouseEnter={() => setHoverId(b.bookId)}
+                  onClick={() => openBook(b.bookId)}
+                  className={cls(
+                    "flex cursor-pointer items-center gap-3 rounded-xl p-3 ring-1 transition-all backdrop-blur-sm",
+                    active
+                      ? "bg-white/85 ring-rose-400 shadow-[0_10px_24px_rgba(2,6,23,.12)]"
+                      : "bg-white/70 hover:bg-white/90 ring-slate-200 hover:shadow-sm"
+                  )}
+                  title="Xem chi tiết"
+                >
+                  <RankCell rank={b.rank} growth={b.growthPercent} />
+
+                  <div className="h-16 w-12 shrink-0 overflow-hidden rounded-md ring-1 ring-slate-200">
+                    {b.imageUrl ? (
+                      <img src={b.imageUrl ?? ""} alt={b.title ?? ""} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full bg-slate-100" />
+                    )}
                   </div>
 
-                  <div className="flex flex-1 flex-col justify-center text-gray-300">
-                    <h3 className="mb-1 text-xl font-semibold text-white">{detail.title}</h3>
-                    <p className="mb-3 text-sm text-gray-400">
-                      {detail.authors?.length
-                        ? detail.authors.map((a) => a.name).join(", ")
-                        : list.find((x) => x.bookId === detail.id)?.authorNames}
-                    </p>
+                  <div className="flex-1">
+                    <div className="line-clamp-1 font-semibold text-slate-900">{b.title}</div>
+                    <div className="line-clamp-1 text-sm text-slate-700">{b.authorNames}</div>
+                    <div className="mt-1 text-xs text-slate-600">Tuần này: {nf.format(b.sold)}</div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
 
-                    {/* GIÁ */}
-                    <div className="mb-3 flex flex-wrap items-center gap-3">
-                      {(() => {
-                        const p = detail.price ?? undefined;
-                        const f = priceOf(detail);
-                        const hasSale = p != null && f != null && f < p;
-                        if (p == null && f == null) return null;
-                        return (
-                          <>
-                            {hasSale ? (
-                              <>
-                                <div className="text-sm text-gray-500 line-through">{nfVnd.format(Number(p))}</div>
-                                <div className="text-xl font-bold text-red-500">{nfVnd.format(Number(f))}</div>
-                              </>
-                            ) : (
-                              <div className="text-xl font-bold text-white">{nfVnd.format(Number(f ?? p))}</div>
-                            )}
-                          </>
-                        );
-                      })()}
-                      <div className="text-sm text-gray-400">
-                        Tuần trước: {nf.format(list.find((x) => x.bookId === detail.id)?.lastWeekSold ?? 0)}
-                      </div>
+          {/* RIGHT DETAIL */}
+          <div className="md:col-span-7">
+            <AnimatePresence mode="wait">
+              {detail && (
+                <motion.div
+                  key={detail.id}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.35 }}
+                  onClick={() => nav(detail.slug ? `/books/${detail.slug}` : `/books/id/${detail.id}`)}
+                  className="cursor-pointer rounded-2xl bg-white/80 p-5 ring-1 ring-slate-200 shadow-[0_12px_28px_rgba(2,6,23,.10)] hover:shadow-[0_16px_34px_rgba(2,6,23,.14)] transition-shadow"
+                  title="Xem chi tiết"
+                >
+                  <div className="flex flex-col gap-6 sm:flex-row">
+                    <div className="aspect-[3/4] w-full overflow-hidden rounded-xl ring-1 ring-slate-200 sm:w-1/3 bg-white">
+                      <motion.img
+                        key={detail.id}
+                        src={
+                          detail.images?.find((i) => i.sortOrder === 0)?.url ??
+                          detail.cover ??
+                          detail.thumbnail ??
+                          detail.imageUrl ??
+                          ""
+                        }
+                        alt={detail.title}
+                        className="h-full w-full object-cover"
+                        whileHover={{ scale: 1.04 }}
+                        transition={{ type: "spring", stiffness: 200 }}
+                      />
                     </div>
 
-                    <div
-                      className="prose prose-sm prose-invert max-w-none text-gray-400 line-clamp-5"
-                      dangerouslySetInnerHTML={{
-                        __html:
-                          detail.description && detail.description.trim().startsWith("<")
-                            ? sanitizeBasic(detail.description)
-                            : `<p>${detail.description || "Chưa có mô tả."}</p>`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
+                    <div className="flex flex-1 flex-col justify-center">
+                      <h3 className="mb-1 text-xl font-extrabold text-slate-900">
+                        {detail.title}
+                      </h3>
+                      <p className="mb-3 text-sm text-slate-700">
+                        {detail.authors?.length
+                          ? detail.authors.map((a) => a.name).join(", ")
+                          : list.find((x) => x.bookId === detail.id)?.authorNames}
+                      </p>
 
-      {/* BUTTON */}
-      <div className="mt-8 flex justify-center">
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => nav("/top-selling")}
-          className="rounded-lg border border-red-600 px-6 py-2.5 font-medium text-white transition-colors hover:bg-red-600 hover:text-white cursor-pointer"
-        >
-          Xem thêm
-        </motion.button>
+                      {/* GIÁ */}
+                      <div className="mb-3 flex flex-wrap items-center gap-3">
+                        {(() => {
+                          const p = detail.price ?? undefined;
+                          const f = priceOf(detail);
+                          const hasSale = p != null && f != null && f < p;
+                          if (p == null && f == null) return null;
+                          return (
+                            <>
+                              {hasSale ? (
+                                <>
+                                  <div className="text-sm text-slate-500 line-through">{nfVnd.format(Number(p))}</div>
+                                  <div className="text-xl font-extrabold text-rose-700">{nfVnd.format(Number(f))}</div>
+                                </>
+                              ) : (
+                                <div className="text-xl font-extrabold text-slate-900">{nfVnd.format(Number(f ?? p))}</div>
+                              )}
+                            </>
+                          );
+                        })()}
+                        <div className="text-sm text-slate-600">
+                          Tuần trước: {nf.format(list.find((x) => x.bookId === detail.id)?.lastWeekSold ?? 0)}
+                        </div>
+                      </div>
+
+                      <div
+                        className="prose prose-sm max-w-none text-slate-800"
+                        dangerouslySetInnerHTML={{
+                          __html:
+                            detail.description && detail.description.trim().startsWith("<")
+                              ? sanitizeBasic(detail.description)
+                              : `<p>${detail.description || "Chưa có mô tả."}</p>`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* BUTTON */}
+        <div className="mt-8 flex justify-center">
+          <motion.button
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => nav("/top-selling")}
+            className="cursor-pointer rounded-lg bg-rose-700 px-6 py-2.5 font-semibold text-white shadow-[0_8px_20px_rgba(185,28,28,.28)] hover:bg-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-400/70"
+          >
+            Xem thêm
+          </motion.button>
+        </div>
       </div>
     </motion.div>
   );
