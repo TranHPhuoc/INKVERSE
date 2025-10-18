@@ -164,7 +164,6 @@ type FormState = {
   saleEndAt: string;
 
   images: FormImage[];
-  initialStock: number | undefined;
 };
 
 /* ---------------- UI helpers ---------------- */
@@ -218,7 +217,6 @@ export default function EditBookModal({
     saleEndAt: "",
 
     images: [],
-    initialStock: undefined,
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -299,7 +297,6 @@ export default function EditBookModal({
       saleEndAt: fromIsoToLocalInput(b.saleEndAt),
 
       images: (b.images || []).map((i) => ({ url: i.url, sortOrder: i.sortOrder })),
-      initialStock: b.stock ?? undefined,
     });
   }
 
@@ -340,7 +337,32 @@ export default function EditBookModal({
 
       const finalSlug = (form.slug?.trim() || slugify(form.title)).slice(0, 200);
 
-      const payload: BookCreate = {
+      const payload: {
+        title: string;
+        slug: string;
+        sku: string | null;
+        isbn13: string | null;
+        description: string | null;
+        publisherId: number;
+        supplierId: number;
+        authorIds: number[];
+        categoryIds: number[];
+        pageCount: number;
+        publicationYear: number;
+        language: "VI" | "EN" | "JP" | "KR" | "CN" | "OTHER";
+        weightGram: number;
+        widthCm: number;
+        heightCm: number;
+        thicknessCm: number;
+        coverType: "PAPERBACK" | "HARDCOVER" | "OTHER";
+        ageRating: "ALL" | "_6PLUS" | "_12PLUS" | "_16PLUS" | "_18PLUS";
+        status: "DRAFT" | "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
+        price: number;
+        salePrice: number | null;
+        saleStartAt: string | null;
+        saleEndAt: string | null;
+        images: { url: string; sortOrder: number }[]
+      } = {
         title: form.title.trim(),
         slug: finalSlug,
         sku: form.sku?.trim() || null,
@@ -377,7 +399,6 @@ export default function EditBookModal({
             url: it.url.trim(),
             sortOrder: Number(it.sortOrder ?? i),
           })),
-        initialStock: Number(form.initialStock ?? 0),
       };
 
       await updateBook(bookId, payload);
@@ -675,7 +696,6 @@ export default function EditBookModal({
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="INACTIVE">INACTIVE</option>
                   <option value="DRAFT">DRAFT</option>
-                  <option value="OUT_OF_STOCK">OUT_OF_STOCK</option>
                 </select>
               </FieldGroup>
             </div>
@@ -687,15 +707,6 @@ export default function EditBookModal({
                   min={1}
                   value={form.price ?? ""}
                   onChange={(e) => setNum("price")(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </FieldGroup>
-              <FieldGroup label="Tồn kho ban đầu">
-                <input
-                  type="number"
-                  min={0}
-                  value={form.initialStock ?? ""}
-                  onChange={(e) => setNum("initialStock")(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </FieldGroup>

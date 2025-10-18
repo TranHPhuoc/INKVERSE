@@ -281,7 +281,7 @@ const FlashSaleCarousel: React.FC<Props> = ({
               className="absolute top-1/2 left-2 z-30 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-700 shadow transition hover:bg-white"
               aria-label="Prev"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-5 w-5 cursor-pointer" />
             </button>
           )}
 

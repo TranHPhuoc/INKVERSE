@@ -158,7 +158,7 @@ export default function BestSellerCarousel({ items }: { items: BookListItem[] })
           className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-700 shadow transition hover:bg-white"
           aria-label="Prev"
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronLeft className="h-5 w-5 cursor-pointer" />
         </button>
       )}
 

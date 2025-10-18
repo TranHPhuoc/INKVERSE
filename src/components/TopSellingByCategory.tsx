@@ -438,12 +438,9 @@ export default function TopSellingByCategory({ limit = 5 }: { limit?: number }) 
                       </div>
 
                       <div
-                        className="prose prose-sm max-w-none text-slate-800"
+                        className="prose prose-sm max-w-none text-slate-800 line-clamp-6"
                         dangerouslySetInnerHTML={{
-                          __html:
-                            detail.description && detail.description.trim().startsWith("<")
-                              ? sanitizeBasic(detail.description)
-                              : `<p>${detail.description || "Chưa có mô tả."}</p>`,
+                          __html: sanitizeBasic(detail.description || "Chưa có mô tả."),
                         }}
                       />
                     </div>
