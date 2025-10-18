@@ -140,13 +140,13 @@ type PriceSliderProps = {
 };
 
 function PriceSlider({
-                       min = 0,
-                       max = 2_000_000,
-                       step = 1000,
-                       valueMin,
-                       valueMax,
-                       onChange,
-                     }: PriceSliderProps) {
+  min = 0,
+  max = 2_000_000,
+  step = 1000,
+  valueMin,
+  valueMax,
+  onChange,
+}: PriceSliderProps) {
   const lo = valueMin ?? min;
   const hi = valueMax ?? max;
 
@@ -161,15 +161,11 @@ function PriceSlider({
       </div>
 
       <div className="relative h-9 select-none">
-        {/* track */}
         <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-gray-200" />
-        {/* active range */}
         <div
           className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-rose-500"
           style={{ left: `${leftPct}%`, right: `${rightPct}%` }}
         />
-
-        {/* ranges (low / high) */}
         <input
           type="range"
           min={min}
@@ -199,51 +195,22 @@ function PriceSlider({
       </div>
 
       <style>{`
-        /* base: cho phép kéo được trên thumb */
         .price-thumb::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
-          width: 16px;
-          height: 16px;
-          border-radius: 9999px;
-          background: #ef4444; /* rose-500 */
-          border: 2px solid #fff;
-          box-shadow: 0 0 0 1px #ef4444;
-          cursor: pointer;
-          /* input đang top-50% translate-y-1/2, thumb không cần margin-top,
-             nhưng WebKit cần đẩy lên đúng tâm một chút cho track 4px: */
-          margin-top: 0;
-          pointer-events: auto;
+          width: 16px; height: 16px; border-radius: 9999px;
+          background: #ef4444; border: 2px solid #fff; box-shadow: 0 0 0 1px #ef4444;
+          cursor: pointer; margin-top: 0; pointer-events: auto;
         }
-        .price-thumb:focus-visible::-webkit-slider-thumb {
-          outline: 2px solid #fb7185; /* rose-400 */
-          outline-offset: 2px;
-        }
-
-        /* Firefox */
-        .price-thumb::-moz-range-track {
-          background: transparent;
-          height: 4px;
-        }
+        .price-thumb:focus-visible::-webkit-slider-thumb { outline: 2px solid #fb7185; outline-offset: 2px; }
+        .price-thumb::-moz-range-track { background: transparent; height: 4px; }
         .price-thumb::-moz-range-thumb {
-          width: 16px;
-          height: 16px;
-          border-radius: 9999px;
-          background: #ef4444;
-          border: 2px solid #fff;
-          box-shadow: 0 0 0 1px #ef4444;
-          cursor: pointer;
-          pointer-events: auto;
+          width: 16px; height: 16px; border-radius: 9999px;
+          background: #ef4444; border: 2px solid #fff; box-shadow: 0 0 0 1px #ef4444;
+          cursor: pointer; pointer-events: auto;
         }
         .price-thumb::-moz-focus-outer { border: 0; }
-
-        /* Edge/Chromium track reset */
-        .price-thumb::-ms-track {
-          background: transparent;
-          border-color: transparent;
-          color: transparent;
-          height: 4px;
-        }
+        .price-thumb::-ms-track { background: transparent; border-color: transparent; color: transparent; height: 4px; }
       `}</style>
 
       {(valueMin != null || valueMax != null) && (
@@ -258,7 +225,6 @@ function PriceSlider({
     </div>
   );
 }
-
 
 /* ───────── Page ───────── */
 export default function CategoryPage() {
@@ -277,10 +243,8 @@ export default function CategoryPage() {
   const priceMax = sp.get("priceMax") || "";
   const age = (sp.get("age") as AgeBoundKey) || "ALL";
 
-  // ✅ Build filters không gán undefined (hợp lệ với exactOptionalPropertyTypes)
   const filters = useMemo<CatalogFilters>(() => {
     const f: CatalogFilters = { ageMin: (age as AgeBoundKey) || "ALL" };
-
     if (publisher) f.publisher = publisher;
     if (supplier) f.supplier = supplier;
     if (language) f.language = language as LanguageKey;
@@ -290,7 +254,6 @@ export default function CategoryPage() {
     const pMax = Number(priceMax);
     if (!Number.isNaN(pMin) && priceMin !== "") f.priceMin = pMin;
     if (!Number.isNaN(pMax) && priceMax !== "") f.priceMax = pMax;
-
     return f;
   }, [publisher, supplier, language, status, priceMin, priceMax, age]);
 
@@ -307,7 +270,6 @@ export default function CategoryPage() {
   const [catName, setCatName] = useState<string>(SLUG_VI_SHORT[catSlug] ?? prettifySlug(catSlug));
   const [tree, setTree] = useState<CatNode[]>([]);
 
-  // load tree + set tên danh mục
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -367,6 +329,8 @@ export default function CategoryPage() {
     setSp(sp, { replace: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const displayCount = loading ? size : (pageData?.content?.length ?? 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -471,7 +435,6 @@ export default function CategoryPage() {
 
         {/* RIGHT */}
         <section>
-          {/* header + sort/size */}
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h1 className="text-lg font-semibold md:text-xl">Danh mục: {catName}</h1>
@@ -501,17 +464,14 @@ export default function CategoryPage() {
                   </option>
                 ))}
               </select>
-              <select
-                value={size}
-                onChange={(e) => setParam("size", String(Number(e.target.value)))}
-                className="h-9 rounded-lg border bg-white px-2 text-sm"
+
+              <span
+                className="inline-flex h-9 items-center rounded-lg border bg-white px-3 text-sm font-medium text-gray-700"
+                aria-label="Số sản phẩm đang hiển thị ở trang hiện tại"
+                title="Số sản phẩm trên trang hiện tại"
               >
-                {[12, 24, 36].map((s) => (
-                  <option key={s} value={s}>
-                    {s} sản phẩm
-                  </option>
-                ))}
-              </select>
+                {displayCount} sản phẩm
+              </span>
             </div>
           </div>
 

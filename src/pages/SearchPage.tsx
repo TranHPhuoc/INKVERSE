@@ -1,5 +1,6 @@
+// src/pages/SearchPage.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { searchBooks } from "../types/books.ts";
 import type { BookListItem, SpringPage, ProductStatus } from "../types/books.ts";
 import ProductCard from "../components/ProductCard";
@@ -10,11 +11,11 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [pageData, setPageData] = useState<SpringPage<BookListItem> | null>(null);
 
-  // query params
+  /* ========= Query params (UI-friendly) ========= */
   const q = sp.get("q") ?? "";
-  const page = Math.max(1, Number(sp.get("page") ?? "1"));
+  const page = Math.max(1, Number(sp.get("page") ?? "1"));       // UI 1-based
   const size = Math.max(1, Number(sp.get("size") ?? "20"));
-  const sort = sp.get("sort") ?? "createdAt";
+  const sort = sp.get("sort") ?? "createdAt";                    // "createdAt" | "price" | "sold"...
   const direction = (sp.get("direction") as "ASC" | "DESC") ?? "DESC";
 
   const statusRaw = sp.get("status") ?? undefined;
@@ -23,31 +24,31 @@ export default function SearchPage() {
   const publisherId = sp.get("publisherId") ? Number(sp.get("publisherId")) : undefined;
   const supplierId = sp.get("supplierId") ? Number(sp.get("supplierId")) : undefined;
 
-  // Chuẩn hoá status theo kiểu ProductStatus (nếu BE cần in hoa)
+  // Chuẩn hoá status theo enum BE
   const status: ProductStatus | undefined = useMemo(() => {
     if (!statusRaw) return undefined;
     return statusRaw.toUpperCase() as ProductStatus;
   }, [statusRaw]);
 
+  /* ========= Fetch (khớp BE) ========= */
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      // Nếu không có từ khoá, clear kết quả
       if (!q.trim()) {
         setPageData(null);
         return;
       }
       setLoading(true);
       try {
-        // Gõ kiểu đối số theo chữ ký của searchBooks
+        // Spring pageable: 0-based page index
         const req: Parameters<typeof searchBooks>[0] = {
           q,
-          page,
+          page: page - 1,
           size,
           sort,
           direction,
-          ...(status ? { status: status as import("../types/books").ProductStatus } : {}),
+          ...(status ? { status } : {}),
           ...(authorId !== undefined ? { authorId } : {}),
           ...(categoryId !== undefined ? { categoryId } : {}),
           ...(publisherId !== undefined ? { publisherId } : {}),
@@ -66,15 +67,25 @@ export default function SearchPage() {
     return () => {
       mounted = false;
     };
-    // đầy đủ deps, không cần "deps string" hack
   }, [q, page, size, sort, direction, status, authorId, categoryId, publisherId, supplierId]);
 
+  /* ========= Helpers ========= */
   const totalPages = pageData?.totalPages ?? 0;
 
   const onPageChange = (newPage: number) => {
     sp.set("page", String(newPage));
     sp.set("size", String(size));
     setSp(sp, { replace: true });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Đổi sort/direction → reset về trang 1
+  const setSort = (sortField: string, dir: "ASC" | "DESC") => {
+    sp.set("sort", sortField);
+    sp.set("direction", dir);
+    sp.set("page", "1");
+    setSp(sp, { replace: true });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -86,28 +97,41 @@ export default function SearchPage() {
             {pageData && <span> — {pageData.totalElements} sản phẩm</span>}
           </div>
 
-          {/* thanh filter */}
-          <div className="mb-4 flex flex-wrap gap-2 text-xl">
-            <Link
-              to={`/search?${new URLSearchParams({ q, sort: "createdAt", direction: "DESC" }).toString()}`}
-              className={`rounded border px-3 py-1.5 ${sort === "createdAt" ? "bg-gray-900 text-white" : "bg-white"}`}
+          {/* ========= Sort bar ========= */}
+          <div className="mb-4 flex flex-wrap gap-2 text-base">
+            <button
+              onClick={() => setSort("createdAt", "DESC")}
+              className={`rounded border px-3 py-1.5 transition ${
+                sort === "createdAt" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-100"
+              }`}
             >
               Mới nhất
-            </Link>
-            <Link
-              to={`/search?${new URLSearchParams({ q, sort: "price", direction: "ASC" }).toString()}`}
-              className={`rounded border px-3 py-1.5 ${sort === "price" && direction === "ASC" ? "bg-gray-900 text-white" : "bg-white"}`}
+            </button>
+
+            <button
+              onClick={() => setSort("price", "ASC")}
+              className={`rounded border px-3 py-1.5 transition ${
+                sort === "price" && direction === "ASC"
+                  ? "bg-gray-900 text-white"
+                  : "bg-white hover:bg-gray-100"
+              }`}
             >
               Giá tăng dần
-            </Link>
-            <Link
-              to={`/search?${new URLSearchParams({ q, sort: "price", direction: "DESC" }).toString()}`}
-              className={`rounded border px-3 py-1.5 ${sort === "price" && direction === "DESC" ? "bg-gray-900 text-white" : "bg-white"}`}
+            </button>
+
+            <button
+              onClick={() => setSort("price", "DESC")}
+              className={`rounded border px-3 py-1.5 transition ${
+                sort === "price" && direction === "DESC"
+                  ? "bg-gray-900 text-white"
+                  : "bg-white hover:bg-gray-100"
+              }`}
             >
               Giá giảm dần
-            </Link>
+            </button>
           </div>
 
+          {/* ========= Grid ========= */}
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
             {loading ? (
               Array.from({ length: 10 }).map((_, i) => (
@@ -116,12 +140,11 @@ export default function SearchPage() {
             ) : pageData?.content?.length ? (
               pageData.content.map((b) => <ProductCard key={String(b.id)} item={b} />)
             ) : (
-              <div className="col-span-full text-sm text-gray-500">
-                Không tìm thấy sản phẩm phù hợp.
-              </div>
+              <div className="col-span-full text-sm text-gray-500">Không tìm thấy sản phẩm phù hợp.</div>
             )}
           </div>
 
+          {/* ========= Pagination ========= */}
           {totalPages > 1 && (
             <Pagination page={page} totalPages={totalPages} onChange={onPageChange} />
           )}

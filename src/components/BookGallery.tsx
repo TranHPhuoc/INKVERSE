@@ -48,6 +48,7 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
   }, [sorted.length, initialIndex]);
 
   const current: GalleryImage | undefined = sorted[active];
+
   useEffect(() => {
     onIndexChange?.(active);
   }, [active, onIndexChange]);
@@ -59,28 +60,47 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
     }
   }, [sorted]);
 
-  /* ===== Zoom state ===== */
-  const ZOOM = 200;
-  const LENS = 220;
+  /* ===== Zoom config/state ===== */
+  const PANE = 420;
+  const LENS = 160;
   const HALF = LENS / 2;
 
   const [hovering, setHovering] = useState(false);
   const [overControls, setOverControls] = useState(false);
-  const [posPx, setPosPx] = useState({ x: 0, y: 0 });
-  const [posPct, setPosPct] = useState({ x: 50, y: 50 });
 
+  const [posImgPx, setPosImgPx] = useState({ x: HALF, y: HALF });
+
+  const [lensLT, setLensLT] = useState({ l: 0, t: 0 });
+
+  const [imgBox, setImgBox] = useState({ w: 0, h: 0 });
+
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const thumbsRef = useRef<HTMLDivElement | null>(null);
 
   function handleMove(e: React.MouseEvent<HTMLDivElement>) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    let px = e.clientX - rect.left;
-    let py = e.clientY - rect.top;
+    const wrap = wrapperRef.current;
+    const img = imgRef.current;
+    if (!wrap || !img) return;
 
-    px = Math.max(HALF, Math.min(rect.width - HALF, px));
-    py = Math.max(HALF, Math.min(rect.height - HALF, py));
+    const wrapRect = wrap.getBoundingClientRect();
+    const imgRect = img.getBoundingClientRect();
 
-    setPosPx({ x: px, y: py });
-    setPosPct({ x: (px / rect.width) * 100, y: (py / rect.height) * 100 });
+    const cx = Math.max(imgRect.left + HALF, Math.min(imgRect.right - HALF, e.clientX));
+    const cy = Math.max(imgRect.top + HALF, Math.min(imgRect.bottom - HALF, e.clientY));
+
+    const relX = cx - imgRect.left;
+    const relY = cy - imgRect.top;
+
+    setPosImgPx({ x: relX, y: relY });
+    if (imgBox.w !== imgRect.width || imgBox.h !== imgRect.height) {
+      setImgBox({ w: imgRect.width, h: imgRect.height });
+    }
+
+    setLensLT({
+      l: (imgRect.left - wrapRect.left) + relX - HALF,
+      t: (imgRect.top - wrapRect.top) + relY - HALF,
+    });
   }
 
   function go(delta: number) {
@@ -117,7 +137,8 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
   return (
     <div className={`relative ${className || ""}`}>
       <div
-        className="group relative overflow-visible rounded-xl border border-gray-100 bg-gray-50 cursor-default"
+        ref={wrapperRef}
+        className="group relative cursor-default overflow-visible rounded-xl border border-gray-100 bg-gray-50"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "ArrowLeft") go(-1);
@@ -129,6 +150,7 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
       >
         <AnimatePresence mode="wait">
           <motion.img
+            ref={imgRef}
             key={(current?.id ?? current?.url) + "-main"}
             src={pickBest(current)}
             alt="book image"
@@ -143,14 +165,15 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
           />
         </AnimatePresence>
 
+        {/* Lens */}
         {hovering && !overControls && (
           <div
-            className="absolute pointer-events-none rounded-md border border-white/70 backdrop-blur-xs shadow-inner"
+            className="pointer-events-none absolute rounded-md border border-white/70 bg-white/30 shadow-inner backdrop-blur-sm"
             style={{
-              width: `${LENS}px`,
-              height: `${LENS}px`,
-              left: `${posPx.x - HALF}px`,
-              top: `${posPx.y - HALF}px`,
+              width: LENS,
+              height: LENS,
+              left: lensLT.l,
+              top: lensLT.t,
             }}
           />
         )}
@@ -180,6 +203,7 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
         )}
       </div>
 
+      {/* Zoom pane */}
       <AnimatePresence>
         {hovering && !overControls && (
           <motion.div
@@ -187,22 +211,38 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.18 }}
-            className="pointer-events-none absolute top-0 left-full ml-5 z-[300] hidden md:block"
+            className="pointer-events-none absolute top-0 left-full z-[300] ml-5 hidden md:block"
           >
-            <div
-              className="h-[620px] w-[420px] overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl"
-              style={{
-                backgroundImage: `url("${pickBest(current)}")`,
-                backgroundRepeat: "no-repeat",
-                backgroundSize: `${ZOOM}%`,
-                backgroundPosition: `${posPct.x}% ${posPct.y}%`,
-              }}
-            />
+            {(() => {
+              const scale = PANE / LENS || 1;
+              const bgW = imgBox.w * scale;
+              const bgH = imgBox.h * scale;
+
+              const lensLeftInImg = posImgPx.x - LENS / 2;
+              const lensTopInImg  = posImgPx.y - LENS / 2;
+
+              const bgPosX = -(lensLeftInImg * scale);
+              const bgPosY = -(lensTopInImg  * scale);
+
+              return (
+                <div
+                  className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl"
+                  style={{
+                    width: PANE,
+                    height: PANE,
+                    backgroundImage: `url("${pickBest(current)}")`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: `${bgW}px ${bgH}px`,
+                    backgroundPosition: `${bgPosX}px ${bgPosY}px`,
+                  }}
+                />
+              );
+            })()}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ===== Thumbnails ===== */}
+      {/* Thumbnails */}
       {sorted.length > 1 && (
         <div className="mt-3 flex items-center gap-2">
           <div
