@@ -1,6 +1,5 @@
 import type { OrderStatus, PaymentStatus } from "./sale-order";
 
-/** Nhãn tiếng Việt cho OrderStatus */
 export const viStatusLabel: Record<OrderStatus, string> = {
   PENDING: "Chờ xử lý",
   CONFIRMED: "Đã xác nhận",
@@ -12,7 +11,6 @@ export const viStatusLabel: Record<OrderStatus, string> = {
   CANCEL_REQUESTED: "Yêu cầu huỷ",
 };
 
-/** Nhãn tiếng Việt cho PaymentStatus (đủ 7 trạng thái) */
 export const viPaymentLabel: Record<PaymentStatus, string> = {
   PENDING: "Chờ thanh toán",
   UNPAID: "Chưa thanh toán",
@@ -23,7 +21,6 @@ export const viPaymentLabel: Record<PaymentStatus, string> = {
   REFUNDED: "Đã hoàn tiền",
 };
 
-/* ====== Các label khác đang dùng chung ====== */
 export const LANGUAGE_VI: Record<string, string> = {
   VI: "Tiếng Việt",
   EN: "Tiếng Anh",
@@ -37,10 +34,11 @@ export const LANGUAGE_VI: Record<string, string> = {
 };
 
 export const AGE_VI: Record<string, string> = {
-  ALL: "Tất Cả",
-  KID: "Thiếu Nhi",
-  TEEN: "Thiếu Niên",
-  ADULT: "Người Lớn",
+  ALL: "Mọi lứa tuổi",
+  _6PLUS: "6 tuổi trở lên",
+  _12PLUS: "12 tuổi trở lên",
+  _16PLUS: "16 tuổi trở lên",
+  _18PLUS: "18 tuổi trở lên",
 };
 
 export const COVER_VI: Record<string, string> = {

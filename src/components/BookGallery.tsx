@@ -14,7 +14,6 @@ export type GalleryImage = {
   };
 };
 
-
 type Props = {
   images: GalleryImage[] | null | undefined;
   initialIndex?: number;
@@ -22,6 +21,7 @@ type Props = {
   onIndexChange?: (index: number) => void;
 };
 
+/* ===== Helpers ===== */
 function pickBest(img?: GalleryImage) {
   const src = img?.variants?.xlarge || img?.variants?.large || img?.url || PLACEHOLDER;
   return resolveThumb(src);
@@ -40,10 +40,11 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
     [images],
   );
 
-  const clamp = (i: number) => (sorted.length ? Math.max(0, Math.min(i, sorted.length - 1)) : 0);
-  const [active, setActive] = useState(() => clamp(initialIndex));
+  const clampIndex = (i: number) => (sorted.length ? Math.max(0, Math.min(i, sorted.length - 1)) : 0);
+  const [active, setActive] = useState(() => clampIndex(initialIndex));
+
   useEffect(() => {
-    setActive(clamp(initialIndex));
+    setActive(clampIndex(initialIndex));
   }, [sorted.length, initialIndex]);
 
   const current: GalleryImage | undefined = sorted[active];
@@ -58,21 +59,28 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
     }
   }, [sorted]);
 
-  const mainWrapRef = useRef<HTMLDivElement | null>(null);
-
-  /** ===== Zoom state ===== */
-  const [hovering, setHovering] = useState(false);
-  const [posPct, setPosPct] = useState({ x: 50, y: 50 }); 
+  /* ===== Zoom state ===== */
   const ZOOM = 200;
+  const LENS = 220;
+  const HALF = LENS / 2;
 
-  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+  const [hovering, setHovering] = useState(false);
+  const [overControls, setOverControls] = useState(false);
+  const [posPx, setPosPx] = useState({ x: 0, y: 0 });
+  const [posPct, setPosPct] = useState({ x: 50, y: 50 });
+
+  const thumbsRef = useRef<HTMLDivElement | null>(null);
+
+  function handleMove(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
-    const relX = ((e.clientX - rect.left) / rect.width) * 100;
-    const relY = ((e.clientY - rect.top) / rect.height) * 100;
-    setPosPct({
-      x: Math.max(0, Math.min(100, relX)),
-      y: Math.max(0, Math.min(100, relY)),
-    });
+    let px = e.clientX - rect.left;
+    let py = e.clientY - rect.top;
+
+    px = Math.max(HALF, Math.min(rect.width - HALF, px));
+    py = Math.max(HALF, Math.min(rect.height - HALF, py));
+
+    setPosPx({ x: px, y: py });
+    setPosPct({ x: (px / rect.width) * 100, y: (py / rect.height) * 100 });
   }
 
   function go(delta: number) {
@@ -80,10 +88,10 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
     setActive((i) => (i + delta + sorted.length) % sorted.length);
   }
 
-  function focusThumbIntoView(i: number) {
-    const wrap = thumbScrollRef.current;
+  useEffect(() => {
+    const wrap = thumbsRef.current;
     if (!wrap) return;
-    const btn = wrap.querySelector<HTMLButtonElement>(`[data-idx="${i}"]`);
+    const btn = wrap.querySelector<HTMLButtonElement>(`[data-idx="${active}"]`);
     if (!btn) return;
     const { offsetLeft, offsetWidth } = btn;
     const { scrollLeft, clientWidth } = wrap;
@@ -96,12 +104,7 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
     } else if (btnEnd > visibleEnd) {
       wrap.scrollTo({ left: btnEnd - clientWidth + 8, behavior: "smooth" });
     }
-  }
-  useEffect(() => {
-    focusThumbIntoView(active);
   }, [active]);
-
-  const thumbScrollRef = useRef<HTMLDivElement | null>(null);
 
   if (!sorted.length) {
     return (
@@ -113,10 +116,8 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
 
   return (
     <div className={`relative ${className || ""}`}>
-      {/* ===== Main image + zoom trigger ===== */}
       <div
-        ref={mainWrapRef}
-        className="group relative overflow-hidden rounded-xl border bg-gray-50"
+        className="group relative overflow-visible rounded-xl border border-gray-100 bg-gray-50 cursor-default"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "ArrowLeft") go(-1);
@@ -124,7 +125,7 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
         }}
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
-        onMouseMove={handleMouseMove}
+        onMouseMove={handleMove}
       >
         <AnimatePresence mode="wait">
           <motion.img
@@ -142,12 +143,26 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
           />
         </AnimatePresence>
 
+        {hovering && !overControls && (
+          <div
+            className="absolute pointer-events-none rounded-md border border-white/70 backdrop-blur-xs shadow-inner"
+            style={{
+              width: `${LENS}px`,
+              height: `${LENS}px`,
+              left: `${posPx.x - HALF}px`,
+              top: `${posPx.y - HALF}px`,
+            }}
+          />
+        )}
+
         {/* arrows */}
         {sorted.length > 1 && (
           <>
             <button
               aria-label="Ảnh trước"
               onClick={() => go(-1)}
+              onMouseEnter={() => setOverControls(true)}
+              onMouseLeave={() => setOverControls(false)}
               className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/70 px-2 py-2 shadow hover:bg-white"
             >
               ‹
@@ -155,6 +170,8 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
             <button
               aria-label="Ảnh sau"
               onClick={() => go(1)}
+              onMouseEnter={() => setOverControls(true)}
+              onMouseLeave={() => setOverControls(false)}
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/70 px-2 py-2 shadow hover:bg-white"
             >
               ›
@@ -163,18 +180,17 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
         )}
       </div>
 
-      {/* ===== Zoom pane ===== */}
       <AnimatePresence>
-        {hovering && (
+        {hovering && !overControls && (
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.18 }}
-            className="pointer-events-none absolute top-0 left-full ml-5 md:block z-[200]"
+            className="pointer-events-none absolute top-0 left-full ml-5 z-[300] hidden md:block"
           >
             <div
-              className="h-[400px] w-[400px] overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl"
+              className="h-[620px] w-[420px] overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl"
               style={{
                 backgroundImage: `url("${pickBest(current)}")`,
                 backgroundRepeat: "no-repeat",
@@ -186,11 +202,11 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
         )}
       </AnimatePresence>
 
-      {/* ===== Thumbnails row ===== */}
+      {/* ===== Thumbnails ===== */}
       {sorted.length > 1 && (
         <div className="mt-3 flex items-center gap-2">
           <div
-            ref={thumbScrollRef}
+            ref={thumbsRef}
             className="no-scrollbar flex gap-2 overflow-x-auto"
             style={{ scrollBehavior: "smooth" }}
           >
@@ -202,7 +218,7 @@ export default function BookGallery({ images, initialIndex = 0, className, onInd
                   data-idx={i}
                   onClick={() => setActive(i)}
                   aria-label={`Ảnh ${i + 1}`}
-                  className={`relative h-28 w-20 flex-shrink-0 overflow-hidden rounded border ${activeCls}`}
+                  className={`relative h-24 w-20 flex-shrink-0 overflow-hidden rounded border ${activeCls}`}
                 >
                   <img
                     src={pickThumb(img)}
