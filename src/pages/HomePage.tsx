@@ -22,7 +22,6 @@ import {
 import ProductCard from "../components/ProductCard";
 import Pagination from "../components/Pagination";
 import ErrorBoundary from "../components/ErrorBoundary";
-import ProductCarousel from "../components/ProductCarousel";
 import type { BookListItem, HomeFeed } from "../types/books";
 import { getHomeFeed, listBooks } from "../types/books";
 
@@ -31,12 +30,15 @@ import banner2 from "../assets/BannerFlashsale.jpg";
 import banner3 from "../assets/backgroundbooks.png";
 import banner4 from "../assets/INKVERSE.SITE1.jpg";
 import banner5 from "../assets/INKVERSE.SITE2.png";
+
 import FeaturedAuthorsTabs from "../components/FeaturedAuthor";
-import TopSellingByCategory from "../components/TopSellingByCategory.tsx";
-import FlashSaleCarousel from "../components/FlashSaleCarousel.tsx";
+import TopSellingByCategory from "../components/TopSellingByCategory";
+import FlashSaleCarousel from "../components/FlashSaleCarousel";
 import BestSellerCarousel from "../components/BestSellerCarousel";
 
-
+// ⬇️ Thêm hai component mới
+import SocialFloat from "../components/SocialFloat";
+import ChatBoxWidget from "../components/ChatBoxWidget";
 
 /* ===== constants ===== */
 const BANNERS = [banner1, banner2, banner3];
@@ -54,10 +56,10 @@ const fadeUp: Variants = {
 };
 
 function Reveal({
-  children,
-  index = 0,
-  className,
-}: {
+                  children,
+                  index = 0,
+                  className,
+                }: {
   children: React.ReactNode;
   index?: number;
   className?: string;
@@ -86,10 +88,10 @@ function Reveal({
 const DURATION = 0.65;
 
 const HeroBanner: React.FC<{ images: string[]; intervalMs?: number; className?: string }> = ({
-  images,
-  intervalMs = 3000,
-  className,
-}) => {
+                                                                                               images,
+                                                                                               intervalMs = 3000,
+                                                                                               className,
+                                                                                             }) => {
   const hasCarousel = images.length >= 2;
   const [loaded, setLoaded] = useState(false);
 
@@ -240,9 +242,9 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const n =
     m.length === 3
       ? m
-          .split("")
-          .map((c) => c + c)
-          .join("")
+        .split("")
+        .map((c) => c + c)
+        .join("")
       : m;
   const int = parseInt(n, 16);
   return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 };
@@ -339,7 +341,6 @@ export default function HomePage() {
     })();
   }, [newPage]);
 
-
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <ErrorBoundary fallback={<div className="p-6 text-rose-600">Có lỗi khi tải trang chủ</div>}>
@@ -375,9 +376,7 @@ export default function HomePage() {
               params={{ status: "ACTIVE", sort: "createdAt", direction: "DESC" }}
               pageSize={6}
             />
-
           </Reveal>
-
 
           {/* Newest */}
           <Reveal>
@@ -392,13 +391,13 @@ export default function HomePage() {
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4 md:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
                     {newest.length > 0
                       ? newest.map((b, i) => (
-                          <Reveal key={b.id ?? `${i}`} index={i}>
-                            <ProductCard item={b} />
-                          </Reveal>
-                        ))
+                        <Reveal key={b.id ?? `${i}`} index={i}>
+                          <ProductCard item={b} />
+                        </Reveal>
+                      ))
                       : Array.from({ length: 10 }).map((_, i) => (
-                          <div key={i} className="h-64 animate-pulse rounded bg-gray-100" />
-                        ))}
+                        <div key={i} className="h-64 animate-pulse rounded bg-gray-100" />
+                      ))}
                   </div>
                   <Pagination
                     page={newPage}
@@ -481,6 +480,11 @@ export default function HomePage() {
               ))}
             </div>
           </div>
+
+          {/* --- Fixed utilities (left bottom) --- */}
+          <SocialFloat />
+          {/* Chatbox Sophia: để thấp hơn cụm social */}
+          <ChatBoxWidget />
         </main>
       </ErrorBoundary>
     </div>

@@ -81,9 +81,22 @@ function unwrapPage<T>(res: unknown): T {
   return payload as T;
 }
 
+/* ===== flash-sale normalize (lọc ≥20% + sort theo % giảm) ===== */
+function discountPctOf(b: BookListItem): number {
+  const { origin, current, pct } = pickPrice(b);
+  if (pct != null) return pct;
+  if (origin == null || current == null || origin <= 0 || current >= origin) return -1;
+  return Math.round(((origin - current) / origin) * 100);
+}
+function normalizeFlashSale(arr: BookListItem[]): BookListItem[] {
+  const unique = uniqBy(arr, keyOf);
+  return unique
+    .filter((it) => discountPctOf(it) >= 15)
+    .sort((a, b) => discountPctOf(b) - discountPctOf(a));
+}
+
 /* ================= types ================= */
 type ApiPage<T> = { content?: T[]; totalPages?: number };
-
 type QueryParams = Record<string, unknown>;
 type Props = {
   pageSize?: number;
@@ -92,7 +105,6 @@ type Props = {
   params?: QueryParams;
   title?: string;
 };
-
 type RenderItem = { kind: "sk"; id: string } | { kind: "book"; item: BookListItem };
 
 /* ================= component ================= */
@@ -123,14 +135,13 @@ const FlashSaleCarousel: React.FC<Props> = ({
     return Math.max(210, Math.floor(usable / pageSize));
   }, [wrapW, pageSize]);
 
-  const trackStep = useMemo(() => cardW + GAP, [cardW]);
   const frameW = useMemo(
     () => pageSize * cardW + GAP * (pageSize - 1) + PAD_X * 2,
     [pageSize, cardW],
   );
 
   /* ===== data ===== */
-  const [list, setList] = useState<BookListItem[]>(items ?? []);
+  const [list, setList] = useState<BookListItem[]>(normalizeFlashSale(items ?? []));
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [loading, setLoading] = useState(false);
@@ -147,12 +158,13 @@ const FlashSaleCarousel: React.FC<Props> = ({
   }, [list.length, pageSize]);
 
   useEffect(() => {
-    setList(items ?? []);
+    setList(normalizeFlashSale(items ?? []));
     setPage(0);
     setTotalPages(ep ? Number.MAX_SAFE_INTEGER : 1);
     setIdx(0);
   }, [itemsKey, ep]);
 
+  // tải trang đầu
   useEffect(() => {
     if ((items?.length ?? 0) > 0 || !ep) return;
 
@@ -165,7 +177,7 @@ const FlashSaleCarousel: React.FC<Props> = ({
         const pg = unwrapPage<ApiPage<BookListItem>>(res);
         const content = Array.isArray(pg?.content) ? pg.content : [];
         if (!cancelled) {
-          setList(content);
+          setList(normalizeFlashSale(content));
           setTotalPages(Math.max(1, pg?.totalPages ?? 1));
           setPage(0);
         }
@@ -181,9 +193,10 @@ const FlashSaleCarousel: React.FC<Props> = ({
     };
   }, [ep, paramsKey, pageSize, items?.length]);
 
-  const fetchMore = useCallback(async (): Promise<boolean> => {
-    if (!ep) return false;
-    if (page + 1 >= totalPages || fetching) return false;
+  /* ===== fetch  ===== */
+  const fetchMore = useCallback(async (): Promise<number> => {
+    if (!ep) return 0;
+    if (page + 1 >= totalPages || fetching) return 0;
 
     try {
       setFetching(true);
@@ -192,50 +205,50 @@ const FlashSaleCarousel: React.FC<Props> = ({
       const content = Array.isArray(pg?.content) ? pg.content : [];
       const tp = pg?.totalPages;
 
-      setList((prev) => uniqBy([...prev, ...content], keyOf));
+      let added = 0;
+      setList((prev) => {
+        const before = prev.length;
+        const after = normalizeFlashSale([...prev, ...content]);
+        added = after.length - before;
+        return after;
+      });
       if (typeof tp === "number") setTotalPages(tp);
       setPage((p) => p + 1);
-      return content.length > 0;
+      return added;
     } catch {
       setErr("Không tải được dữ liệu.");
-      return false;
+      return 0;
     } finally {
       setFetching(false);
     }
-  }, [ep, page, totalPages, fetching, paramsKey, pageSize, params]);
-
-  useEffect(() => {
-    if (ep && list.length <= pageSize) void fetchMore();
-  }, [ep, list.length, pageSize, fetchMore]);
+  }, [ep, page, totalPages, fetching, params, pageSize]);
 
   /* ===== controls ===== */
   const atStart = idx <= 0;
+  const maxStart = Math.max(0, list.length - pageSize);
 
   const next = useCallback(async () => {
-    const hasBufferedNext = idx + pageSize < list.length;
-    if (hasBufferedNext) {
-      setIdx((i) => i + 1);
-      if (ep && list.length - (idx + pageSize) <= 2) void fetchMore();
+    if (idx < maxStart) {
+      setIdx((i) => Math.min(i + 1, maxStart));
+      if (ep && maxStart - idx <= 2) void fetchMore();
       return;
     }
-
     if (page + 1 < totalPages && !fetching) {
-      const ok = await fetchMore();
-      if (ok) {
-        setIdx((i) => i + 1);
+      const added = await fetchMore();
+      if (added > 0) {
+        const newMaxStart = Math.max(0, list.length + added - pageSize);
+        setIdx((i) => Math.min(i + 1, newMaxStart));
         return;
       }
     }
-    if (list.length > 0) {
-      setIdx(0);
-    }
-  }, [idx, pageSize, list.length, ep, fetchMore, page, totalPages, fetching]);
+    if (list.length > 0) setIdx(0);
+  }, [idx, maxStart, ep, fetchMore, page, totalPages, fetching, list.length, pageSize]);
 
   const prev = useCallback(() => {
     if (!atStart) setIdx((i) => Math.max(0, i - 1));
   }, [atStart]);
 
-  const trackTranslate = useMemo(() => `translate3d(${-idx * trackStep}px,0,0)`, [idx, trackStep]);
+  const trackTranslate = useMemo(() => `translate3d(${-idx * (cardW + GAP)}px,0,0)`, [idx, cardW]);
 
   /* ===== render ===== */
   const renderItems: RenderItem[] =
@@ -243,8 +256,8 @@ const FlashSaleCarousel: React.FC<Props> = ({
       ? Array.from({ length: pageSize }).map((_, i) => ({ kind: "sk", id: `sk-${i}` }))
       : list.map((it) => ({ kind: "book", item: it }));
 
-  const showPrev = !atStart;
   const disableNext = list.length === 0 && (loading || fetching);
+  const showPrev = !atStart;
 
   return (
     <section className="relative mx-[calc(50%-50vw)] w-screen overflow-hidden bg-gradient-to-b from-[#b91c1c] via-[#dc2626] to-[#f97316] py-12">
@@ -273,7 +286,7 @@ const FlashSaleCarousel: React.FC<Props> = ({
         </div>
 
         <div className="relative rounded-2xl bg-white/10 p-5 shadow-[0_14px_40px_rgba(0,0,0,0.28)] ring-1 ring-white/20 backdrop-blur-[2px]">
-          {/* Button */}
+          {/* Prev */}
           {showPrev && (
             <button
               type="button"
@@ -285,7 +298,7 @@ const FlashSaleCarousel: React.FC<Props> = ({
             </button>
           )}
 
-          {/* Button */}
+          {/* Next (có wrap) */}
           <button
             type="button"
             onClick={next}

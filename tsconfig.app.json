@@ -9,7 +9,6 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
-    /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
@@ -17,16 +16,16 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting / Type safety */
     "strict": true,
     "noImplicitAny": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
 
-    /* DX */
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+
+    "typeRoots": ["./src/types", "./node_modules/@types"]
   },
   "include": ["src", "tailwind.config.js", "vite-env.d.ts"]
 }

@@ -2,6 +2,9 @@ import { Outlet, useLocation } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import SocialFloat from "../components/SocialFloat.tsx";
+import ChatBoxWidget from "../components/ChatBoxWidget.tsx";
+import aiIcon from "../assets/aiagentchat.png";
+
 
 export default function MainLayout() {
   const { pathname } = useLocation();
@@ -30,6 +33,7 @@ export default function MainLayout() {
           messengerLink="https://www.facebook.com/phuoc.tranhuu.14418101"
         />
       )}
+      <ChatBoxWidget avatarSrc={aiIcon} />
     </div>
   );
 }
