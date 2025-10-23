@@ -3,6 +3,8 @@ import { Outlet } from "react-router-dom";
 import PageTransition from "../components/Animation/PageTransition";
 import Sidebar from "../components/Admin/Sidebar";
 import Topbar from "../components/Admin/Topbar";
+import ChatBoxWidget from "../components/ChatBoxWidget";
+import aiIcon from "../assets/aiagentchat.png";
 
 export default function AdminLayout() {
   return (
@@ -34,6 +36,7 @@ export default function AdminLayout() {
             </div>
           </main>
         </div>
+        <ChatBoxWidget mode="ADMIN" avatarSrc={aiIcon} />
       </div>
     </div>
   );

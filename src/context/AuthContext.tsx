@@ -12,7 +12,8 @@ export type User = {
   email?: string;
   name?: string;
   avatarUrl?: string;
-  role?: string;
+  role?: string;         // Vai trò chính (ví dụ: "ROLE_USER")
+  roles?: string[];      // Danh sách vai trò (ví dụ: ["ROLE_ADMIN", "ROLE_SALE"])
 };
 
 type AuthState = {
@@ -61,7 +62,6 @@ function decodeJwt(token: string): JwtPayload | null {
     const payload = token.split(".")[1];
     if (!payload) return null;
     const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    // decode UTF-8 an toàn
     return JSON.parse(decodeURIComponent(escape(json))) as JwtPayload;
   } catch {
     return null;
@@ -85,7 +85,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     }
   }, []);
 
-  // Hydrate từ localStorage
+  /* ===== Hydrate từ localStorage ===== */
   useEffect(() => {
     const t = localStorage.getItem(AUTH_TOKEN_KEY);
     const rawU = localStorage.getItem(AUTH_USER_KEY);
@@ -104,7 +104,8 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const emailRaw = p.email ?? p.sub;
       const nameRaw = p.username ?? p.fullName;
       const avatarRaw = p.avatarUrl;
-      const roleRaw = Array.isArray(p.roles) ? p.roles[0] : p.role;
+      const rolesArr = Array.isArray(p.roles) ? p.roles.filter(Boolean) : (p.role ? [p.role] : []);
+      const roleRaw = rolesArr[0];
 
       const u: User = {
         id: idRaw,
@@ -112,6 +113,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         ...(nameRaw ? { name: nameRaw } : {}),
         ...(avatarRaw ? { avatarUrl: avatarRaw } : {}),
         ...(roleRaw ? { role: roleRaw } : {}),
+        ...(rolesArr.length ? { roles: rolesArr } : {}),
       };
       setUser(u);
       persistSession(t, u);
@@ -156,7 +158,8 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const emailRaw = p.email ?? p.sub;
       const nameRaw = p.username ?? p.fullName;
       const avatarRaw = p.avatarUrl;
-      const roleRaw = Array.isArray(p.roles) ? p.roles[0] : p.role;
+      const rolesArr = Array.isArray(p.roles) ? p.roles.filter(Boolean) : (p.role ? [p.role] : []);
+      const roleRaw = rolesArr[0];
 
       const u: User = {
         id: idRaw,
@@ -164,11 +167,11 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         ...(nameRaw ? { name: nameRaw } : {}),
         ...(avatarRaw ? { avatarUrl: avatarRaw } : {}),
         ...(roleRaw ? { role: roleRaw } : {}),
+        ...(rolesArr.length ? { roles: rolesArr } : {}),
       };
 
       setUser(u);
       persistSession(token, u);
-      // Trang Login nên đọc redirectAfterLogin và navigate sau khi gọi login()
     },
     [persistSession],
   );
@@ -179,7 +182,6 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     setRegisterData(null);
     setUser(null);
     persistSession(null, null);
-    // không navigate trong provider để tránh phụ thuộc Router
   }, [persistSession]);
 
   const forgotPasswordStart = useCallback(async (email: string) => {

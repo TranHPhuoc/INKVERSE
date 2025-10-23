@@ -17,6 +17,8 @@ import PageTransition from "./components/Animation/PageTransition";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import Intro from "./components/Animation/Intro";
 import { Toaster } from "react-hot-toast";
+import ChatBoxWidget from "./components/ChatBoxWidget";
+import aiIcon from "./assets/aiagentchat.png";
 
 
 // Pages – Public
@@ -478,6 +480,8 @@ export default function App() {
         </AnimatePresence>
       </IntroGate>
       <Toaster position="top-center" reverseOrder={false} />
+      {/* 💬 Chat Sophia – auto detect mode USER/SALE/ADMIN */}
+      <ChatBoxWidget avatarSrc={aiIcon} />
     </>
   );
 }
