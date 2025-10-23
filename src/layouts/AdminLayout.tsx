@@ -36,7 +36,7 @@ export default function AdminLayout() {
             </div>
           </main>
         </div>
-        <ChatBoxWidget mode="ADMIN" avatarSrc={aiIcon} />
+        <ChatBoxWidget mode="SALE" avatarSrc={aiIcon} />
       </div>
     </div>
   );

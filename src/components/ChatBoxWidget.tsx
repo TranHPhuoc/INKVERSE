@@ -348,20 +348,14 @@ function getFollowupSuggestions(mode: ChatMode, intent: Intent): Suggestion[] {
       return getDefaultSuggestions("USER");
   }
 }
-type AuthUser = {
-  role?: string | null;
-  roles?: Array<string | null | undefined> | null;
-};
+
 
 function getUserRoles(u: unknown): string[] {
   if (typeof u !== "object" || u === null) return [];
-  const { role, roles } = u as Partial<AuthUser>;
-
+  const { role, roles } = u as { role?: string | null; roles?: (string | null)[] | null };
   const out: string[] = [];
   if (typeof role === "string") out.push(role);
-  if (Array.isArray(roles)) {
-    for (const r of roles) if (typeof r === "string") out.push(r);
-  }
+  if (Array.isArray(roles)) out.push(...roles.filter((r): r is string => typeof r === "string"));
   return out;
 }
 /* ---------- Component ---------- */
@@ -381,10 +375,15 @@ export default function ChatBoxWidget({
   const mode: ChatMode = useMemo(() => {
     if (propMode) return propMode;
 
-    const roleSet = new Set(getUserRoles(user).map((r) => r.toUpperCase()));
+    const roleSet = new Set(
+      getUserRoles(user)
+        .map((r) => r.toUpperCase())
+        .filter(Boolean)
+    );
 
-    if (roleSet.has("ROLE_ADMIN") || roleSet.has("ADMIN")) return "ADMIN";
-    if (roleSet.has("ROLE_SALE") || roleSet.has("SALE")) return "SALE";
+    if (roleSet.has("ROLE_ADMIN") || roleSet.has("ADMIN") || roleSet.has("ROLE_SALE") || roleSet.has("SALE"))
+      return "SALE";
+
     return "USER";
   }, [propMode, user]);
 
