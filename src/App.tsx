@@ -100,9 +100,10 @@ function LoginGuard({ children }: { children: ReactNode }) {
 /* ───────────────────────── Intro Gate ───────────────────────── */
 function IntroGate({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const [skipped, setSkipped] = useState(false);
+  const { isAuthenticated } = useAuth();
 
-  // Chỉ hiện Intro ở trang Home "/"
+  // khai báo Hooks LUÔN nằm trước mọi return
+  const [skipped, setSkipped] = useState(false);
   const isHome = location.pathname === "/";
 
   const shouldSkip = useMemo(() => {
@@ -119,6 +120,9 @@ function IntroGate({ children }: { children: ReactNode }) {
     }
   }, [shouldSkip]);
 
+  // 🚀 Nếu đã đăng nhập thì bỏ qua Intro
+  if (isAuthenticated) return <>{children}</>;
+
   const showIntro = isHome && !skipped;
 
   if (showIntro) {
@@ -128,7 +132,7 @@ function IntroGate({ children }: { children: ReactNode }) {
           title="Chào mừng bạn đến với INKVERSE"
           ctaLabel="Khám phá ngay"
           to="/"
-          onlyOnce={false}
+          onlyOnce={true}
         />
         {children}
       </>

@@ -56,45 +56,30 @@ const fmtTime = (iso: string) => {
     });
 };
 
-/* ---------- Markdown formatting ---------- */
+/* ---------- Markdown formatting (nhẹ) ---------- */
 function isGfmTable(md: string): boolean {
   return /\n\|.*\|\s*\n\|[\s:\-|]+\|\s*\n/.test(md);
 }
 function isCodeBlock(md: string): boolean {
   return /```[\s\S]*?```/.test(md);
 }
-function normalizeBooksMd(md: string): string {
+function normalizeListMd(md: string): string {
+  // Giữ format danh sách 1, 2, 3…, thêm dòng trống giữa các item cho dễ đọc
   const text = md.replace(/\r\n/g, "\n");
-  const isItemStart = (s: string) => /^\s*\d+\.\s+/.test(s);
   const lines = text.split("\n");
-  const blocks: { header: string; body: string[] }[] = [];
-  let cur: { header: string; body: string[] } | null = null;
-
-  for (const ln of lines) {
-    if (isItemStart(ln)) {
-      if (cur) blocks.push(cur);
-      cur = { header: ln.trim(), body: [] };
-    } else {
-      if (!cur) blocks.push({ header: "", body: [ln] });
-      else cur.body.push(ln);
-    }
-  }
-  if (cur) blocks.push(cur);
-
   const out: string[] = [];
-  for (const b of blocks) {
-    if (!b.header) out.push(...b.body);
-    else {
-      out.push(b.header);
-      out.push(...b.body);
-      out.push("");
-    }
+  let lastWasItem = false;
+  for (const ln of lines) {
+    const isItem = /^\s*\d+\.\s+/.test(ln);
+    if (isItem && lastWasItem) out.push(""); // chèn line trống
+    out.push(ln);
+    lastWasItem = isItem;
   }
   return out.join("\n");
 }
 function renderMd(md: string): string {
   if (isGfmTable(md) || isCodeBlock(md)) return md;
-  return normalizeBooksMd(md);
+  return normalizeListMd(md);
 }
 
 function extractMarkdown(resp: unknown): string {
@@ -109,40 +94,152 @@ function extractMarkdown(resp: unknown): string {
   return "";
 }
 
-/* ---------- MD link điều hướng nội bộ ---------- */
-function extractBookSlug(href?: string | null): string | null {
+/* ---------- Slug & Link helpers (PHẦN QUAN TRỌNG) ---------- */
+/** Chuẩn hoá slug: bỏ dấu, thường hoá, giữ '-', thay ký tự lạ bằng '-', gộp '-' và cắt đầu/cuối. */
+function slugifyKeepDash(raw: string): string {
+  const trimmed = (raw ?? "").trim().replace(/[.,;:!?]+$/g, "");
+  const lower = trimmed.toLowerCase();
+  const ascii = lower.normalize("NFD").replace(/\p{Diacritic}+/gu, "");
+  return ascii.replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+/** Lấy tiêu đề sách từ <li> chứa link (bỏ các dòng phụ như Giá/Mô tả/Mua sách) */
+/** Leo từ <a> -> li con -> ul/ol -> li cha (item gốc có tiêu đề) */
+function getBookItemRoot(linkEl: HTMLElement): HTMLElement | null {
+  const li = linkEl.closest("li");
+  if (!li) return null;
+  const list = li.parentElement;
+  if (!list) return li;
+  if (list.tagName === "UL" || list.tagName === "OL") {
+    const parentLi = list.closest("li");
+    return parentLi ?? li;
+  }
+  return li;
+}
+
+/** Lấy tiêu đề từ item gốc (ưu tiên strong/b/h*) */
+function getTitleFromListItem(linkEl: HTMLElement): string {
+  const root = getBookItemRoot(linkEl);
+  if (!root) return "";
+
+  // 1) Ưu tiên <strong>/<b>/<h*>
+  const titleEl = root.querySelector("strong, b, h1, h2, h3") as HTMLElement | null;
+  const strongText = (titleEl?.textContent || "").trim();
+  if (strongText) return strongText;
+
+  // 2) Lấy text trực tiếp của item gốc (bỏ số thứ tự đầu)
+  let raw = "";
+  for (const n of Array.from(root.childNodes)) {
+    if (n.nodeType === Node.TEXT_NODE) raw += (n.textContent || "").trim() + " ";
+    else if (n instanceof HTMLElement) {
+      if (n.tagName === "UL" || n.tagName === "OL") break; // phần chi tiết
+      if (n.tagName === "P" || n.tagName === "SPAN")
+        raw += (n.textContent || "").trim() + " ";
+    }
+  }
+  raw = raw.trim().replace(/^\d+\.\s*/, "");
+  if (raw) return raw;
+
+  // 3) Fallback: dòng đầu không phải mục phụ
+  const ignore = /^(mua\s*(sách|ngay)|giá\b|mô\s*tả\b)/i;
+  const lines = (root.textContent || "")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const first = lines.find((s) => !ignore.test(s));
+  return first || "";
+}
+
+/** Từ href + anchor text → ra đích điều hướng nội bộ.
+ * Ưu tiên: ?id → /books/<id>?by=id → ?slug → /books/<slug> → /books/<slug> trong path.
+ * Nếu path có /books/<chuỗi-không-gạch> hoặc anchor là "Mua sách/Mua ngay" → lấy tiêu đề từ <li> để slugify.
+ */
+function resolveBookTarget(
+  href?: string | null,
+  text?: string,
+  linkEl?: HTMLAnchorElement | null,
+): { path: string; search?: string } | null {
   if (!href) return null;
+
+  let url: URL | null = null;
   try {
-    const rel = href.match(/\/books\/([^?#/]+)/i);
-    if (rel?.[1]) return decodeURIComponent(rel[1]);
-    const u = new URL(href, window.location.origin);
-    const m = u.pathname.match(/\/books\/([^?#/]+)/i);
-    return m?.[1] ? decodeURIComponent(m[1]) : null;
+    url = new URL(href, window.location.origin);
   } catch {
     return null;
   }
+
+  // 1) id trong query
+  const idQ = url.searchParams.get("id");
+  if (idQ && /^\d+$/.test(idQ)) {
+    return { path: `/books/${idQ}`, search: "?by=id" };
+  }
+
+  // 2) slug trong query
+  const slugQ = url.searchParams.get("slug");
+  if (slugQ) {
+    return { path: `/books/${slugifyKeepDash(decodeURIComponent(slugQ))}` };
+  }
+
+  // 3) /books/<seg> trong path
+  const m = url.pathname.match(/\/books\/([^/#?]+)/i);
+  if (m?.[1]) {
+    let seg = "";
+    try {
+      seg = decodeURIComponent(m[1]);
+    } catch {
+      seg = m[1];
+    }
+    const clean = slugifyKeepDash(seg);
+    if (clean.includes("-")) return { path: `/books/${clean}` }; // slug đã chuẩn
+
+    // seg không có gạch → override bằng tiêu đề <li>
+    const title = linkEl ? getTitleFromListItem(linkEl) : "";
+    if (title) return { path: `/books/${slugifyKeepDash(title)}` };
+    if (clean) return { path: `/books/${clean}` }; // vẫn điều hướng nếu còn usable
+  }
+
+  // 4) Anchor text nếu không phải "Mua sách/Mua ngay"
+  const t = (text || "").trim();
+  if (t && !/^mua\s*(sách|ngay)$/i.test(t)) {
+    return { path: `/books/${slugifyKeepDash(t)}` };
+  }
+
+  // 5) Fallback chắc ăn: tiêu đề trong <li>
+  const title = linkEl ? getTitleFromListItem(linkEl) : "";
+  if (title) return { path: `/books/${slugifyKeepDash(title)}` };
+
+  return null;
 }
 
+/* ---------- Markdown <a> renderer: điều hướng nội bộ nếu là link sách ---------- */
 const MdLink: React.FC<React.AnchorHTMLAttributes<HTMLAnchorElement>> = ({
                                                                            href,
                                                                            children,
                                                                            ...rest
                                                                          }) => {
   const navigate = useNavigate();
+  const aRef = useRef<HTMLAnchorElement | null>(null);
   const to = (href as string) ?? "#";
-  const slug = extractBookSlug(to);
+  const childStr = typeof children === "string" ? children : undefined;
+
   const onClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (slug) {
-      e.preventDefault();
-      navigate(`/books/${slug}`);
-    }
+    const target = resolveBookTarget(to, childStr, e.currentTarget);
+    if (!target) return; // link ngoài → để mặc định
+    e.preventDefault();
+    const path = target.search ? `${target.path}${target.search}` : target.path;
+    navigate(path);
   };
+
+  // Nếu có thể parse ra link sách nội bộ → mở cùng tab
+  const internal = !!resolveBookTarget(to, childStr, aRef.current);
+
   return (
     <a
+      ref={aRef}
       href={to}
       onClick={onClick}
-      target={slug ? undefined : "_blank"}
-      rel={slug ? undefined : "noopener noreferrer"}
+      target={internal ? undefined : "_blank"}
+      rel={internal ? undefined : "noopener noreferrer"}
       className="text-red-600 font-medium underline decoration-transparent hover:decoration-red-600 hover:text-red-700 transition"
       {...rest}
     >
@@ -151,10 +248,8 @@ const MdLink: React.FC<React.AnchorHTMLAttributes<HTMLAnchorElement>> = ({
   );
 };
 
-type CodeProps = {
-  inline?: boolean;
-  children?: React.ReactNode;
-};
+/* ---------- MD components ---------- */
+type CodeProps = { inline?: boolean; children?: React.ReactNode };
 
 const mdComponents: Components = {
   a: MdLink,
@@ -166,7 +261,6 @@ const mdComponents: Components = {
   li: ({ children }) => <li className="text-neutral-800 leading-snug">{children}</li>,
   p: ({ children }) => <p className="mb-1 whitespace-pre-line">{children}</p>,
 
-  // Bảng GFM (SKU / Tồn / Đã bán …)
   table: ({ children }) => (
     <div className="my-2 overflow-x-auto">
       <table className="w-full border-collapse text-sm">{children}</table>
@@ -190,7 +284,6 @@ const mdComponents: Components = {
     </td>
   ),
 
-  // Code/Pre – giữ thẳng cột ASCII
   code: (props) => {
     const { inline, children } = props as CodeProps;
     return inline ? (
@@ -349,7 +442,6 @@ function getFollowupSuggestions(mode: ChatMode, intent: Intent): Suggestion[] {
   }
 }
 
-
 function getUserRoles(u: unknown): string[] {
   if (typeof u !== "object" || u === null) return [];
   const { role, roles } = u as { role?: string | null; roles?: (string | null)[] | null };
@@ -358,6 +450,7 @@ function getUserRoles(u: unknown): string[] {
   if (Array.isArray(roles)) out.push(...roles.filter((r): r is string => typeof r === "string"));
   return out;
 }
+
 /* ---------- Component ---------- */
 export default function ChatBoxWidget({
                                         avatarSrc,
@@ -372,18 +465,21 @@ export default function ChatBoxWidget({
     [],
   );
 
+  // ADMIN dùng chung mode SALE
   const mode: ChatMode = useMemo(() => {
     if (propMode) return propMode;
-
     const roleSet = new Set(
       getUserRoles(user)
         .map((r) => r.toUpperCase())
-        .filter(Boolean)
+        .filter(Boolean),
     );
-
-    if (roleSet.has("ROLE_ADMIN") || roleSet.has("ADMIN") || roleSet.has("ROLE_SALE") || roleSet.has("SALE"))
+    if (
+      roleSet.has("ROLE_ADMIN") ||
+      roleSet.has("ADMIN") ||
+      roleSet.has("ROLE_SALE") ||
+      roleSet.has("SALE")
+    )
       return "SALE";
-
     return "USER";
   }, [propMode, user]);
 
@@ -397,7 +493,7 @@ export default function ChatBoxWidget({
   const [loadingMore, setLoadingMore] = useState(false);
   const [sugs, setSugs] = useState<Suggestion[]>(() => getDefaultSuggestions(mode));
   const lastModeRef = useRef<ChatMode | null>(null);
-
+  const userIdRef = useRef<string | number | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   /* ——— Nghe 'chat:open' & 'chat:close' ——— */
@@ -427,6 +523,20 @@ export default function ChatBoxWidget({
 
   /* ——— Reset phiên CHỈ khi đổi mode sau lần mở đầu tiên ——— */
   useEffect(() => {
+    const currId = user?.id ?? null;
+    if (userIdRef.current === currId) return;
+    userIdRef.current = currId;
+
+    // reset toàn bộ để lần mở kế sau load đúng history của user mới
+    lastModeRef.current = null;
+    setMsgs([]);
+    setBooted(false);
+    setHasMore(true);
+    setSugs(getDefaultSuggestions(mode));
+  }, [user?.id, mode]);
+
+  // ⬅️ KEEP (nhưng dựa trên ref đã reset bởi user-change)
+  useEffect(() => {
     if (!visible) return;
 
     if (lastModeRef.current === null) {
@@ -434,36 +544,41 @@ export default function ChatBoxWidget({
       setSugs(getDefaultSuggestions(mode));
       return;
     }
-
     if (lastModeRef.current !== mode) {
       (async () => {
         try {
           await startSophiaChat();
-        } catch {
-          /* ignore */
-        }
+        } catch {/**/}
         lastModeRef.current = mode;
         setSugs(getDefaultSuggestions(mode));
+        // không cần setBooted=false ở đây
       })();
     }
   }, [visible, mode]);
 
-  /* ——— Lần đầu mở: load page mới nhất ——— */
+  // ⬅️ REPLACE HAI EFFECT load messages bằng MỘT effect duy nhất
   useEffect(() => {
     if (!visible) return;
+    let cancelled = false;
+
     (async () => {
       setLoadingMore(true);
       try {
         const list = await getMessages({ limit: 30, mode });
+        if (cancelled) return;
         const asc = [...list].reverse().map(toMsg);
         setMsgs(asc);
         setHasMore(list.length >= 30);
         setBooted(true);
       } finally {
-        setLoadingMore(false);
+        if (!cancelled) setLoadingMore(false);
       }
     })();
-  }, [visible, mode]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, mode, user?.id]);
 
   /* ——— Nếu panel đang mở và mode đổi (sau khi boot) → reload messages ——— */
   useEffect(() => {
@@ -620,7 +735,9 @@ export default function ChatBoxWidget({
                   onClick={async () => {
                     try {
                       await startSophiaChat();
-                    } catch { /* ignore */ }
+                    } catch {
+                      /* ignore */
+                    }
                     setMsgs([
                       {
                         role: "assistant",
