@@ -34,10 +34,8 @@ type ChatBoxWidgetProps = {
 /* ---------- Types & helpers ---------- */
 type Msg = { id?: number; role: Role; content: string; createdAt: string };
 
-const isRecord = (x: unknown): x is Record<string, unknown> =>
-  typeof x === "object" && x !== null;
-const pick = <T,>(o: unknown, k: string): T | undefined =>
-  isRecord(o) ? (o[k] as T) : undefined;
+const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null;
+const pick = <T,>(o: unknown, k: string): T | undefined => (isRecord(o) ? (o[k] as T) : undefined);
 
 const toMsg = (m: ChatMessageDTO): Msg => {
   const base: Msg = { role: m.role, content: m.content, createdAt: m.createdAt };
@@ -49,11 +47,11 @@ const fmtTime = (iso: string) => {
   return Number.isNaN(+d)
     ? ""
     : d.toLocaleString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
 };
 
 /* ---------- Markdown formatting (nhẹ) ---------- */
@@ -100,7 +98,10 @@ function slugifyKeepDash(raw: string): string {
   const trimmed = (raw ?? "").trim().replace(/[.,;:!?]+$/g, "");
   const lower = trimmed.toLowerCase();
   const ascii = lower.normalize("NFD").replace(/\p{Diacritic}+/gu, "");
-  return ascii.replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  return ascii
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 /** Lấy tiêu đề sách từ <li> chứa link (bỏ các dòng phụ như Giá/Mô tả/Mua sách) */
@@ -133,8 +134,7 @@ function getTitleFromListItem(linkEl: HTMLElement): string {
     if (n.nodeType === Node.TEXT_NODE) raw += (n.textContent || "").trim() + " ";
     else if (n instanceof HTMLElement) {
       if (n.tagName === "UL" || n.tagName === "OL") break; // phần chi tiết
-      if (n.tagName === "P" || n.tagName === "SPAN")
-        raw += (n.textContent || "").trim() + " ";
+      if (n.tagName === "P" || n.tagName === "SPAN") raw += (n.textContent || "").trim() + " ";
     }
   }
   raw = raw.trim().replace(/^\d+\.\s*/, "");
@@ -213,10 +213,10 @@ function resolveBookTarget(
 
 /* ---------- Markdown <a> renderer: điều hướng nội bộ nếu là link sách ---------- */
 const MdLink: React.FC<React.AnchorHTMLAttributes<HTMLAnchorElement>> = ({
-                                                                           href,
-                                                                           children,
-                                                                           ...rest
-                                                                         }) => {
+  href,
+  children,
+  ...rest
+}) => {
   const navigate = useNavigate();
   const aRef = useRef<HTMLAnchorElement | null>(null);
   const to = (href as string) ?? "#";
@@ -240,7 +240,7 @@ const MdLink: React.FC<React.AnchorHTMLAttributes<HTMLAnchorElement>> = ({
       onClick={onClick}
       target={internal ? undefined : "_blank"}
       rel={internal ? undefined : "noopener noreferrer"}
-      className="text-red-600 font-medium underline decoration-transparent hover:decoration-red-600 hover:text-red-700 transition"
+      className="font-medium text-red-600 underline decoration-transparent transition hover:text-red-700 hover:decoration-red-600"
       {...rest}
     >
       {children}
@@ -253,12 +253,10 @@ type CodeProps = { inline?: boolean; children?: React.ReactNode };
 
 const mdComponents: Components = {
   a: MdLink,
-  strong: ({ children }) => (
-    <strong className="font-semibold text-neutral-900">{children}</strong>
-  ),
+  strong: ({ children }) => <strong className="font-semibold text-neutral-900">{children}</strong>,
   ol: ({ children }) => <ol className="ml-5 list-decimal space-y-3">{children}</ol>,
   ul: ({ children }) => <ul className="ml-5 list-disc space-y-1">{children}</ul>,
-  li: ({ children }) => <li className="text-neutral-800 leading-snug">{children}</li>,
+  li: ({ children }) => <li className="leading-snug text-neutral-800">{children}</li>,
   p: ({ children }) => <p className="mb-1 whitespace-pre-line">{children}</p>,
 
   table: ({ children }) => (
@@ -274,22 +272,18 @@ const mdComponents: Components = {
     </tr>
   ),
   th: ({ children }) => (
-    <th className="px-2 py-1 text-left font-semibold text-neutral-900 border border-neutral-200">
+    <th className="border border-neutral-200 px-2 py-1 text-left font-semibold text-neutral-900">
       {children}
     </th>
   ),
   td: ({ children }) => (
-    <td className="px-2 py-1 align-top text-neutral-800 border border-neutral-200">
-      {children}
-    </td>
+    <td className="border border-neutral-200 px-2 py-1 align-top text-neutral-800">{children}</td>
   ),
 
   code: (props) => {
     const { inline, children } = props as CodeProps;
     return inline ? (
-      <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-[12px]">
-        {children}
-      </code>
+      <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-[12px]">{children}</code>
     ) : (
       <code className="font-mono text-[13px]">{children}</code>
     );
@@ -305,7 +299,7 @@ const mdComponents: Components = {
 };
 
 const TypingBubble: React.FC = () => (
-  <div className="flex items-center gap-1 rounded-2xl bg-white border border-neutral-200 px-3.5 py-2.5 text-sm">
+  <div className="flex items-center gap-1 rounded-2xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm">
     {[0, 1, 2].map((i) => (
       <motion.span
         key={i}
@@ -323,20 +317,23 @@ type Suggestion = { label: string; prompt: string };
 function getDefaultSuggestions(mode: ChatMode): Suggestion[] {
   if (mode === "SALE")
     return [
-      { label: "KPI tháng này", prompt: "KPI THANG NAY" },
-      { label: "Best-sellers còn ít", prompt: "sách nào bán chạy mà còn ít hàng" },
+      { label: "KPI tuần này", prompt: "KPI tuần này?" },
+      {
+        label: "Best-sellers còn ít",
+        prompt: "Sách nào bán được trên 5 cuốn trong vòng 30 ngày gần đây nhưng trong kho còn dưới 500 cuốn?",
+      },
       {
         label: "Sắp hết hàng",
-        prompt:
-          "những cuốn sách bán được trên 5 cuốn trong vòng 30 ngày qua nhưng chỉ còn dưới 500 cuốn là?",
+        prompt: "Sách nào trong kho sắp hết hàng?",
       },
-      { label: "Đơn hôm nay", prompt: "liệt kê đơn hàng hôm nay" },
+      { label: "Đơn cần xử lý?", prompt: "Liệt kê danh sách đơn hàng đang cần được xử lý?" },
+      { label: "Kiểm tra đơn hàng", prompt: "Kiểm tra trạng thái đơn hàng?" },
+      { label: "Kiểm tra tồn kho", prompt: "Kiểm tra tồn kho theo SKU?" },
     ];
   if (mode === "ADMIN")
     return [
-      { label: "Doanh thu tháng", prompt: "Tổng doanh thu tháng này" },
+      { label: "Thống kê theo danh mục?", prompt: "Thống kê doanh số theo danh mục?" },
       { label: "Top sản phẩm", prompt: "Top 10 sản phẩm bán chạy tháng này" },
-      { label: "Tỷ lệ chuyển đổi", prompt: "Tỷ lệ chuyển đổi tháng này" },
       { label: "Tồn kho thấp", prompt: "Các sản phẩm tồn kho dưới 50" },
     ];
   // USER
@@ -453,9 +450,9 @@ function getUserRoles(u: unknown): string[] {
 
 /* ---------- Component ---------- */
 export default function ChatBoxWidget({
-                                        avatarSrc,
-                                        mode: propMode,
-                                      }: ChatBoxWidgetProps): ReactElement {
+  avatarSrc,
+  mode: propMode,
+}: ChatBoxWidgetProps): ReactElement {
   const { user } = useAuth();
   const { pathname } = useLocation();
 
@@ -548,7 +545,9 @@ export default function ChatBoxWidget({
       (async () => {
         try {
           await startSophiaChat();
-        } catch {/**/}
+        } catch {
+          /**/
+        }
         lastModeRef.current = mode;
         setSugs(getDefaultSuggestions(mode));
         // không cần setBooted=false ở đây
@@ -556,7 +555,6 @@ export default function ChatBoxWidget({
     }
   }, [visible, mode]);
 
-  // ⬅️ REPLACE HAI EFFECT load messages bằng MỘT effect duy nhất
   useEffect(() => {
     if (!visible) return;
     let cancelled = false;
@@ -685,7 +683,7 @@ export default function ChatBoxWidget({
       {shouldShowFab && (
         <button
           onClick={openPanel}
-          className="ink-fab-sophia fixed bottom-6 right-6 z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-neutral-900 text-white shadow-[0_8px_25px_rgba(0,0,0,0.15)] hover:scale-105 transition-transform"
+          className="ink-fab-sophia fixed right-6 bottom-6 z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-neutral-900 text-white shadow-[0_8px_25px_rgba(0,0,0,0.15)] transition-transform hover:scale-105"
           aria-label="Mở chat Sophia"
           type="button"
         >
@@ -724,7 +722,7 @@ export default function ChatBoxWidget({
                 )}
                 <span className="font-semibold tracking-wide">Sophia</span>
                 {mode !== "USER" && (
-                  <span className="ml-1 rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+                  <span className="ml-1 rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] tracking-wide uppercase">
                     {mode}
                   </span>
                 )}
@@ -776,7 +774,7 @@ export default function ChatBoxWidget({
               <div
                 ref={viewportRef}
                 onScroll={onScroll}
-                className="flex-1 min-h-0 space-y-3 overflow-y-auto p-3 text-sm"
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 text-sm"
               >
                 {msgs.map((m, idx) => (
                   <div
@@ -787,7 +785,7 @@ export default function ChatBoxWidget({
                       className={`max-w-[85%] rounded-xl px-3 py-2 leading-relaxed ${
                         m.role === "user"
                           ? "bg-neutral-900 text-white"
-                          : "bg-white border border-neutral-200 text-neutral-900"
+                          : "border border-neutral-200 bg-white text-neutral-900"
                       }`}
                     >
                       <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
