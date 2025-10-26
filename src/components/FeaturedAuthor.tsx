@@ -76,8 +76,8 @@ const easeOutBezier = [0.22, 1, 0.36, 1] as const;
 
 /* ===== Tab theme ===== */
 const TAB_THEME: Record<TabKey, { text: string; start: string; end: string }> = {
-  vn: { text: "#92400E", start: "#B45309", end: "#F59E0B" },
-  intl: { text: "#1e3a8a", start: "#3b82f6", end: "#93c5fd" },
+  vn: { text: "#F0F8FF", start: "#FFFFFF", end: "#DCEBFF" },
+  intl: { text: "#F0F8FF", start: "#FFFFFF", end: "#DCEBFF" },
 };
 
 /* ===== Helpers ===== */
@@ -108,7 +108,10 @@ function AuthorGrid({ authors }: { authors: FeaturedAuthorItem[] }) {
     >
       {authors.map((a, i) => {
         const slug = toSlug(a.name, a.slug);
-        const href = a.id != null ? `/author/${encodeURIComponent(slug)}?authorId=${a.id}` : `/author/${encodeURIComponent(slug)}`;
+        const href =
+          a.id != null
+            ? `/author/${encodeURIComponent(slug)}?authorId=${a.id}`
+            : `/author/${encodeURIComponent(slug)}`;
 
         return (
           <motion.li
@@ -132,7 +135,13 @@ function AuthorGrid({ authors }: { authors: FeaturedAuthorItem[] }) {
                 transition={{ type: "spring", stiffness: 420, damping: 28 }}
               >
                 {a.avatar ? (
-                  <img src={a.avatar} alt={a.name} loading="lazy" className="h-full w-full object-cover" draggable={false} />
+                  <img
+                    src={a.avatar}
+                    alt={a.name}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                    draggable={false}
+                  />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-gray-500">
                     {initialsOf(a.name)}
@@ -160,22 +169,37 @@ export default function FeaturedAuthorsTabs({ className = "" }: { className?: st
   );
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-amber-300/40 p-6 shadow-[0_10px_30px_rgba(146,84,0,0.25)] ${className}`}>
+    <div
+      className={`relative overflow-hidden rounded-2xl border border-amber-300/40 p-6 shadow-[0_10px_30px_rgba(146,84,0,0.25)] ${className}`}
+    >
       {/* BG */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-0"
-        style={{ backgroundImage: `linear-gradient(180deg, #FFB330 0%, #FFD676 40%, #FFEFA8 75%, #FFFCCE 100%)` }}
-      />
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 z-0"
         style={{
           backgroundImage: `
-            radial-gradient(120% 60% at 50% -10%, rgba(0,0,0,0.14), transparent 60%),
-            repeating-linear-gradient(45deg, rgba(0,0,0,0.04) 0, rgba(0,0,0,0.04) 1px, transparent 1px, transparent 22px),
-            repeating-linear-gradient(-45deg, rgba(0,0,0,0.04) 0, rgba(0,0,0,0.04) 1px, transparent 1px, transparent 22px)
-          `,
+      linear-gradient(
+        180deg,
+        #2F6FE1 0%,
+        #5FA0F6 28%,
+        #9DC7FF 60%,
+        #EAF4FF 85%,
+        #FFFFFF 100%
+      )
+    `,
+        }}
+      />
+
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          backgroundImage: `
+      linear-gradient(180deg, rgba(255,255,255,0.00) 0%, rgba(255,255,255,0.22) 100%),
+      radial-gradient(120% 70% at 50% -10%, rgba(255,255,255,0.35), transparent 70%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.035) 0, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 26px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,0.035) 0, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 26px)
+    `,
           mixBlendMode: "soft-light",
         }}
       />
@@ -186,12 +210,14 @@ export default function FeaturedAuthorsTabs({ className = "" }: { className?: st
 
       {/* Tabs */}
       <div className="relative z-10 mb-6">
-        <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+        <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
         <div className="no-scrollbar flex items-center gap-6 overflow-x-auto">
           {TABS.map((t) => {
             const isActive = active === t.key;
             const theme = TAB_THEME[t.key];
-            const activeStyle = isActive ? ({ color: theme.text } as React.CSSProperties) : undefined;
+            const activeStyle = isActive
+              ? ({ color: theme.text } as React.CSSProperties)
+              : undefined;
 
             return (
               <motion.button
@@ -199,8 +225,10 @@ export default function FeaturedAuthorsTabs({ className = "" }: { className?: st
                 onClick={() => setActive(t.key)}
                 whileHover={{ scale: 1.05 }}
                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                className={`relative cursor-pointer pb-2 text-sm font-medium md:text-base transition-colors duration-200 ${
-                  isActive ? "drop-shadow-[0_1px_0_rgba(255,255,255,0.75)]" : "text-slate-800/80 hover:text-slate-900"
+                className={`relative cursor-pointer pb-2 text-sm font-medium transition-colors duration-200 md:text-base ${
+                  isActive
+                    ? "drop-shadow-[0_1px_0_rgba(255,255,255,0.75)]"
+                    : "text-slate-800/80 hover:text-slate-900"
                 }`}
                 style={activeStyle as unknown as import("framer-motion").MotionStyle}
                 aria-pressed={isActive}
@@ -209,7 +237,7 @@ export default function FeaturedAuthorsTabs({ className = "" }: { className?: st
                 {isActive && (
                   <motion.span
                     layoutId="authors-underline"
-                    className="absolute left-0 right-0 -bottom-[1px] h-[2px] rounded-full"
+                    className="absolute right-0 -bottom-[1px] left-0 h-[2px] rounded-full"
                     style={{ background: `linear-gradient(90deg, ${theme.start}, ${theme.end})` }}
                     transition={{ type: "spring", stiffness: 400, damping: 28 }}
                   />
