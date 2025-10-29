@@ -17,6 +17,9 @@ body {
     background: rgba(255, 255, 255, 0.65);
     backdrop-filter: saturate(140%) blur(6px);
 }
+html, body, #root { max-width: 100%; overflow-x: hidden; }
+html[data-chat-open="true"] #dock-wrapper,
+html[data-chat-open="true"] .ink-fab-sophia { display: none !important; }
 
 /* Ẩn thanh cuộn ngang cho các container có .no-scrollbar */
 .no-scrollbar::-webkit-scrollbar {

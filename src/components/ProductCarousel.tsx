@@ -11,7 +11,6 @@ const COL_GAP = 16;
 const ROW_GAP = 16;
 
 
-/** Đo chiều rộng viewport; luôn trả về số dương (fallback) để tránh width=0 lúc mount */
 function useResizeWidth(ref: React.RefObject<HTMLElement | null>): number {
   const [w, setW] = useState(0);
   useEffect(() => {

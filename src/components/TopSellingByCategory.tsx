@@ -241,7 +241,7 @@ export default function TopSellingByCategory({ limit = 5 }: { limit?: number }) 
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
-      className="relative overflow-hidden rounded-2xl border border-slate-200/70 p-6 shadow-[0_12px_40px_rgba(2,6,23,0.14)]"
+      className="relative overflow-hidden rounded-2xl border border-slate-200/70 p-4 md:p-6"
     >
       {/* BRIGHTER BG */}
       <div
@@ -267,7 +267,7 @@ export default function TopSellingByCategory({ limit = 5 }: { limit?: number }) 
 
       {/* CONTENT */}
       <div className="relative z-10">
-        <h2 className="mb-6 text-center text-2xl font-extrabold tracking-wide text-slate-800">
+        <h2 className="mb-4 md:mb-6 text-center text-xl md:text-2xl font-extrabold tracking-wide text-slate-800">
           BẢNG XẾP HẠNG BÁN CHẠY THEO TUẦN
         </h2>
 
@@ -276,7 +276,7 @@ export default function TopSellingByCategory({ limit = 5 }: { limit?: number }) 
           <div className="rounded-xl bg-white/60 p-2 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md ring-1 ring-white/70 shadow-sm">
             <div
               ref={tabsWrapRef}
-              className="relative flex items-center gap-8 overflow-x-auto no-scrollbar pb-1"
+              className="relative flex items-center gap-5 md:gap-8 overflow-x-auto no-scrollbar pb-1"
               role="tablist"
               aria-label="Top categories"
             >
@@ -330,7 +330,7 @@ export default function TopSellingByCategory({ limit = 5 }: { limit?: number }) 
         </div>
 
         {/* CONTENT */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
+        <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-12">
           {/* LEFT LIST */}
           <div className="space-y-3 md:col-span-5">
             {list.map((b) => {
@@ -371,7 +371,7 @@ export default function TopSellingByCategory({ limit = 5 }: { limit?: number }) 
           </div>
 
           {/* RIGHT DETAIL */}
-          <div className="md:col-span-7">
+          <div className="hidden md:block md:col-span-7">
             <AnimatePresence mode="wait">
               {detail && (
                 <motion.div
@@ -449,6 +449,64 @@ export default function TopSellingByCategory({ limit = 5 }: { limit?: number }) 
               )}
             </AnimatePresence>
           </div>
+        </div>
+        {/* MOBILE DETAIL */}
+        <div className="md:hidden mt-3">
+          <AnimatePresence mode="wait">
+            {detail && (
+              <motion.div
+                key={detail.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.3 }}
+                onClick={() => nav(detail.slug ? `/books/${detail.slug}` : `/books/id/${detail.id}`)}
+                className="cursor-pointer rounded-xl bg-white/85 p-4 ring-1 ring-slate-200 shadow-sm"
+              >
+                <div className="flex gap-4">
+                  <div className="w-24 aspect-[3/4] overflow-hidden rounded-md ring-1 ring-slate-200 bg-white">
+                    <img
+                      src={
+                        detail.images?.find((i) => i.sortOrder === 0)?.url ??
+                        detail.cover ?? detail.thumbnail ?? detail.imageUrl ?? ""
+                      }
+                      alt={detail.title}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-slate-900 line-clamp-2">{detail.title}</h3>
+                    <p className="mt-1 text-sm text-slate-700 line-clamp-1">
+                      {detail.authors?.length
+                        ? detail.authors.map((a) => a.name).join(", ")
+                        : list.find((x) => x.bookId === detail.id)?.authorNames}
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      {(() => {
+                        const p = detail.price ?? undefined;
+                        const f = priceOf(detail);
+                        const hasSale = p != null && f != null && f < p;
+                        if (p == null && f == null) return null;
+                        return hasSale ? (
+                          <>
+                            <div className="text-xs text-slate-500 line-through">{nfVnd.format(Number(p))}</div>
+                            <div className="text-base font-extrabold text-rose-700">{nfVnd.format(Number(f))}</div>
+                          </>
+                        ) : (
+                          <div className="text-base font-extrabold text-slate-900">{nfVnd.format(Number(f ?? p))}</div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className="mt-3 text-sm text-slate-800 line-clamp-4"
+                  dangerouslySetInnerHTML={{ __html: sanitizeBasic(detail.description || "Chưa có mô tả.") }}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* BUTTON */}

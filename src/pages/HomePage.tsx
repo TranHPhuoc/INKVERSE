@@ -36,13 +36,9 @@ import TopSellingByCategory from "../components/TopSellingByCategory";
 import FlashSaleCarousel from "../components/FlashSaleCarousel";
 import BestSellerCarousel from "../components/BestSellerCarousel";
 
-// ⬇️ Thêm hai component mới
-import SocialFloat from "../components/SocialFloat";
-import ChatBoxWidget from "../components/ChatBoxWidget";
-
 /* ===== constants ===== */
 const BANNERS = [banner1, banner2, banner3];
-const SHELL = "mx-auto w-full max-w-[1550px] px-4 sm:px-6 lg:px-8";
+const SHELL = "mx-auto w-full max-w-[1550px] px-3 sm:px-6 lg:px-8";
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 /* ===== animations ===== */
@@ -346,7 +342,7 @@ export default function HomePage() {
       <ErrorBoundary fallback={<div className="p-6 text-rose-600">Có lỗi khi tải trang chủ</div>}>
         <main className="flex-1 bg-gray-50">
           {/* Banner */}
-          <div className="py-4">
+          <div className="py-3 md:py-4">
             <div className={SHELL}>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
                 <div className="lg:col-span-8">
@@ -380,7 +376,7 @@ export default function HomePage() {
 
           {/* Newest */}
           <Reveal>
-            <div className="py-6">
+            <div className="py-6 relative z-10">
               <div className={SHELL}>
                 <GradientSectionCard
                   label="SẢN PHẨM MỚI"
@@ -388,7 +384,7 @@ export default function HomePage() {
                   endHex="#3B82F6"
                   Icon={Sprout}
                 >
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4 md:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 md:grid-cols-[repeat(auto-fill,minmax(210px,1fr))] md:gap-4">
                     {newest.length > 0
                       ? newest.map((b, i) => (
                         <Reveal key={b.id ?? `${i}`} index={i}>
@@ -396,7 +392,7 @@ export default function HomePage() {
                         </Reveal>
                       ))
                       : Array.from({ length: 10 }).map((_, i) => (
-                        <div key={i} className="h-64 animate-pulse rounded bg-gray-100" />
+                        <div key={i} className="h-56 md:h-64 animate-pulse rounded-xl bg-gray-100" />
                       ))}
                   </div>
                   <Pagination
@@ -412,7 +408,7 @@ export default function HomePage() {
 
           {/* Top Selling */}
           <Reveal>
-            <div className="py-6">
+            <div className="py-6 relative z-10">
               <div className={SHELL}>
                 <TopSellingByCategory limit={5} />
               </div>
@@ -445,7 +441,7 @@ export default function HomePage() {
           </Reveal>
 
           {/* Services */}
-          <div className={`${SHELL} py-8`}>
+          <div className={`${SHELL} py-6 md:py-8`}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               {[
                 {
@@ -467,24 +463,19 @@ export default function HomePage() {
                 <Reveal
                   key={i}
                   index={i}
-                  className="flex items-center gap-4 rounded-2xl p-5 shadow"
+                  className="flex items-center gap-3 md:gap-4 rounded-2xl p-4 md:p-5 shadow"
                 >
                   <div className="rounded-xl bg-indigo-50 p-3 text-indigo-600 ring-1 ring-indigo-100">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">{title}</p>
-                    <p className="text-xs text-gray-500">{sub}</p>
+                    <p className="text-[13px] md:text-sm font-semibold">{title}</p>
+                    <p className="text-[11px] md:text-xs text-gray-500">{sub}</p>
                   </div>
                 </Reveal>
               ))}
             </div>
           </div>
-
-          {/* --- Fixed utilities (left bottom) --- */}
-          <SocialFloat />
-          {/* Chatbox Sophia: để thấp hơn cụm social */}
-          <ChatBoxWidget />
         </main>
       </ErrorBoundary>
     </div>

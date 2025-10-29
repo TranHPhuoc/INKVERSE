@@ -26,7 +26,6 @@ interface PageResp<T> {
   number?: number;
   size?: number;
 }
-
 interface ResBookListItemDTO {
   id: number;
   title: string;
@@ -41,7 +40,6 @@ interface ResBookListItemDTO {
   finalPrice?: number | null;
   effectivePrice?: number | null;
 }
-
 interface SuggestItem {
   id: number;
   title: string;
@@ -58,7 +56,6 @@ function useDebounced<T>(value: T, delay: number): T {
   }, [value, delay]);
   return debounced;
 }
-
 function highlight(text: string, keyword: string): React.ReactNode {
   const i = text.toLowerCase().indexOf(keyword.toLowerCase());
   if (i < 0 || !keyword) return text;
@@ -72,7 +69,6 @@ function highlight(text: string, keyword: string): React.ReactNode {
     </>
   );
 }
-
 function mapToSuggest(b: ResBookListItemDTO): SuggestItem {
   const it: SuggestItem = { id: b.id, title: b.title };
   if (b.slug) it.slug = b.slug;
@@ -84,30 +80,18 @@ function mapToSuggest(b: ResBookListItemDTO): SuggestItem {
 /* ===== API ===== */
 async function fetchSuggest(q: string, signal?: AbortSignal): Promise<SuggestItem[]> {
   if (!q.trim()) return [];
-
-  const params = {
-    q: q.trim(),
-    keyword: q.trim(),
-    page: 0,
-    size: LIMIT,
-    sort: "createdAt",
-    direction: "DESC",
-  };
-
+  const params = { q: q.trim(), keyword: q.trim(), page: 0, size: LIMIT, sort: "createdAt", direction: "DESC" };
   const config: AxiosRequestConfig = signal ? { params, signal } : { params };
-
   try {
     const res = await api.get("/api/v1/books/search", config);
     const raw = (res as unknown as { data?: unknown }).data as
       | PageResp<ResBookListItemDTO>
       | { data?: PageResp<ResBookListItemDTO> }
       | undefined;
-
     const page: PageResp<ResBookListItemDTO> | undefined =
       (raw && (raw as { data?: PageResp<ResBookListItemDTO> }).data) ||
       (raw as PageResp<ResBookListItemDTO>) ||
       undefined;
-
     const list = Array.isArray(page?.content) ? page!.content : [];
     return list.map(mapToSuggest);
   } catch {
@@ -116,19 +100,33 @@ async function fetchSuggest(q: string, signal?: AbortSignal): Promise<SuggestIte
 }
 
 /* ===== Motion ===== */
-const listVariants = {
-  animate: { transition: { staggerChildren: 0.04, delayChildren: 0.02 } },
-};
-const itemVariants = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: 4 },
-};
+const listVariants = { animate: { transition: { staggerChildren: 0.04, delayChildren: 0.02 } } };
+const itemVariants = { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 4 } };
+
+/* ===== Media ===== */
+function useIsMdUp(): boolean {
+  const MQ = "(min-width: 768px)";
+  const getMatches = () =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia(MQ).matches
+      : false;
+  const [isMd, setIsMd] = React.useState<boolean>(getMatches);
+  React.useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mql = window.matchMedia(MQ);
+    const onChange = (ev: MediaQueryListEvent | MediaQueryList) => setIsMd("matches" in ev ? ev.matches : mql.matches);
+    mql.addEventListener?.("change", onChange as EventListener);
+    setIsMd(mql.matches);
+    return () => mql.removeEventListener?.("change", onChange as EventListener);
+  }, []);
+  return isMd;
+}
 
 /* ===== Component ===== */
 export default function SearchBox({ className = "" }: { className?: string }) {
   const [kw, setKw] = useState("");
   const q = useDebounced(kw, DEBOUNCE_MS);
+  const isMd = useIsMdUp();
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -144,7 +142,6 @@ export default function SearchBox({ className = "" }: { className?: string }) {
 
   const navigate = useNavigate();
 
-  /* ===== Measure input rect ===== */
   const [rect, setRect] = useState<{ top: number; left: number; width: number; bottom: number } | null>(null);
   const measure = () => {
     const el = wrapperRef.current;
@@ -153,27 +150,16 @@ export default function SearchBox({ className = "" }: { className?: string }) {
     setRect({ top: r.top, left: r.left, width: r.width, bottom: r.bottom });
   };
 
-  useLayoutEffect(() => {
-    if (open) measure();
-  }, [open]);
-
+  useLayoutEffect(() => { if (open) measure(); }, [open]);
   useEffect(() => {
     if (!open) return;
     let raf = 0;
-    const onWin = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(measure);
-    };
+    const onWin = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(measure); };
     window.addEventListener("resize", onWin);
     window.addEventListener("scroll", onWin, true);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", onWin);
-      window.removeEventListener("scroll", onWin, true);
-    };
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onWin); window.removeEventListener("scroll", onWin, true); };
   }, [open]);
 
-  /* ===== Close on outside click ===== */
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       const el = wrapperRef.current;
@@ -183,34 +169,19 @@ export default function SearchBox({ className = "" }: { className?: string }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  /* ===== Fetch suggestions ===== */
   useEffect(() => {
-    if (!q.trim()) {
-      setHits([]);
-      setLoading(false);
-      setActive(-1);
-      setPrevKw("");
-      return;
-    }
-
+    if (!q.trim()) { setHits([]); setLoading(false); setActive(-1); setPrevKw(""); return; }
     setLoading(true);
     setPrevKw(q);
-
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
-
     fetchSuggest(q, ac.signal)
-      .then((res) => {
-        setHits(res);
-        setActive(res.length ? 0 : -1);
-      })
+      .then((res) => { setHits(res); setActive(res.length ? 0 : -1); })
       .finally(() => setLoading(false));
-
     return () => ac.abort();
   }, [q]);
 
-  /* ===== Optimistic filter ===== */
   const viewHits = useMemo((): SuggestItem[] => {
     const k = kw.trim().toLowerCase();
     if (!k) return [];
@@ -220,52 +191,30 @@ export default function SearchBox({ className = "" }: { className?: string }) {
     return hits;
   }, [kw, hits, loading, prevKw]);
 
-  /* ===== Actions ===== */
   const goProduct = (it: SuggestItem) => {
     const url = it.slug ? `/books/${it.slug}` : `/books/${it.id}`;
     setOpen(false);
     setTimeout(() => navigate(url), 0);
   };
-
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
     const keyword = kw.trim();
     if (!keyword) return;
     setOpen(false);
-    setTimeout(
-      () =>
-        navigate({
-          pathname: "/search",
-          search: `?${createSearchParams({ q: keyword })}`,
-        }),
-      0,
-    );
+    setTimeout(() => navigate({ pathname: "/search", search: `?${createSearchParams({ q: keyword })}` }), 0);
   };
 
-  /* ===== Keyboard nav ===== */
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!open && (viewHits.length > 0 || kw.trim().length > 0)) setOpen(true);
     if (!open) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActive((i) => Math.min(i + 1, viewHits.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActive((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const pick = viewHits[active];
-      if (pick) goProduct(pick);
-      else submit();
-    } else if (e.key === "Escape" || e.key === "Tab") {
-      setOpen(false);
-    }
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive((i) => Math.min(i + 1, viewHits.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)); }
+    else if (e.key === "Enter") { e.preventDefault(); const pick = viewHits[active]; if (pick) goProduct(pick); else submit(); }
+    else if (e.key === "Escape" || e.key === "Tab") { setOpen(false); }
   };
 
   const showFooter = useMemo(() => kw.trim().length > 0, [kw]);
-  const setItemRef = (i: number) => (el: HTMLLIElement | null) => {
-    itemRefs.current[i] = el;
-  };
+  const setItemRef = (i: number) => (el: HTMLLIElement | null) => { itemRefs.current[i] = el; };
 
   /* ===== UI ===== */
   return (
@@ -275,49 +224,32 @@ export default function SearchBox({ className = "" }: { className?: string }) {
           onSubmit={submit}
           role="search"
           className={[
-            "group",
-            "flex items-center gap-2",
-            // khung mảnh, tông lạnh
-            "h-11 md:h-12 rounded-full",
+            "group flex items-center gap-2",
+            "h-9 md:h-12 rounded-full",
             "bg-gradient-to-r from-sky-50/80 via-teal-50/80 to-sky-50/80",
             "ring-1 ring-slate-200 hover:ring-sky-300/80 focus-within:ring-sky-400",
             "backdrop-blur-xl shadow-[0_6px_18px_-10px_rgba(14,165,233,.45)]",
-            "pl-3 pr-2 transition-all",
+            "pl-2 pr-1 md:pl-3 md:pr-2 transition-all",
           ].join(" ")}
         >
-          <SearchIcon
-            className="ml-0.5 h-[18px] w-[18px] text-slate-600/80 group-focus-within:text-sky-700"
-            aria-hidden
-          />
-
+          <SearchIcon className="hidden md:inline ml-0.5 h-[18px] w-[18px] text-slate-600/80 group-focus-within:text-sky-700" aria-hidden />
           <input
             value={kw}
             onChange={(e) => {
-              if (composing.current) {
-                setKw(e.target.value);
-                return;
-              }
-              setKw(e.target.value);
+              const v = e.target.value;
+              setKw(v);
               if (!open) setOpen(true);
             }}
-            onFocus={() => {
-              setOpen(true);
-              measure();
-            }}
+            onFocus={() => { setOpen(true); measure(); }}
             onKeyDown={onKeyDown}
             onCompositionStart={() => (composing.current = true)}
-            onCompositionEnd={(e) => {
-              composing.current = false;
-              setKw(e.currentTarget.value);
-            }}
-            placeholder="Tìm kiếm sách, tác giả…"
-            className="h-full flex-1 bg-transparent text-[15px] text-slate-900 placeholder:text-slate-500 focus:outline-none"
+            onCompositionEnd={(e) => { composing.current = false; setKw(e.currentTarget.value); }}
+            placeholder={isMd ? "Tìm kiếm sách, tác giả…" : "Tìm kiếm…"}
+            className="h-full flex-1 bg-transparent text-[13px] md:text-[15px] text-slate-900 placeholder:text-slate-500 focus:outline-none"
             aria-autocomplete="list"
             aria-expanded={open}
             aria-controls="search-suggest-list"
           />
-
-          {/* Nút xóa nhanh */}
           {kw && (
             <button
               type="button"
@@ -328,10 +260,9 @@ export default function SearchBox({ className = "" }: { className?: string }) {
               <XIcon className="h-4 w-4" />
             </button>
           )}
-
           <button
             type="submit"
-            className="h-9 md:h-10 cursor-pointer rounded-full bg-rose-700 px-4 text-[14px] font-semibold text-white shadow-sm transition-all hover:bg-rose-600 active:scale-[0.98]"
+            className="items-center hidden md:inline-flex h-10 cursor-pointer rounded-full bg-rose-700 px-4 text-[14px] font-semibold text-white shadow-sm transition-all hover:bg-rose-600 active:scale-[0.98]"
           >
             Tìm kiếm
           </button>
@@ -347,7 +278,23 @@ export default function SearchBox({ className = "" }: { className?: string }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 6, scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                style={{ position: "fixed", top: rect.bottom + 6, left: rect.left, width: rect.width }}
+                style={
+                  // 🔹 Mobile: gần full-width (8px mép), top nằm dưới header
+                  // 🔹 Desktop: bám theo input như cũ
+                  !isMd
+                    ? {
+                      position: "fixed",
+                      left: 8,
+                      right: 8,
+                      top: Math.max(rect.bottom + 6, 60),
+                    }
+                    : {
+                      position: "fixed",
+                      left: rect.left,
+                      top: rect.bottom + 6,
+                      width: rect.width,
+                    }
+                }
                 className={[
                   "z-[9999] overflow-hidden rounded-2xl",
                   "border border-sky-100/80 bg-white/90 backdrop-blur-xl",
@@ -390,18 +337,13 @@ export default function SearchBox({ className = "" }: { className?: string }) {
                           key={it.id}
                           variants={itemVariants}
                           layout
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            goProduct(it);
-                          }}
+                          onMouseDown={(e) => { e.preventDefault(); goProduct(it); }}
                           onMouseEnter={() => setActive(i)}
                           onMouseLeave={() => setActive(-1)}
                           ref={setItemRef(i)}
                           className={[
                             "flex cursor-pointer items-center gap-3 p-3 transition",
-                            i === active
-                              ? "bg-sky-50"
-                              : "hover:bg-sky-50/70",
+                            i === active ? "bg-sky-50" : "hover:bg-sky-50/70",
                           ].join(" ")}
                           role="option"
                           aria-selected={i === active}
@@ -412,9 +354,7 @@ export default function SearchBox({ className = "" }: { className?: string }) {
                               alt={it.title}
                               className="h-12 w-9 flex-none rounded object-cover ring-1 ring-sky-100"
                               onError={(e) => {
-                                if (e.currentTarget.src !== PLACEHOLDER) {
-                                  e.currentTarget.src = PLACEHOLDER;
-                                }
+                                if (e.currentTarget.src !== PLACEHOLDER) e.currentTarget.src = PLACEHOLDER;
                               }}
                               loading="lazy"
                             />
@@ -434,10 +374,7 @@ export default function SearchBox({ className = "" }: { className?: string }) {
                   {showFooter ? (
                     <div className="flex items-center justify-between bg-sky-50/60 px-3 py-2">
                       <button
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          submit();
-                        }}
+                        onMouseDown={(e) => { e.preventDefault(); submit(); }}
                         className="rounded-lg px-3 py-1 text-sm font-medium text-sky-700 hover:bg-sky-100 cursor-pointer"
                       >
                         Xem tất cả “{kw.trim()}”

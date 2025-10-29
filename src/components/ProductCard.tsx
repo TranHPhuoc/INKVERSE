@@ -28,7 +28,7 @@ export default function ProductCard({ item, catSlug }: Props) {
   return (
     <Link
       to={href}
-      className="group flex h-full flex-col rounded-xl p-3 transition hover:shadow-md"
+      className="group flex h-full flex-col rounded-xl p-2 md:p-3 transition hover:shadow-md"
       aria-label={item.title}
       title={item.title}
     >
@@ -44,32 +44,32 @@ export default function ProductCard({ item, catSlug }: Props) {
         />
 
         {showNew && (
-          <span className="absolute top-2 left-2 rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white shadow">
+          <span className="absolute top-2 left-2 rounded-md bg-emerald-600 px-2 py-1 text-[10px] md:text-[11px] font-semiboldtext-white shadow">
             New
           </span>
         )}
 
         {hasSale && (
-          <span className="absolute top-2 right-0 rounded-l-md bg-rose-600 px-3 py-1 text-[11px] font-bold text-white shadow">
+          <span className="absolute top-2 right-0 rounded-l-md bg-rose-600 px-2 md:px-3 py-1 text-[10px] md:text-[11px] font-bold text-white shadow">
             -{percent}%
           </span>
         )}
       </div>
 
-      <div className="mt-2 line-clamp-2 min-h-[2.5rem] text-sm leading-5 font-medium text-gray-900">
+      <div className="mt-2 line-clamp-2 min-h-[2.25rem] md:min-h-[2.5rem] text-[13px] md:text-sm leading-5 font-medium text-gray-900">
         {item.title}
       </div>
 
       <div className="mt-auto pt-2">
         <div className="flex items-baseline gap-2">
-          <span className="font-semibold text-rose-600">{Number(price).toLocaleString()} ₫</span>
+          <span className="font-semibold text-rose-600 text-[13.5px] md:text-base">{Number(price).toLocaleString()} ₫</span>
           {hasSale && (
-            <span className="text-xs text-gray-500 line-through">
+            <span className="text-xs md:text-sm text-gray-500 line-through">
               {Number(item.price).toLocaleString()} ₫
             </span>
           )}
         </div>
-        <div className="mt-0.5 text-xs text-gray-500">Đã bán {item.sold}</div>
+        <div className="mt-0.5 text-[11px] md:text-xs text-gray-500">Đã bán {item.sold}</div>
       </div>
     </Link>
   );

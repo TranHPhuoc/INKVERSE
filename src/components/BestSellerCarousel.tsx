@@ -150,58 +150,77 @@ export default function BestSellerCarousel({ items }: { items: BookListItem[] })
   );
 
   return (
-    <section className="relative">
-      {!atStart && (
+    <>
+      {/* DESKTOP */}
+      <section className="relative hidden md:block">
+        {!atStart && (
+          <button
+            type="button"
+            onClick={prev}
+            className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-700 shadow transition hover:bg-white"
+            aria-label="Prev"
+          >
+            <ChevronLeft className="h-5 w-5 cursor-pointer" />
+          </button>
+        )}
+
         <button
           type="button"
-          onClick={prev}
-          className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-700 shadow transition hover:bg-white"
-          aria-label="Prev"
+          onClick={next}
+          className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-700 shadow transition hover:bg-white"
+          aria-label="Next"
         >
-          <ChevronLeft className="h-5 w-5 cursor-pointer" />
+          <ChevronRight className="h-5 w-5 cursor-pointer" />
         </button>
-      )}
 
-      <button
-        type="button"
-        onClick={next}
-        className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-700 shadow transition hover:bg-white"
-        aria-label="Next"
-      >
-        <ChevronRight className="h-5 w-5 cursor-pointer" />
-      </button>
-
-      <div
-        ref={vpRef}
-        className="relative mx-auto overflow-hidden"
-        style={{ width: frameW, paddingLeft: PAD_X, paddingRight: PAD_X }}
-      >
         <div
-          className="flex flex-nowrap will-change-transform"
-          style={{
-            gap: COL_GAP,
-            transform: trackTranslate,
-            transition: "transform 420ms cubic-bezier(.22,.61,.36,1)",
-            minWidth: "100%",
-          }}
+          ref={vpRef}
+          className="relative mx-auto overflow-hidden"
+          style={{ width: frameW, paddingLeft: PAD_X, paddingRight: PAD_X }}
         >
-          {columns.map((col, ci) => (
-            <div key={`col-${ci}`} className="flex-none" style={{ width: colW }}>
-              <div className="flex flex-col" style={{ gap: ROW_GAP }}>
-                {col.map((book, ri) => (
-                  <BestCard key={`b-${ci}-${ri}`} book={book} width={colW} />
-                ))}
+          <div
+            className="flex flex-nowrap will-change-transform"
+            style={{
+              gap: COL_GAP,
+              transform: trackTranslate,
+              transition: "transform 420ms cubic-bezier(.22,.61,.36,1)",
+              minWidth: "100%",
+            }}
+          >
+            {columns.map((col, ci) => (
+              <div key={`col-${ci}`} className="flex-none" style={{ width: colW }}>
+                <div className="flex flex-col" style={{ gap: ROW_GAP }}>
+                  {col.map((book, ri) => (
+                    <BestCard key={`b-${ci}-${ri}`} book={book} width={colW} />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* MOBILE */}
+      <div className="md:hidden">
+        <div className="px-4 overflow-x-auto no-scrollbar snap-x snap-mandatory">
+          <div className="flex gap-3">
+            {items.map((book, i) => (
+              <div
+                key={`m-${i}`}
+                className="snap-start shrink-0 w-[72%] xs:w-[64%] sm:w-[56%]"
+              >
+                <BestCard book={book}/>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-    </section>
+    </>
   );
 }
 
-/* =================== Card: giữ nguyên UI + 'Đã bán' =================== */
-function BestCard({ book, width }: { book: BookListItem; width: number }) {
+/* =================== Card =================== */
+function BestCard({ book, width }: { book: BookListItem; width?: number }) {
   const img = pickImage(book);
   const { origin, current, pct } = pickPrice(book);
   const sold = pickSold(book);
@@ -209,7 +228,7 @@ function BestCard({ book, width }: { book: BookListItem; width: number }) {
   return (
     <div
       className="rounded-2xl bg-white shadow transition-transform duration-300 hover:-translate-y-1.5 hover:shadow-[0_12px_26px_rgba(0,0,0,0.15)]"
-      style={{ width }}
+      style={typeof width === "number" && width > 0 ? { width } : undefined}
     >
       <Link to={toPath(book)} className="block h-full">
         {/* Ảnh + badge giảm giá */}

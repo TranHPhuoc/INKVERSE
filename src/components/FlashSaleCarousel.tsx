@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { BookListItem } from "../types/books";
 import api from "../services/api";
+import { resolveThumb, PLACEHOLDER } from "../types/img";
 
 /* ================= helpers ================= */
 const GAP = 20;
@@ -43,17 +44,17 @@ function toPath(b: BookListItem): string {
 function pickImage(b: BookListItem): string {
   const r = b as Record<string, unknown>;
   const thumb = str(r.thumbnail);
-  if (thumb) return thumb;
+  if (thumb) return resolveThumb(thumb);
   const imageUrl = str(r.imageUrl);
-  if (imageUrl) return imageUrl;
+  if (imageUrl) return resolveThumb(imageUrl);
   const images = r.images;
   if (Array.isArray(images)) {
     for (const it of images) {
       const url = str((it as Record<string, unknown>).url);
-      if (url) return url;
+      if (url) return resolveThumb(url);
     }
   }
-  return "";
+  return PLACEHOLDER;
 }
 function pickPrice(b: BookListItem) {
   const r = b as Record<string, unknown>;
@@ -91,7 +92,7 @@ function discountPctOf(b: BookListItem): number {
 function normalizeFlashSale(arr: BookListItem[]): BookListItem[] {
   const unique = uniqBy(arr, keyOf);
   return unique
-    .filter((it) => discountPctOf(it) >= 15)
+    .filter((it) => discountPctOf(it) >= 20)
     .sort((a, b) => discountPctOf(b) - discountPctOf(a));
 }
 
@@ -260,7 +261,7 @@ const FlashSaleCarousel: React.FC<Props> = ({
   const showPrev = !atStart;
 
   return (
-    <section className="relative mx-[calc(50%-50vw)] w-screen overflow-hidden bg-gradient-to-b from-[#b91c1c] via-[#dc2626] to-[#f97316] py-12">
+    <section className="relative w-full overflow-hidden bg-gradient-to-b from-[#b91c1c] via-[#dc2626] to-[#f97316] py-12 sm:mx-[calc(50%-50vw)] sm:w-screen">
       {/* glows */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="absolute inset-x-0 top-0 h-px bg-white/40" />
@@ -269,9 +270,9 @@ const FlashSaleCarousel: React.FC<Props> = ({
 
       <div className="relative z-10 mx-auto w-full max-w-[1550px] px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-center">
+        <div className="mb-5 flex items-center justify-center md:mb-8">
           <h2
-            className="text-center text-[36px] font-extrabold tracking-[0.2em] uppercase sm:text-[40px]"
+            className="text-center text-2xl font-extrabold tracking-[0.12em] uppercase md:text-[36px] md:tracking-[0.2em]"
             style={{
               background: "linear-gradient(90deg, #fde68a, #ffffff 45%, #ffedd5 90%)",
               WebkitBackgroundClip: "text",
@@ -285,67 +286,109 @@ const FlashSaleCarousel: React.FC<Props> = ({
           </h2>
         </div>
 
-        <div className="relative rounded-2xl bg-white/10 p-5 shadow-[0_14px_40px_rgba(0,0,0,0.28)] ring-1 ring-white/20 backdrop-blur-[2px]">
-          {/* Prev */}
-          {showPrev && (
+        {/* ===== MOBILE: scroll-snap swipe ===== */}
+        <div className="md:hidden">
+          <div className="rounded-2xl bg-white/10 p-3 shadow-[0_10px_30px_rgba(0,0,0,0.28)] ring-1 ring-white/20 backdrop-blur-[2px]">
+            <div className="no-scrollbar snap-x snap-mandatory overflow-x-auto px-4">
+              <div className="flex gap-3">
+                {(list.length ? list : []).map((it) => (
+                  <div
+                    key={String(keyOf(it))}
+                    className="xs:w-[58%] w-[66%] shrink-0 snap-start sm:w-[50%]"
+                  >
+                    <Card book={it} />
+                  </div>
+                ))}
+                {list.length === 0 && (loading || fetching)
+                  ? Array.from({ length: Math.max(4, pageSize) }).map((_, i) => (
+                      <div
+                        key={`sk-m-${i}`}
+                        className="xs:w-[58%] w-[66%] shrink-0 snap-start sm:w-[50%]"
+                      >
+                        <div className="rounded-2xl bg-white shadow">
+                          <div className="aspect-[3/4] w-full animate-pulse rounded-t-2xl bg-gray-100" />
+                          <div className="p-3">
+                            <div className="mb-2 h-10 w-full animate-pulse rounded bg-gray-100" />
+                            <div className="h-4 w-1/2 animate-pulse rounded bg-gray-100" />
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  : null}
+              </div>
+            </div>
+            {err && <p className="mt-3 text-center text-sm text-rose-100">{err}</p>}
+          </div>
+        </div>
+
+        {/* ===== DESKTOP ===== */}
+        <div className="hidden md:block">
+          <div className="relative rounded-2xl bg-white/10 p-5 shadow-[0_14px_40px_rgba(0,0,0,0.28)] ring-1 ring-white/20 backdrop-blur-[2px]">
+            {/* Prev */}
+            {showPrev && (
+              <button
+                type="button"
+                onClick={prev}
+                className="absolute top-1/2 left-2 z-30 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-700 shadow transition hover:bg-white"
+                aria-label="Prev"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+
+            {/* Next */}
             <button
               type="button"
-              onClick={prev}
-              className="absolute top-1/2 left-2 z-30 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-700 shadow transition hover:bg-white"
-              aria-label="Prev"
+              onClick={next}
+              disabled={disableNext}
+              className="absolute top-1/2 right-2 z-30 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-700 shadow transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Next"
             >
-              <ChevronLeft className="h-5 w-5 cursor-pointer" />
+              <ChevronRight className="h-5 w-5" />
             </button>
-          )}
 
-          {/* Next (có wrap) */}
-          <button
-            type="button"
-            onClick={next}
-            disabled={disableNext}
-            className="absolute top-1/2 right-2 z-30 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-700 shadow transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label="Next"
-          >
-            <ChevronRight className="h-5 w-5 cursor-pointer" />
-          </button>
-
-          {/* Viewport */}
-          <div
-            ref={viewportRef}
-            className="relative mx-auto overflow-hidden"
-            style={{ width: frameW, paddingLeft: PAD_X, paddingRight: PAD_X }}
-          >
+            {/* Viewport */}
             <div
-              className="flex will-change-transform"
-              style={{
-                gap: GAP,
-                transform: trackTranslate,
-                transition: "transform 420ms cubic-bezier(.22,.61,.36,1)",
-              }}
+              ref={viewportRef}
+              className="relative mx-auto overflow-hidden"
+              style={{ width: frameW, paddingLeft: PAD_X, paddingRight: PAD_X }}
             >
-              {renderItems.map((ri) =>
-                ri.kind === "sk" ? (
-                  <div
-                    key={ri.id}
-                    className="flex-none rounded-2xl bg-white shadow"
-                    style={{ width: cardW }}
-                  >
-                    <div className="aspect-[3/4] w-full animate-pulse rounded-t-2xl bg-gray-100" />
-                    <div className="p-3">
-                      <div className="mb-2 h-10 w-full animate-pulse rounded bg-gray-100" />
-                      <div className="h-4 w-1/2 animate-pulse rounded bg-gray-100" />
+              <div
+                className="flex will-change-transform"
+                style={{
+                  gap: GAP,
+                  transform: trackTranslate,
+                  transition: "transform 420ms cubic-bezier(.22,.61,.36,1)",
+                }}
+              >
+                {renderItems.map((ri) =>
+                  ri.kind === "sk" ? (
+                    <div
+                      key={ri.id}
+                      className="flex-none rounded-2xl bg-white shadow"
+                      style={{ width: cardW }}
+                    >
+                      <div className="aspect-[3/4] w-full animate-pulse rounded-t-2xl bg-gray-100" />
+                      <div className="p-3">
+                        <div className="mb-2 h-10 w-full animate-pulse rounded bg-gray-100" />
+                        <div className="h-4 w-1/2 animate-pulse rounded bg-gray-100" />
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div key={String(keyOf(ri.item))} className="flex-none" style={{ width: cardW }}>
-                    <Card book={ri.item} width={cardW} />
-                  </div>
-                ),
-              )}
+                  ) : (
+                    <div
+                      key={String(keyOf(ri.item))}
+                      className="flex-none"
+                      style={{ width: cardW }}
+                    >
+                      <Card book={ri.item} width={cardW} />
+                    </div>
+                  ),
+                )}
+              </div>
             </div>
-          </div>
 
-          {err && <p className="mt-3 text-center text-sm text-rose-100">{err}</p>}
+            {err && <p className="mt-3 text-center text-sm text-rose-100">{err}</p>}
+          </div>
         </div>
       </div>
     </section>
@@ -355,7 +398,7 @@ const FlashSaleCarousel: React.FC<Props> = ({
 export default FlashSaleCarousel;
 
 /* ================= Card ================= */
-const Card: React.FC<{ book: BookListItem; width: number }> = ({ book, width }) => {
+const Card: React.FC<{ book: BookListItem; width?: number }> = ({ book, width }) => {
   const img = pickImage(book);
   const { origin, current, pct } = pickPrice(book);
   const sold = pickSold(book);
@@ -363,12 +406,20 @@ const Card: React.FC<{ book: BookListItem; width: number }> = ({ book, width }) 
   return (
     <div
       className="rounded-2xl bg-white shadow transition-transform duration-300 hover:-translate-y-1.5 hover:shadow-[0_12px_26px_rgba(0,0,0,0.15)]"
-      style={{ width }}
+      style={typeof width === "number" && width > 0 ? { width } : undefined}
     >
       <Link to={toPath(book)} className="block h-full">
         <div className="relative w-full overflow-hidden rounded-t-2xl">
           <div className="aspect-[3/4] w-full">
-            <img src={img} alt={book.title} className="h-full w-full object-cover" loading="lazy" />
+            <img
+              src={img}
+              alt={book.title}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                if (e.currentTarget.src !== PLACEHOLDER) e.currentTarget.src = PLACEHOLDER;
+              }}
+            />
           </div>
           {typeof pct === "number" && pct > 0 && (
             <div className="absolute top-2 right-2 rounded-md bg-rose-600 px-2 py-[2px] text-xs font-bold text-white shadow">

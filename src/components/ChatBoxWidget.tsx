@@ -34,8 +34,10 @@ type ChatBoxWidgetProps = {
 /* ---------- Types & helpers ---------- */
 type Msg = { id?: number; role: Role; content: string; createdAt: string };
 
-const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null;
-const pick = <T,>(o: unknown, k: string): T | undefined => (isRecord(o) ? (o[k] as T) : undefined);
+const isRecord = (x: unknown): x is Record<string, unknown> =>
+  typeof x === "object" && x !== null;
+const pick = <T,>(o: unknown, k: string): T | undefined =>
+  (isRecord(o) ? (o[k] as T) : undefined);
 
 const toMsg = (m: ChatMessageDTO): Msg => {
   const base: Msg = { role: m.role, content: m.content, createdAt: m.createdAt };
@@ -47,11 +49,11 @@ const fmtTime = (iso: string) => {
   return Number.isNaN(+d)
     ? ""
     : d.toLocaleString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 };
 
 /* ---------- Markdown formatting (nhẹ) ---------- */
@@ -62,7 +64,6 @@ function isCodeBlock(md: string): boolean {
   return /```[\s\S]*?```/.test(md);
 }
 function normalizeListMd(md: string): string {
-  // Giữ format danh sách 1, 2, 3…, thêm dòng trống giữa các item cho dễ đọc
   const text = md.replace(/\r\n/g, "\n");
   const lines = text.split("\n");
   const out: string[] = [];
@@ -150,10 +151,7 @@ function getTitleFromListItem(linkEl: HTMLElement): string {
   return first || "";
 }
 
-/** Từ href + anchor text → ra đích điều hướng nội bộ.
- * Ưu tiên: ?id → /books/<id>?by=id → ?slug → /books/<slug> → /books/<slug> trong path.
- * Nếu path có /books/<chuỗi-không-gạch> hoặc anchor là "Mua sách/Mua ngay" → lấy tiêu đề từ <li> để slugify.
- */
+
 function resolveBookTarget(
   href?: string | null,
   text?: string,
@@ -213,10 +211,10 @@ function resolveBookTarget(
 
 /* ---------- Markdown <a> renderer: điều hướng nội bộ nếu là link sách ---------- */
 const MdLink: React.FC<React.AnchorHTMLAttributes<HTMLAnchorElement>> = ({
-  href,
-  children,
-  ...rest
-}) => {
+                                                                           href,
+                                                                           children,
+                                                                           ...rest
+                                                                         }) => {
   const navigate = useNavigate();
   const aRef = useRef<HTMLAnchorElement | null>(null);
   const to = (href as string) ?? "#";
@@ -224,13 +222,12 @@ const MdLink: React.FC<React.AnchorHTMLAttributes<HTMLAnchorElement>> = ({
 
   const onClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     const target = resolveBookTarget(to, childStr, e.currentTarget);
-    if (!target) return; // link ngoài → để mặc định
+    if (!target) return;
     e.preventDefault();
     const path = target.search ? `${target.path}${target.search}` : target.path;
     navigate(path);
   };
 
-  // Nếu có thể parse ra link sách nội bộ → mở cùng tab
   const internal = !!resolveBookTarget(to, childStr, aRef.current);
 
   return (
@@ -320,7 +317,8 @@ function getDefaultSuggestions(mode: ChatMode): Suggestion[] {
       { label: "KPI tuần này", prompt: "KPI tuần này?" },
       {
         label: "Best-sellers còn ít",
-        prompt: "Sách nào bán được trên 5 cuốn trong vòng 30 ngày gần đây nhưng trong kho còn dưới 500 cuốn?",
+        prompt:
+          "Sách nào bán được trên 5 cuốn trong vòng 30 ngày gần đây nhưng trong kho còn dưới 500 cuốn?",
       },
       {
         label: "Sắp hết hàng",
@@ -450,9 +448,9 @@ function getUserRoles(u: unknown): string[] {
 
 /* ---------- Component ---------- */
 export default function ChatBoxWidget({
-  avatarSrc,
-  mode: propMode,
-}: ChatBoxWidgetProps): ReactElement {
+                                        avatarSrc,
+                                        mode: propMode,
+                                      }: ChatBoxWidgetProps): ReactElement {
   const { user } = useAuth();
   const { pathname } = useLocation();
 
@@ -524,7 +522,6 @@ export default function ChatBoxWidget({
     if (userIdRef.current === currId) return;
     userIdRef.current = currId;
 
-    // reset toàn bộ để lần mở kế sau load đúng history của user mới
     lastModeRef.current = null;
     setMsgs([]);
     setBooted(false);
@@ -532,7 +529,6 @@ export default function ChatBoxWidget({
     setSugs(getDefaultSuggestions(mode));
   }, [user?.id, mode]);
 
-  // ⬅️ KEEP (nhưng dựa trên ref đã reset bởi user-change)
   useEffect(() => {
     if (!visible) return;
 
@@ -658,14 +654,30 @@ export default function ChatBoxWidget({
     }
   };
 
+
+  const [hasExternalLauncher, setHasExternalLauncher] = useState(false);
+  useEffect(() => {
+    const probe = () => setHasExternalLauncher(!!document.getElementById("dock-chat-btn"));
+    probe();
+    const mo = new MutationObserver(probe);
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, []);
+
   const headerClass =
     "relative flex items-center justify-between px-3 py-2 bg-neutral-900 text-white select-none";
-  const shellClass =
-    "fixed bottom-4 right-4 z-50 h-[560px] w-[380px] overflow-hidden rounded-2xl border border-neutral-200 bg-gradient-to-b from-white to-neutral-50 shadow-xl";
 
-  // Ẩn FAB ở các trang auth + khi panel đang mở
+  // Mobile
+  const shellClass =
+    "fixed z-50 right-2 bottom-2 w-[min(90vw,320px)] h-[60vh] " +
+    "overflow-hidden rounded-xl border border-neutral-200 bg-gradient-to-b from-white to-neutral-50 shadow-xl " +
+    "md:right-4 md:bottom-4 md:w-[380px] md:h-[560px] md:rounded-2xl";
+
+
+
+  // Ẩn FAB ở các trang auth + khi panel đang mở + nếu đã có launcher ngoài
   const hideFabByRoute = HIDE_ON.some((p) => pathname.startsWith(p));
-  const shouldShowFab = !hideFabByRoute && !visible;
+  const shouldShowFab = !hideFabByRoute && !visible && !hasExternalLauncher;
 
   const openPanel = () => {
     setVisible(true);
@@ -679,28 +691,33 @@ export default function ChatBoxWidget({
 
   return (
     <>
-      {/* === Floating Button mở chat (ẩn khi panel mở) === */}
+      {/* === Floating Button mở chat (chỉ hiện khi KHÔNG có #dock-chat-btn) === */}
       {shouldShowFab && (
         <button
           onClick={openPanel}
-          className="ink-fab-sophia fixed right-6 bottom-6 z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-neutral-900 text-white shadow-[0_8px_25px_rgba(0,0,0,0.15)] transition-transform hover:scale-105"
+          className="ink-fab-sophia fixed right-4 bottom-4 z-[60] flex h-12 w-12 items-center justify-center rounded-full bg-neutral-900 text-white shadow-[0_8px_25px_rgba(0,0,0,0.15)] transition-transform hover:scale-105 md:right-6 md:bottom-6 md:h-14 md:w-14"
           aria-label="Mở chat Sophia"
           type="button"
         >
           {avatarSrc ? (
-            <img src={avatarSrc} alt="Sophia" className="h-12 w-12 rounded-full object-cover" />
+            <img
+              src={avatarSrc}
+              alt="Sophia"
+              className="h-10 w-10 rounded-full object-cover md:h-12 md:w-12"
+            />
           ) : (
-            <MessageCircle className="h-6 w-6" />
+            <MessageCircle className="h-5 w-5 md:h-6 md:w-6" />
           )}
         </button>
       )}
+
 
       {/* === Panel chat === */}
       <AnimatePresence>
         {visible && (
           <motion.div
             key="chat-panel"
-            className={shellClass}
+            className={`${shellClass} flex flex-col`}
             initial={{ opacity: 0, scale: 0.92, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 8 }}
@@ -770,11 +787,11 @@ export default function ChatBoxWidget({
               </div>
             </div>
 
-            <div className="flex h-[508px] min-h-0 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col">
               <div
                 ref={viewportRef}
                 onScroll={onScroll}
-                className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 text-sm"
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 text-[13px] md:text-sm"
               >
                 {msgs.map((m, idx) => (
                   <div
@@ -828,7 +845,7 @@ export default function ChatBoxWidget({
 
               <form
                 onSubmit={onSubmit}
-                className="flex items-center gap-2 border-t border-neutral-200 bg-white p-3"
+                className="flex items-center gap-2 border-t border-neutral-200 bg-white p-2 md:p-3"
               >
                 <input
                   value={input}

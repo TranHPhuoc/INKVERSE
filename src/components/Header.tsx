@@ -1,4 +1,3 @@
-// src/components/Header.tsx
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -95,7 +94,7 @@ const Header: React.FC = () => {
     return () => window.removeEventListener("cart:changed", handler as EventListener);
   }, [refreshBadge]);
 
-  /* ---- Pills ---- */
+  /* ---- Pills (desktop) ---- */
   const pillItems = [
     {
       label: (
@@ -146,7 +145,7 @@ const Header: React.FC = () => {
     },
   ];
 
-  /* ---- Account menu hover ---- */
+  /* ---- Account menu hover (desktop) ---- */
   const hoverRef = useRef<HTMLDivElement | null>(null);
   const hideTimer = useRef<number | null>(null);
   const openMenu = () => {
@@ -159,27 +158,26 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-300 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl shadow-[0_10px_30px_-20px_rgba(2,6,23,.35)]">
+    <header className="sticky top-0 z-[300] border-b border-slate-200/70 bg-white/80 shadow-[0_10px_30px_-20px_rgba(2,6,23,.35)] backdrop-blur-xl">
       <div className={SHELL}>
-        <div className="flex h-[72px] items-center justify-between gap-4">
+        {/* ===== DESKTOP ROW ===== */}
+        <div className="hidden h-[72px] items-center justify-between gap-4 md:flex">
           {/* Logo */}
           <Link to="/" className="flex shrink-0 items-center gap-2" aria-label="Về trang chủ">
-            <img src={logo} alt="INKVERSE" className="h-12 md:h-14 w-auto" />
+            <img src={logo} alt="INKVERSE" className="h-12 w-auto md:h-14" />
           </Link>
 
-          {/* Search + Category (embedded) */}
+          {/* Search + Category */}
           <div className="flex flex-1 justify-center">
-            {/* Không dùng overflow-hidden để không chặn portal của SearchBox */}
-            <div className="flex w-full max-w-[820px] items-center gap-2 rounded-full bg-white/70 ring-1 ring-slate-200 backdrop-blur-xl shadow-[0_6px_20px_-8px_rgba(0,0,0,.25)] px-2 py-1">
+            <div className="flex w-full max-w-[820px] items-center gap-2 rounded-full bg-white/70 px-2 py-1 shadow-[0_6px_20px_-8px_rgba(0,0,0,.25)] ring-1 ring-slate-200 backdrop-blur-xl">
               <HeaderCategoryMenu variant="embedded" className="ml-1 cursor-pointer" />
               <span className="h-6 w-px bg-slate-200" />
-              {/* SearchBox auto handle submit + suggestions */}
               <SearchBox className="flex-1" />
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="hidden md:flex items-center">
+          {/* Actions + Account */}
+          <div className="hidden items-center md:flex">
             <PillNav
               items={pillItems}
               activeHref={pathname}
@@ -214,7 +212,7 @@ const Header: React.FC = () => {
               >
                 <button
                   type="button"
-                  className="inline-flex h-11 items-center gap-1 rounded-full border px-4 text-[16px] font-medium text-slate-900 transition-colors hover:bg-slate-900 hover:text-white cursor-pointer"
+                  className="inline-flex h-11 cursor-pointer items-center gap-1 rounded-full border px-4 text-[16px] font-medium text-slate-900 transition-colors hover:bg-slate-900 hover:text-white"
                   onClick={() => navigate("/tai-khoan/ho-so-cua-toi")}
                 >
                   <UserIcon className="h-[18px] w-[18px]" />
@@ -241,7 +239,7 @@ const Header: React.FC = () => {
                               setOpen(false);
                               navigate("/tai-khoan/ho-so-cua-toi");
                             }}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 cursor-pointer"
+                            className="flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
                           >
                             <UserIcon className="h-4 w-4" /> Quản lý tài khoản
                           </button>
@@ -264,7 +262,7 @@ const Header: React.FC = () => {
                             className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
                             onClick={() => setOpen(false)}
                           >
-                            <History className="h-4 w-4 " /> Lịch sử mua hàng
+                            <History className="h-4 w-4" /> Lịch sử mua hàng
                           </Link>
                         </>
                       )}
@@ -272,10 +270,18 @@ const Header: React.FC = () => {
                       {/* SALE */}
                       {isSale && (
                         <>
-                          <Link to="/" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50" onClick={() => setOpen(false)}>
+                          <Link
+                            to="/"
+                            className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
+                            onClick={() => setOpen(false)}
+                          >
                             <Home className="h-4 w-4" /> HomePage
                           </Link>
-                          <Link to="/sale" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50" onClick={() => setOpen(false)}>
+                          <Link
+                            to="/sale"
+                            className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
+                            onClick={() => setOpen(false)}
+                          >
                             <ShoppingCart className="h-4 w-4" /> SalePage
                           </Link>
                         </>
@@ -284,13 +290,25 @@ const Header: React.FC = () => {
                       {/* ADMIN */}
                       {isAdmin && (
                         <>
-                          <Link to="/" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50" onClick={() => setOpen(false)}>
+                          <Link
+                            to="/"
+                            className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
+                            onClick={() => setOpen(false)}
+                          >
                             <Home className="h-4 w-4" /> HomePage
                           </Link>
-                          <Link to="/sale" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50" onClick={() => setOpen(false)}>
+                          <Link
+                            to="/sale"
+                            className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
+                            onClick={() => setOpen(false)}
+                          >
                             <ShoppingCart className="h-4 w-4" /> SalePage
                           </Link>
-                          <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50" onClick={() => setOpen(false)}>
+                          <Link
+                            to="/admin"
+                            className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
+                            onClick={() => setOpen(false)}
+                          >
                             <Shield className="h-4 w-4" /> AdminPage
                           </Link>
                         </>
@@ -304,7 +322,7 @@ const Header: React.FC = () => {
                           sessionStorage.setItem("intro.skip.once", "1");
                           navigate("/dang-nhap?skipIntro=1", { replace: true });
                         }}
-                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-rose-600 hover:bg-gray-50 cursor-pointer"
+                        className="flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-sm text-rose-600 hover:bg-gray-50"
                       >
                         <LogOut className="h-4 w-4" /> Đăng xuất
                       </button>
@@ -313,6 +331,83 @@ const Header: React.FC = () => {
                 </AnimatePresence>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* ===== MOBILE STACK ===== */}
+        <div className="py-2 md:hidden">
+          {/* Logo giữa */}
+          <div className="flex items-center justify-center">
+            <Link to="/" aria-label="Về trang chủ" className="block">
+              <img src={logo} alt="INKVERSE" className="h-10 w-auto" />
+            </Link>
+          </div>
+
+          {/* Hàng: Search (trái) + 4 action (phải) */}
+          <div className="mt-2 flex items-center gap-2">
+            <div className="min-w-0 flex-1 basis-[62%]">
+              <div className="w-full">
+                <div className="flex w-full max-w-[220px] items-center gap-2 rounded-full bg-white/70 px-2 py-[1px] shadow-none ring-[0.8px] ring-slate-200 backdrop-blur-xl sm:max-w-[260px]">
+                  <HeaderCategoryMenu
+                    variant="embedded"
+                    className="ml-0 cursor-pointer scale-[0.8] md:scale-100"
+                  />
+                  <span className="h-4 w-px bg-slate-200" />
+                  <SearchBox className="min-w-0 flex-1" />
+                </div>
+              </div>
+            </div>
+
+            {/* 4 action*/}
+            <nav className="flex shrink-0 items-center gap-1">
+              <Link
+                to="/"
+                className="hidden md:inline-flex p-2 rounded-xl border"
+                aria-label="Trang chủ"
+              >
+                <Home className="h-4 w-4" />
+              </Link>
+
+              <Link
+                to="/lien-he"
+                className="grid h-[32px] w-[32px] place-items-center rounded-full border-[0.8px] bg-white/70 text-slate-900"
+                aria-label="Liên hệ"
+              >
+                <Phone className="h-4 w-4" />
+              </Link>
+
+              <Link
+                to="/gio-hang"
+                className="grid h-[32px] w-[32px] place-items-center rounded-full border-[0.8px] bg-white/70 text-slate-900"
+                aria-label="Giỏ hàng"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-rose-600 px-1 text-[9px] font-semibold text-white ring-2 ring-white">
+                    {cartCount > 99 ? "99+" : cartCount}
+                  </span>
+                )}
+              </Link>
+
+              {isAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={() => navigate("/tai-khoan/ho-so-cua-toi")}
+                  className="grid h-[32px] w-[32px] place-items-center rounded-full border-[0.8px] bg-white/70 text-slate-900"
+                  aria-label="Tài khoản"
+                >
+                  <UserIcon className="h-4 w-4" />
+                </button>
+              ) : (
+                <Link
+                  to="/dang-ky"
+                  className="grid h-9 w-9 place-items-center rounded-full border bg-white/70 text-slate-900"
+                  aria-label="Tài khoản"
+                >
+                  <UserIcon className="h-4 w-4" />
+                </Link>
+              )}
+            </nav>
           </div>
         </div>
       </div>
