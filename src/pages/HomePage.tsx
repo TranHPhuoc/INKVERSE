@@ -324,7 +324,7 @@ export default function HomePage() {
       try {
         const res = await listBooks({
           page: newPage,
-          size: 18,
+          size: 20,
           sort: "createdAt",
           direction: "DESC",
           status: "ACTIVE",

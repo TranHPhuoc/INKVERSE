@@ -1,6 +1,9 @@
-// postcss.config.js  (ESM, phù hợp "type": "module")
+// postcss.config.js
 export default {
   plugins: {
     '@tailwindcss/postcss': {},
+  },
+  options: {
+    from: undefined, // ✅ chặn cảnh báo "did not pass from"
   },
 };

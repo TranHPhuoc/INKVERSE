@@ -56,6 +56,9 @@ import BooksPage from "./pages/admin/BooksPage";
 import UserPage from "./pages/admin/UserPage";
 import CategoriesPage from "./pages/admin/CategoriesPage";
 import MasterPage from "./pages/admin/MasterPage";
+import StocksPage from "./pages/admin/StocksPage.tsx";
+import NewBatchPage from "./pages/admin/NewBatchPage";
+import BatchHistoryPage from "./pages/admin/BatchHistoryPage.tsx";
 
 // Pages – Sale
 import SaleOrdersPage from "./pages/sale/SaleOrderPage";
@@ -437,6 +440,30 @@ export default function App() {
                 element={
                   <PageTransition>
                     <MasterPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="warehouse/stocks"
+                element={
+                  <PageTransition>
+                    <StocksPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="warehouse/batches/new"
+                element={
+                  <PageTransition>
+                    <NewBatchPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="warehouse/batches"
+                element={
+                  <PageTransition>
+                    <BatchHistoryPage />
                   </PageTransition>
                 }
               />
