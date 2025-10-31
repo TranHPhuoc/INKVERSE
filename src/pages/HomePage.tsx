@@ -26,15 +26,16 @@ import type { BookListItem, HomeFeed } from "../types/books";
 import { getHomeFeed, listBooks } from "../types/books";
 
 import banner1 from "../assets/bannerbooks1.png";
-import banner2 from "../assets/BannerFlashsale.jpg";
+import banner2 from "../assets/banner2.png";
 import banner3 from "../assets/backgroundbooks.png";
-import banner4 from "../assets/INKVERSE.SITE1.jpg";
-import banner5 from "../assets/INKVERSE.SITE2.png";
+import banner4 from "../assets/banner1.png";
+import banner5 from "../assets/banner.png";
 
 import FeaturedAuthorsTabs from "../components/FeaturedAuthor";
 import TopSellingByCategory from "../components/TopSellingByCategory";
 import FlashSaleCarousel from "../components/FlashSaleCarousel";
 import BestSellerCarousel from "../components/BestSellerCarousel";
+import ParallaxStickyFrame from "../components/ParallaxStickyFrame";
 
 /* ===== constants ===== */
 const BANNERS = [banner1, banner2, banner3];
@@ -52,10 +53,10 @@ const fadeUp: Variants = {
 };
 
 function Reveal({
-                  children,
-                  index = 0,
-                  className,
-                }: {
+  children,
+  index = 0,
+  className,
+}: {
   children: React.ReactNode;
   index?: number;
   className?: string;
@@ -84,10 +85,10 @@ function Reveal({
 const DURATION = 0.65;
 
 const HeroBanner: React.FC<{ images: string[]; intervalMs?: number; className?: string }> = ({
-                                                                                               images,
-                                                                                               intervalMs = 3000,
-                                                                                               className,
-                                                                                             }) => {
+  images,
+  intervalMs = 3000,
+  className,
+}) => {
   const hasCarousel = images.length >= 2;
   const [loaded, setLoaded] = useState(false);
 
@@ -238,9 +239,9 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const n =
     m.length === 3
       ? m
-        .split("")
-        .map((c) => c + c)
-        .join("")
+          .split("")
+          .map((c) => c + c)
+          .join("")
       : m;
   const int = parseInt(n, 16);
   return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 };
@@ -324,7 +325,7 @@ export default function HomePage() {
       try {
         const res = await listBooks({
           page: newPage,
-          size: 20,
+          size: 24,
           sort: "createdAt",
           direction: "DESC",
           status: "ACTIVE",
@@ -376,7 +377,7 @@ export default function HomePage() {
 
           {/* Newest */}
           <Reveal>
-            <div className="py-6 relative z-10">
+            <div className="relative z-10 py-6">
               <div className={SHELL}>
                 <GradientSectionCard
                   label="SẢN PHẨM MỚI"
@@ -387,13 +388,16 @@ export default function HomePage() {
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 md:grid-cols-[repeat(auto-fill,minmax(210px,1fr))] md:gap-4">
                     {newest.length > 0
                       ? newest.map((b, i) => (
-                        <Reveal key={b.id ?? `${i}`} index={i}>
-                          <ProductCard item={b} />
-                        </Reveal>
-                      ))
+                          <Reveal key={b.id ?? `${i}`} index={i}>
+                            <ProductCard item={b} />
+                          </Reveal>
+                        ))
                       : Array.from({ length: 10 }).map((_, i) => (
-                        <div key={i} className="h-56 md:h-64 animate-pulse rounded-xl bg-gray-100" />
-                      ))}
+                          <div
+                            key={i}
+                            className="h-56 animate-pulse rounded-xl bg-gray-100 md:h-64"
+                          />
+                        ))}
                   </div>
                   <Pagination
                     page={newPage}
@@ -405,10 +409,11 @@ export default function HomePage() {
               </div>
             </div>
           </Reveal>
-
+          {/* ==== PARALLAX INKVERSE === */}
+          <ParallaxStickyFrame />
           {/* Top Selling */}
           <Reveal>
-            <div className="py-6 relative z-10">
+            <div className="relative z-10 py-6">
               <div className={SHELL}>
                 <TopSellingByCategory limit={5} />
               </div>
@@ -463,14 +468,14 @@ export default function HomePage() {
                 <Reveal
                   key={i}
                   index={i}
-                  className="flex items-center gap-3 md:gap-4 rounded-2xl p-4 md:p-5 shadow"
+                  className="flex items-center gap-3 rounded-2xl p-4 shadow md:gap-4 md:p-5"
                 >
                   <div className="rounded-xl bg-indigo-50 p-3 text-indigo-600 ring-1 ring-indigo-100">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-[13px] md:text-sm font-semibold">{title}</p>
-                    <p className="text-[11px] md:text-xs text-gray-500">{sub}</p>
+                    <p className="text-[13px] font-semibold md:text-sm">{title}</p>
+                    <p className="text-[11px] text-gray-500 md:text-xs">{sub}</p>
                   </div>
                 </Reveal>
               ))}
