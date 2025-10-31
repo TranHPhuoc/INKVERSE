@@ -81,7 +81,7 @@ export default function SocialFloat({
         className={[
           "fixed z-40 flex items-end gap-2 md:gap-3",
           // Ẩn toàn bộ dock khi panel chat mở
-          '[(html[data-chat-open="true"])_&]:hidden',
+          '[html[data-chat-open=true]_&]:hidden',
         ].join(" ")}
         style={{ right, bottom }}
       >

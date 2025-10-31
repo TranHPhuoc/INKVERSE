@@ -49,14 +49,11 @@ export default function ScrollToTop() {
             aria-label="Lên đầu trang"
             title="Lên đầu trang"
             className={[
-              // kích thước nhỏ cho mobile, to hơn chút ở md
               "fixed left-2 bottom-2 z-40 grid place-items-center",
               "h-8 w-8 md:h-10 md:w-10",
-              // style
               "rounded-full bg-white/90 text-neutral-700 shadow-lg ring-1 ring-black/5",
               "backdrop-blur hover:bg-white transition",
-              // Ẩn khi chat đang mở (đặt attribute ở <html> khi mở chat)
-              "[(html[data-chat-open=\"true\"])_&]:hidden",
+              "[html[data-chat-open=true]_&]:hidden"
             ].join(" ")}
           >
             <ChevronUp className="h-4 w-4 md:h-5 md:w-5" />

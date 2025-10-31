@@ -196,8 +196,7 @@ const Header: React.FC = () => {
             {!isAuthenticated ? (
               <Link
                 to="/dang-ky"
-                className="ml-2 inline-flex h-11 items-center gap-1 rounded-full border px-4 text-[16px] font-medium text-slate-900 transition-colors hover:bg-slate-900 hover:text-white"
-              >
+                className="ml-2 inline-flex h-11 items-center gap-1 rounded-full border border-slate-400 px-4 text-[16px] font-medium text-slate-900 transition-colors hover:bg-slate-900 hover:text-white"              >
                 <UserIcon className="h-[18px] w-[18px]" />
                 Tài khoản
               </Link>
@@ -212,8 +211,7 @@ const Header: React.FC = () => {
               >
                 <button
                   type="button"
-                  className="inline-flex h-11 cursor-pointer items-center gap-1 rounded-full border px-4 text-[16px] font-medium text-slate-900 transition-colors hover:bg-slate-900 hover:text-white"
-                  onClick={() => navigate("/tai-khoan/ho-so-cua-toi")}
+                  className="inline-flex h-11 cursor-pointer items-center gap-1 rounded-full border border-slate-400 px-4 text-[16px] font-medium text-slate-900 transition-colors hover:bg-slate-900 hover:text-white"                  onClick={() => navigate("/tai-khoan/ho-so-cua-toi")}
                 >
                   <UserIcon className="h-[18px] w-[18px]" />
                   Tài khoản
@@ -401,7 +399,7 @@ const Header: React.FC = () => {
               ) : (
                 <Link
                   to="/dang-ky"
-                  className="grid h-9 w-9 place-items-center rounded-full border bg-white/70 text-slate-900"
+                  className="grid h-9 w-9 place-items-center rounded-full border bg-white/70 text-slate-900 "
                   aria-label="Tài khoản"
                 >
                   <UserIcon className="h-4 w-4" />

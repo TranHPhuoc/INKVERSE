@@ -10,7 +10,13 @@ import {
 } from "@/services/admin/warehouse";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectTrigger, SelectValue, SelectItem, SelectContent } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectItem,
+  SelectContent,
+} from "@/components/ui/select";
 import { PageHeader } from "@/components/Admin/ui";
 import { toast } from "react-hot-toast";
 import { CheckCircle2, AlertCircle, Plus, Trash2 } from "lucide-react";
@@ -25,24 +31,29 @@ type LineDraft = {
 
 const emptyLine = (): LineDraft => ({});
 
+// BookID / SKU
+function parseIdOrSku(raw: string): Pick<LineDraft, "bookId" | "sku"> {
+  const s = raw.trim();
+  if (!s) return {};
+  if (/^\d+$/.test(s)) return { bookId: Number(s) };
+  return { sku: s.toUpperCase() };
+}
+
 function normalizeLines(type: BatchType, lines: LineDraft[]): ReqCreateBatchLine[] {
   return lines
     .map((l): ReqCreateBatchLine => {
-      const base: ReqCreateBatchLine = { qty: Number(l.qty ?? 0) };
+      const out: ReqCreateBatchLine = { qty: Number(l.qty ?? 0) };
 
-      // bookId
-      if (l.bookId !== undefined && Number.isFinite(l.bookId)) base.bookId = Number(l.bookId);
-
-      // sku
-      const sku = (l.sku ?? "").trim();
-      if (sku) base.sku = sku;
-
-      // unitCost
-      if (l.unitCost !== undefined && Number.isFinite(l.unitCost)) {
-        base.unitCost = Number(l.unitCost);
+      if (typeof l.bookId === "number" && Number.isFinite(l.bookId)) {
+        out.bookId = l.bookId;
       }
-
-      return base;
+      if (typeof l.sku === "string" && l.sku.trim() !== "") {
+        out.sku = l.sku.trim();
+      }
+      if (typeof l.unitCost === "number" && Number.isFinite(l.unitCost)) {
+        out.unitCost = l.unitCost;
+      }
+      return out;
     })
     .filter((l) => {
       const hasKey = l.bookId !== undefined || (l.sku ?? "") !== "";
@@ -60,10 +71,36 @@ export default function NewBatchPage(): ReactElement {
   const [lines, setLines] = useState<LineDraft[]>([emptyLine()]);
 
   const addLine = (): void => setLines((prev) => [...prev, emptyLine()]);
-  const removeLine = (idx: number): void => setLines((prev) => prev.filter((_, i) => i !== idx));
+  const removeLine = (idx: number): void =>
+    setLines((prev) => prev.filter((_, i) => i !== idx));
 
-  function updateLine<K extends keyof LineDraft>(idx: number, key: K, value: LineDraft[K]): void {
-    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, [key]: value } : l)));
+// Thay thế hàm updateLineNext hiện tại
+  function updateLineNext<K extends keyof LineDraft>(
+    idx: number,
+    key: K,
+    value: LineDraft[K]
+  ): void {
+    setLines((prev) =>
+      prev.map((l, i) => {
+        if (i !== idx) return l;
+
+        // Bản sao kiểu an toàn
+        const next: LineDraft = { ...l };
+
+        // Nếu giá trị rỗng (undefined hoặc string rỗng) → xóa key
+        const isEmpty =
+          value === undefined || (typeof value === "string" && value.trim() === "");
+
+        if (isEmpty) {
+          // key là keyof LineDraft nên delete hợp lệ
+          delete next[key];
+        } else {
+          // Gán có kiểu: giới hạn chỉ key K với giá trị LineDraft[K]
+          (next as Record<K, LineDraft[K]>)[key] = value;
+        }
+        return next;
+      })
+    );
   }
 
   const { mutate, isPending } = useMutation({
@@ -112,7 +149,7 @@ export default function NewBatchPage(): ReactElement {
     const finalLines = normalizeLines(type, lines);
 
     if (finalLines.length === 0) {
-      toast.error("Vui lòng nhập ít nhất 1 dòng hợp lệ (bookId/sku, qty > 0).");
+      toast.error("Vui lòng nhập ít nhất 1 dòng hợp lệ (bookId/sku, quantity > 0).");
       return;
     }
     if (type === "INBOUND" && finalLines.some((l) => l.unitCost === undefined)) {
@@ -141,7 +178,9 @@ export default function NewBatchPage(): ReactElement {
           <div>
             <label className="text-sm font-medium">Type</label>
             <Select value={type} onValueChange={(v) => setType(v as BatchType)}>
-              <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="INBOUND">INBOUND</SelectItem>
                 <SelectItem value="OUTBOUND">OUTBOUND</SelectItem>
@@ -152,12 +191,20 @@ export default function NewBatchPage(): ReactElement {
 
           <div>
             <label className="text-sm font-medium">Reason</label>
-            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Purchase, sell, damage…" />
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Purchase, sell, damage…"
+            />
           </div>
 
           <div>
             <label className="text-sm font-medium">Note</label>
-            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note" />
+            <Input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Optional note"
+            />
           </div>
         </div>
       </div>
@@ -168,71 +215,80 @@ export default function NewBatchPage(): ReactElement {
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50/70 border-b">
             <tr className="[&>th]:py-2.5 [&>th]:px-3 text-left">
-              <th>Book ID</th>
-              <th>SKU</th>
-              <th>Qty *</th>
-              <th>Unit Cost{type === "INBOUND" ? " *" : ""}</th>
+              <th className="w-[420px]">Book ID / SKU</th>
+              <th className="w-32">Quantity</th>
+              <th className="w-40">Unit Cost{type === "INBOUND" ? "" : " (optional)"}</th>
               <th />
             </tr>
             </thead>
             <tbody className="[&>tr:nth-child(even)]:bg-slate-50/40">
-            {lines.map((line, idx) => (
-              <tr key={idx} className="[&>td]:py-2.5 [&>td]:px-3 border-b">
-                <td className="w-40">
-                  <Input
-                    inputMode="numeric"
-                    value={line.bookId ?? ""}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      updateLine(idx, "bookId", e.target.value === "" ? undefined : Number(e.target.value))
-                    }
-                    placeholder="e.g. 123"
-                  />
-                </td>
-                <td className="w-56">
-                  <Input
-                    value={line.sku ?? ""}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      updateLine(idx, "sku", e.target.value.trim() === "" ? undefined : e.target.value)
-                    }
-                    placeholder="e.g. BK-001-A"
-                  />
-                </td>
-                <td className="w-32">
-                  <Input
-                    type="number"
-                    value={line.qty ?? ""}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                      const v = e.target.value;
-                      updateLine(idx, "qty", v === "" ? undefined : Number(v));
-                    }}
-                    placeholder="e.g. 10"
-                    required
-                  />
-                </td>
-                <td className="w-40">
-                  <Input
-                    type="number"
-                    value={line.unitCost ?? ""}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                      const v = e.target.value;
-                      updateLine(idx, "unitCost", v === "" ? undefined : Number(v));
-                    }}
-                    placeholder={type === "INBOUND" ? "required" : "optional"}
-                  />
-                </td>
-                <td className="w-20 text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={() => removeLine(idx)}
-                    title="Remove line"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
+            {lines.map((line, idx) => {
+              const idOrSku = line.bookId !== undefined ? String(line.bookId) : (line.sku ?? "");
+              return (
+                <tr key={idx} className="[&>td]:py-2.5 [&>td]:px-3 border-b">
+                  <td>
+                    <Input
+                      value={idOrSku}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        const raw = e.target.value;
+                        setLines((prev) =>
+                          prev.map((l, i) => {
+                            if (i !== idx) return l;
+                            const next: LineDraft & Record<string, unknown> = { ...l };
+                            delete next.bookId;
+                            delete next.sku;
+                            if (raw.trim() !== "") {
+                              const parsed = parseIdOrSku(raw);
+                              if (parsed.bookId !== undefined) next.bookId = parsed.bookId;
+                              if (parsed.sku !== undefined) next.sku = parsed.sku;
+                            }
+                            return next;
+                          })
+                        );
+                      }}
+                      placeholder="VD: 123 or TSHK-CCCD-01"
+                    />
+                  </td>
+
+                  <td>
+                    <Input
+                      type="number"
+                      value={line.qty ?? ""}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        const v = e.target.value;
+                        updateLineNext(idx, "qty", v === "" ? undefined : Number(v));
+                      }}
+                      placeholder="10, 20,…"
+                      required
+                    />
+                  </td>
+
+                  <td>
+                    <Input
+                      type="number"
+                      value={line.unitCost ?? ""}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        const v = e.target.value;
+                        updateLineNext(idx, "unitCost", v === "" ? undefined : Number(v));
+                      }}
+                      placeholder={type === "INBOUND" ? " " : "optional"}
+                    />
+                  </td>
+
+                  <td className="w-20 text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      type="button"
+                      onClick={() => removeLine(idx)}
+                      title="Remove line"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
             </tbody>
           </table>
         </div>

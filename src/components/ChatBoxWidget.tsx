@@ -516,7 +516,6 @@ export default function ChatBoxWidget({
     viewportRef.current?.scrollTo({ top: viewportRef.current.scrollHeight });
   }, [msgs.length, loading]);
 
-  /* ——— Reset phiên CHỈ khi đổi mode sau lần mở đầu tiên ——— */
   useEffect(() => {
     const currId = user?.id ?? null;
     if (userIdRef.current === currId) return;

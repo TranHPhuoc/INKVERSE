@@ -11,7 +11,6 @@ import {
   type ResBatchHistoryRow,
 } from "@/services/admin/warehouse";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectValue, SelectItem } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -38,7 +37,7 @@ export default function BatchHistoryPage(): ReactElement {
   const [q, setQ] = useState("");
   const [fromLocal, setFromLocal] = useState("");
   const [toLocal, setToLocal] = useState("");
-  const [includeItems, setIncludeItems] = useState(false);
+  const [includeItems] = useState(false);
   const [page, setPage] = useState(0);
 
   const { data, isLoading, isFetching, refetch } = useQuery<Page<ResBatchHistoryRow>>({
@@ -83,11 +82,8 @@ export default function BatchHistoryPage(): ReactElement {
     if (!loadingToastId.current) return;
     const id = loadingToastId.current;
     loadingToastId.current = null;
-    if (immediate) {
-      toast.remove(id);
-    } else {
-      toast.dismiss(id);
-    }
+    if (immediate) toast.remove(id);
+    else toast.dismiss(id);
   }
 
   async function openDetail(id: number): Promise<void> {
@@ -150,7 +146,6 @@ export default function BatchHistoryPage(): ReactElement {
             </Select>
           </div>
 
-          {/* Code (span-2) */}
           <div className="md:col-span-2">
             <label className="text-sm font-medium">Code</label>
             <Input
@@ -161,49 +156,38 @@ export default function BatchHistoryPage(): ReactElement {
             />
           </div>
 
-          {/* Keyword (span-3) */}
           <div className="md:col-span-2">
             <label className="text-sm font-medium">Keyword</label>
             <Input
               className={`${ctl} mt-1.5`}
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Reason/Note contains…"
+              placeholder="SELL/ PURCHASE,..."
             />
           </div>
 
-          {/* From (span-2) */}
           <div className="md:col-span-2">
             <label className="text-sm font-medium">From</label>
             <Input
               type="datetime-local"
-              className={`${ctl} mt-1.5 [appearance:textfield] [&::-webkit-datetime-edit]:leading-[1.25rem]`}
+              className={`${ctl} mt-1.5 pr-2 [appearance:textfield] [&::-webkit-datetime-edit]:leading-[1.25rem] [&::-webkit-calendar-picker-indicator]:mr-1 [&::-webkit-calendar-picker-indicator]:scale-90 `}
               value={fromLocal}
               onChange={(e) => setFromLocal(e.target.value)}
             />
           </div>
 
-          {/* To (span-2) */}
           <div className="md:col-span-2">
             <label className="text-sm font-medium">To</label>
             <Input
               type="datetime-local"
-              className={`${ctl} mt-1.5 [appearance:textfield] [&::-webkit-datetime-edit]:leading-[1.25rem]`}
+              className={`${ctl} mt-1.5 pr-2 [appearance:textfield] [&::-webkit-datetime-edit]:leading-[1.25rem] [&::-webkit-calendar-picker-indicator]:mr-1 [&::-webkit-calendar-picker-indicator]:scale-90 `}
               value={toLocal}
               onChange={(e) => setToLocal(e.target.value)}
             />
           </div>
 
-          {/* Include + Apply (span-1) – căn đáy để thẳng hàng hàng nút */}
           <div className="md:col-span-2 flex items-end gap-2">
-            <div className="flex h-11 items-center gap-2 rounded-md border px-3">
-              <Checkbox
-                checked={includeItems}
-                onCheckedChange={(v) => setIncludeItems(Boolean(v))}
-              />
-              <span className="text-sm">Include items</span>
-            </div>
-            <Button variant="outline" className="h-11" onClick={() => refetch()}>
+            <Button variant="outline" className="h-11 " onClick={() => refetch()}>
               Apply
             </Button>
           </div>
@@ -223,7 +207,7 @@ export default function BatchHistoryPage(): ReactElement {
               <th>Performed At</th>
               <th className="text-right">Items</th>
               <th className="text-right">Quantity</th>
-              <th className="text-right">Amount</th>
+              <th className="text-right">Amount (VND)</th>
               <th />
             </tr>
             </thead>
@@ -237,7 +221,7 @@ export default function BatchHistoryPage(): ReactElement {
                 <td>{formatDT(r.performedAt)}</td>
                 <td className="text-right">{formatInt(r.totalItems)}</td>
                 <td className="text-right">{formatInt(r.totalQty)}</td>
-                <td className="text-right">{formatAmount(r.totalAmount)}</td>
+                <td className="text-right">{`${formatAmount(r.totalAmount)} VND`}</td>
                 <td className="text-right">
                   <Button size="sm" variant="outline" onClick={() => openDetail(r.id)}>
                     Detail
@@ -307,7 +291,7 @@ export default function BatchHistoryPage(): ReactElement {
                   <span className="font-medium text-slate-900">Totals:</span>{" "}
                   {formatInt(detail.totals.items)} items,{" "}
                   {formatInt(detail.totals.qty)} quantity,{" "}
-                  {formatAmount(detail.totals.amount)}
+                  {`${formatAmount(detail.totals.amount)} VND`}
                 </div>
               </div>
 
@@ -320,29 +304,34 @@ export default function BatchHistoryPage(): ReactElement {
                     <th className="px-3 py-2 text-left font-medium w-[120px]">SKU</th>
                     <th className="px-3 py-2 text-left font-medium w-[680px]">Title</th>
                     <th className="px-3 py-2 text-right font-medium w-[80px]">Quantity</th>
-                    <th className="px-3 py-2 text-right font-medium w-[120px]">Unit Cost</th>
-                    <th className="px-3 py-2 text-right font-medium w-[120px]">Line Total</th>
+                    <th className="px-3 py-2 text-right font-medium w-[120px]">Unit Cost (VND)</th>
+                    <th className="px-3 py-2 text-right font-medium w-[140px]">Line Total (VND)</th>
                   </tr>
                   </thead>
                   <tbody>
                   {detail.lines.map((l, i) => (
-                    <tr
-                      key={`${l.bookId}-${i}`}
-                      className="border-b hover:bg-slate-50 transition"
-                    >
+                    <tr key={`${l.bookId}-${i}`} className="border-b hover:bg-slate-50 transition">
                       <td className="px-3 py-2 font-mono">{l.bookId}</td>
                       <td className="px-3 py-2 font-mono">{l.sku}</td>
                       <td className="px-3 py-2 max-w-[680px] truncate">{l.title}</td>
                       <td className="px-3 py-2 text-center">{formatInt(l.qty)}</td>
-                      <td className="px-3 py-2 text-right">
-                        {formatAmount(l.unitCost)}
-                      </td>
-                      <td className="px-3 py-2 text-right font-medium">
-                        {formatAmount(l.lineTotal)}
-                      </td>
+                      <td className="px-3 py-2 text-right">{`${formatAmount(l.unitCost)} VND`}</td>
+                      <td className="px-3 py-2 text-right font-medium">{`${formatAmount(l.lineTotal)} VND`}</td>
                     </tr>
                   ))}
                   </tbody>
+
+                  {/* === TOTAL === */}
+                  <tfoot>
+                  <tr className="bg-slate-50/80">
+                    <td className="px-3 py-2 text-left font-semibold text-slate-700" colSpan={5}>
+                      Total:
+                    </td>
+                    <td className="px-3 py-2 text-right font-bold text-slate-900">
+                      {`${formatAmount(detail.totals.amount)} VND`}
+                    </td>
+                  </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>

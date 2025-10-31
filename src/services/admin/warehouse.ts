@@ -1,6 +1,5 @@
 import api from "../api";
 
-/* ---------- Kiểu dữ liệu từ BE ---------- */
 export type Page<T> = {
   content: T[];
   totalElements: number;
@@ -124,8 +123,18 @@ export async function fetchBatchHistory(params: {
   return res.data.data; // ✅ unwrap
 }
 
-// ✅ Chi tiết một batch
 export async function fetchBatchDetail(id: number): Promise<ResBatch> {
   const res = await api.get<ApiResp<ResBatch>>(`/api/v1/warehouse/batches/${id}`);
   return res.data.data; // ✅ unwrap
+}
+// Search stocks by title or SKU
+export async function searchStocks(params: {
+  q: string;
+  size?: number;
+}): Promise<Page<ResStockRowDTO>> {
+  const { q, size = 20 } = params;
+  const res = await api.get<ApiResp<Page<ResStockRowDTO>>>("/api/v1/warehouse/stocks", {
+    params: { page: 0, size, q },
+  });
+  return res.data.data;
 }
