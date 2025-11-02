@@ -1,4 +1,3 @@
-// src/pages/admin/NewBatchPage.tsx
 import type { ReactElement, ChangeEvent } from "react";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
@@ -20,6 +19,7 @@ import {
 import { PageHeader } from "@/components/Admin/ui";
 import { toast } from "react-hot-toast";
 import { CheckCircle2, AlertCircle, Plus, Trash2 } from "lucide-react";
+import BatchSearchBox from "@/components/Admin/BatchSearchBox";
 
 /* ---------------- Types & helpers ---------------- */
 type LineDraft = {
@@ -31,28 +31,13 @@ type LineDraft = {
 
 const emptyLine = (): LineDraft => ({});
 
-// BookID / SKU
-function parseIdOrSku(raw: string): Pick<LineDraft, "bookId" | "sku"> {
-  const s = raw.trim();
-  if (!s) return {};
-  if (/^\d+$/.test(s)) return { bookId: Number(s) };
-  return { sku: s.toUpperCase() };
-}
-
 function normalizeLines(type: BatchType, lines: LineDraft[]): ReqCreateBatchLine[] {
   return lines
     .map((l): ReqCreateBatchLine => {
       const out: ReqCreateBatchLine = { qty: Number(l.qty ?? 0) };
-
-      if (typeof l.bookId === "number" && Number.isFinite(l.bookId)) {
-        out.bookId = l.bookId;
-      }
-      if (typeof l.sku === "string" && l.sku.trim() !== "") {
-        out.sku = l.sku.trim();
-      }
-      if (typeof l.unitCost === "number" && Number.isFinite(l.unitCost)) {
-        out.unitCost = l.unitCost;
-      }
+      if (typeof l.bookId === "number" && Number.isFinite(l.bookId)) out.bookId = l.bookId;
+      if (typeof l.sku === "string" && l.sku.trim() !== "") out.sku = l.sku.trim();
+      if (typeof l.unitCost === "number" && Number.isFinite(l.unitCost)) out.unitCost = l.unitCost;
       return out;
     })
     .filter((l) => {
@@ -71,35 +56,21 @@ export default function NewBatchPage(): ReactElement {
   const [lines, setLines] = useState<LineDraft[]>([emptyLine()]);
 
   const addLine = (): void => setLines((prev) => [...prev, emptyLine()]);
-  const removeLine = (idx: number): void =>
-    setLines((prev) => prev.filter((_, i) => i !== idx));
+  const removeLine = (idx: number): void => setLines((prev) => prev.filter((_, i) => i !== idx));
 
-// Thay thế hàm updateLineNext hiện tại
-  function updateLineNext<K extends keyof LineDraft>(
-    idx: number,
-    key: K,
-    value: LineDraft[K]
-  ): void {
+  function updateLine<K extends keyof LineDraft>(idx: number, key: K, value: LineDraft[K]): void {
     setLines((prev) =>
       prev.map((l, i) => {
         if (i !== idx) return l;
-
-        // Bản sao kiểu an toàn
         const next: LineDraft = { ...l };
-
-        // Nếu giá trị rỗng (undefined hoặc string rỗng) → xóa key
-        const isEmpty =
-          value === undefined || (typeof value === "string" && value.trim() === "");
-
-        if (isEmpty) {
-          // key là keyof LineDraft nên delete hợp lệ
+        const empty = value === undefined || (typeof value === "string" && value.trim() === "");
+        if (empty) {
           delete next[key];
         } else {
-          // Gán có kiểu: giới hạn chỉ key K với giá trị LineDraft[K]
           (next as Record<K, LineDraft[K]>)[key] = value;
         }
         return next;
-      })
+      }),
     );
   }
 
@@ -120,7 +91,7 @@ export default function NewBatchPage(): ReactElement {
             </div>
           </div>
         ),
-        { duration: 2200 }
+        { duration: 2200 },
       );
       setReason("");
       setNote("");
@@ -140,7 +111,7 @@ export default function NewBatchPage(): ReactElement {
             </div>
           </div>
         ),
-        { duration: 2800 }
+        { duration: 2800 },
       );
     },
   });
@@ -149,7 +120,7 @@ export default function NewBatchPage(): ReactElement {
     const finalLines = normalizeLines(type, lines);
 
     if (finalLines.length === 0) {
-      toast.error("Vui lòng nhập ít nhất 1 dòng hợp lệ (bookId/sku, quantity > 0).");
+      toast.error("Vui lòng nhập đầy đủ thông tin.");
       return;
     }
     if (type === "INBOUND" && finalLines.some((l) => l.unitCost === undefined)) {
@@ -173,7 +144,7 @@ export default function NewBatchPage(): ReactElement {
       <PageHeader title="Warehouse / New Batch" />
 
       {/* Form header */}
-      <div className="rounded-2xl border bg-white/70 backdrop-blur p-4 shadow-sm space-y-4">
+      <div className="space-y-4 rounded-2xl border bg-white/70 p-4 shadow-sm backdrop-blur">
         <div className="grid gap-3 md:grid-cols-3">
           <div>
             <label className="text-sm font-medium">Type</label>
@@ -210,43 +181,27 @@ export default function NewBatchPage(): ReactElement {
       </div>
 
       {/* Lines */}
-      <div className="rounded-2xl border bg-white/70 backdrop-blur shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="rounded-2xl border bg-white/70 backdrop-blur shadow-sm overflow-visible relative z-[1]">
+        <div className="overflow-x-auto overflow-visible relative z-[1]">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50/70 border-b">
-            <tr className="[&>th]:py-2.5 [&>th]:px-3 text-left">
-              <th className="w-[420px]">Book ID / SKU</th>
-              <th className="w-32">Quantity</th>
-              <th className="w-40">Unit Cost{type === "INBOUND" ? "" : " (optional)"}</th>
-              <th />
-            </tr>
+            <thead className="border-b bg-slate-50/70">
+              <tr className="text-left [&>th]:px-3 [&>th]:py-2.5">
+                <th className="w-[420px]">Book ID / SKU</th>
+                <th className="w-32">Quantity</th>
+                <th className="w-40">Unit Cost{type === "INBOUND" ? "" : " (optional)"}</th>
+                <th />
+              </tr>
             </thead>
             <tbody className="[&>tr:nth-child(even)]:bg-slate-50/40">
-            {lines.map((line, idx) => {
-              const idOrSku = line.bookId !== undefined ? String(line.bookId) : (line.sku ?? "");
-              return (
-                <tr key={idx} className="[&>td]:py-2.5 [&>td]:px-3 border-b">
-                  <td>
-                    <Input
-                      value={idOrSku}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                        const raw = e.target.value;
-                        setLines((prev) =>
-                          prev.map((l, i) => {
-                            if (i !== idx) return l;
-                            const next: LineDraft & Record<string, unknown> = { ...l };
-                            delete next.bookId;
-                            delete next.sku;
-                            if (raw.trim() !== "") {
-                              const parsed = parseIdOrSku(raw);
-                              if (parsed.bookId !== undefined) next.bookId = parsed.bookId;
-                              if (parsed.sku !== undefined) next.sku = parsed.sku;
-                            }
-                            return next;
-                          })
-                        );
+              {lines.map((line, idx) => (
+                <tr key={idx} className="border-b [&>td]:px-3 [&>td]:py-2.5">
+                  <td className="w-[520px] relative z-[2]">
+                    <BatchSearchBox
+                      onPick={(row) => {
+                        updateLine(idx, "bookId", row.bookId);
+                        updateLine(idx, "sku", row.sku);
                       }}
-                      placeholder="VD: 123 or TSHK-CCCD-01"
+                      placeholder="ID: 123 hoặc TSHK-CCCD-01"
                     />
                   </td>
 
@@ -256,7 +211,7 @@ export default function NewBatchPage(): ReactElement {
                       value={line.qty ?? ""}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => {
                         const v = e.target.value;
-                        updateLineNext(idx, "qty", v === "" ? undefined : Number(v));
+                        updateLine(idx, "qty", v === "" ? undefined : Number(v));
                       }}
                       placeholder="10, 20,…"
                       required
@@ -269,9 +224,9 @@ export default function NewBatchPage(): ReactElement {
                       value={line.unitCost ?? ""}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => {
                         const v = e.target.value;
-                        updateLineNext(idx, "unitCost", v === "" ? undefined : Number(v));
+                        updateLine(idx, "unitCost", v === "" ? undefined : Number(v));
                       }}
-                      placeholder={type === "INBOUND" ? " " : "optional"}
+                      placeholder={type === "INBOUND" ? "required" : "optional"}
                     />
                   </td>
 
@@ -287,19 +242,17 @@ export default function NewBatchPage(): ReactElement {
                     </Button>
                   </td>
                 </tr>
-              );
-            })}
+              ))}
             </tbody>
           </table>
         </div>
 
-        <div className="flex items-center justify-between gap-2 p-3">
-          <Button variant="outline" type="button" onClick={addLine}>
+        <div className="flex items-center justify-end gap-2 p-3">
+          <Button variant="outline" type="button" onClick={addLine} className="order-1">
             <Plus className="mr-2 h-4 w-4" />
             Add line
           </Button>
-
-          <Button type="button" onClick={submit} disabled={isPending}>
+          <Button type="button" onClick={submit} disabled={isPending} className="order-2">
             {isPending ? "Processing…" : "Create batch"}
           </Button>
         </div>

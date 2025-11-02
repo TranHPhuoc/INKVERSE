@@ -1,5 +1,4 @@
-// src/components/Admin/Sidebar.tsx
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -42,10 +41,25 @@ const items: Item[] = [
 
 export default function Sidebar() {
   const [open, setOpen] = useState(true);
-  const [openGroup, setOpenGroup] = useState<Record<string, boolean>>({
-    "/admin/warehouse": true,
-  });
+
+  const defaultGroups = useMemo(
+    () => ({
+      "/admin/warehouse": false,
+    }),
+    []
+  );
+  const [openGroup, setOpenGroup] = useState<Record<string, boolean>>(defaultGroups);
+
   const { pathname } = useLocation();
+
+  useEffect(() => {
+    items.forEach((it) => {
+      if (it.children && pathname.startsWith(it.to + "/")) {
+        setOpenGroup((m) => ({ ...m, [it.to]: true }));
+      }
+    });
+  }, [pathname]);
+
   const isParentActive = (to: string) => pathname === to || pathname.startsWith(to + "/");
 
   return (
@@ -69,7 +83,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="mt-3 space-y-1 px-2">
         {items.map(({ to, label, icon: Icon, children }) => {
-          const active = isParentActive(to);
+          const parentActive = isParentActive(to);
           const isGroup = Array.isArray(children) && children.length > 0;
 
           if (!isGroup) {
@@ -99,23 +113,25 @@ export default function Sidebar() {
             );
           }
 
-          const expanded = openGroup[to] ?? active;
+          const expanded = (openGroup[to] ?? parentActive) && open;
 
           return (
             <div key={to}>
-              {/* parent */}
               <button
                 type="button"
-                onClick={() => setOpenGroup((m) => ({ ...m, [to]: !(m[to] ?? active) }))}
-                className={`w-full group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                  active
+                onClick={() =>
+                  setOpenGroup((m) => ({ ...m, [to]: !(m[to] ?? false) }))
+                }
+                className={`w-full cursor-pointer group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                  parentActive
                     ? "bg-indigo-600/30 text-indigo-50 ring-1 ring-indigo-400/40"
                     : "text-slate-300 hover:bg-white/10 hover:text-white"
                 }`}
+                title={label}
               >
                 <div
                   className={`grid h-9 w-9 place-items-center rounded-lg transition-colors ${
-                    active
+                    parentActive
                       ? "bg-indigo-600 text-white"
                       : "bg-slate-700/60 text-indigo-300 group-hover:bg-slate-600/70 group-hover:text-white"
                   }`}
@@ -125,33 +141,43 @@ export default function Sidebar() {
                 {open && <span className="truncate">{label}</span>}
               </button>
 
-              {expanded && open && (
-                <ul className="mt-2 grid gap-2 pl-12">
-                  {children.map((c) => {
-                    const CIcon = c.icon ?? Boxes;
-                    return (
-                      <li key={c.to} className="list-none">
-                        <NavLink to={c.to} end>
-                          {({ isActive }) => (
-                            <div
-                              className={[
-                                "relative flex items-center gap-2 rounded-2xl px-4 py-2 text-sm transition-colors",
-                                "isolation-isolate",
-                                isActive
-                                  ? "bg-indigo-500/30 text-indigo-50 ring-1 ring-white/10"
-                                  : "text-slate-300 hover:bg-white/10 hover:text-white",
-                              ].join(" ")}
-                            >
-                              <CIcon size={16} className={isActive ? "opacity-100" : "opacity-80"} />
-                              <span className="truncate">{c.label}</span>
-                            </div>
-                          )}
-                        </NavLink>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+              <div
+                className="mt-1 pl-12 pr-1"
+                style={{
+                  overflow: "hidden",
+                  transition: "max-height 260ms ease, opacity 200ms ease",
+                  maxHeight: expanded ? 500 : 0,
+                  opacity: expanded ? 1 : 0,
+                }}
+              >
+                {expanded && (
+                  <ul className="grid gap-2">
+                    {children.map((c) => {
+                      const CIcon = c.icon ?? Boxes;
+                      return (
+                        <li key={c.to} className="list-none">
+                          <NavLink to={c.to} end>
+                            {({ isActive }) => (
+                              <div
+                                className={[
+                                  "relative flex items-center gap-2 rounded-2xl px-4 py-2 text-sm transition-colors",
+                                  "isolation-isolate",
+                                  isActive
+                                    ? "bg-indigo-500/30 text-indigo-50 ring-1 ring-white/10"
+                                    : "text-slate-300 hover:bg-white/10 hover:text-white",
+                                ].join(" ")}
+                              >
+                                <CIcon size={16} className={isActive ? "opacity-100" : "opacity-80"} />
+                                <span className="truncate">{c.label}</span>
+                              </div>
+                            )}
+                          </NavLink>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
             </div>
           );
         })}

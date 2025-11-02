@@ -53,6 +53,8 @@ function mapSort(sort?: string): string | undefined {
 /* ---------------------------------------------------
  * Types
  * --------------------------------------------------- */
+export type IdName = { id: number; name: string; slug?: string | null };
+
 export type BookListItem = {
   id: number;
   title: string;
@@ -355,4 +357,28 @@ export async function getRelatedBooks(bookId: number, limit = 12): Promise<BookL
     params: { limit },
   });
   return unwrap<BookListItem[]>(res.data);
+}
+export async function getAdminPublishers(): Promise<IdName[]> {
+  try {
+    const res = await api.get("/api/v1/admin/publishers", {
+      validateStatus: (s) => s < 500,
+    });
+    // ResPublisher: { id, name, slug }
+    const data = unwrap<IdName[] | null>(res.data);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getAdminSuppliers(): Promise<IdName[]> {
+  try {
+    const res = await api.get("/api/v1/admin/suppliers", {
+      validateStatus: (s) => s < 500,
+    });
+    const data = unwrap<IdName[] | null>(res.data);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }

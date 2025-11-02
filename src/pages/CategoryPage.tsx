@@ -11,6 +11,9 @@ import {
   type LanguageKey,
   type SpringPage,
   type BookListItem,
+  getAdminPublishers,
+  getAdminSuppliers,
+  type IdName,
 } from "../types/books.ts";
 import ProductCard from "../components/ProductCard";
 import { ChevronDown } from "lucide-react";
@@ -226,6 +229,54 @@ function PriceSlider({
   );
 }
 
+/* ───────── Reusable CheckboxGroup (clamp 2 dòng, hàng đều) ───────── */
+const CheckboxGroup: React.FC<{
+  items: { id: number; name: string }[];
+  value: string; // tên đang chọn (đơn lựa chọn)
+  onPick: (name?: string) => void;
+}> = ({ items, value, onPick }) => {
+  if (!items?.length) return <div className="text-xs text-gray-500">Đang tải...</div>;
+  return (
+    <div className="h-44 overflow-auto rounded-lg border bg-white/50 p-2">
+      <ul className="space-y-1">
+        {items.map((it) => {
+          const checked = value === it.name;
+          return (
+            <li key={it.id}>
+              <label
+                className="group flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-indigo-50"
+                title={it.name}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-rose-600"
+                  checked={checked}
+                  onChange={() => onPick(checked ? undefined : it.name)}
+                />
+                <span
+                  className={
+                    "text-sm leading-tight " +
+                    (checked ? "font-medium text-gray-900" : "text-gray-700")
+                  }
+                  style={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {it.name}
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+};
+
 /* ───────── Page ───────── */
 export default function CategoryPage() {
   const { catSlug = "" } = useParams<{ catSlug: string }>();
@@ -270,6 +321,9 @@ export default function CategoryPage() {
   const [catName, setCatName] = useState<string>(SLUG_VI_SHORT[catSlug] ?? prettifySlug(catSlug));
   const [tree, setTree] = useState<CatNode[]>([]);
 
+  const [publishers, setPublishers] = useState<IdName[] | null>(null);
+  const [suppliers, setSuppliers] = useState<IdName[] | null>(null);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -287,6 +341,20 @@ export default function CategoryPage() {
       mounted = false;
     };
   }, [catSlug]);
+
+  // load NXB/NCC
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const [ps, ss] = await Promise.all([getAdminPublishers(), getAdminSuppliers()]);
+      if (!mounted) return;
+      setPublishers(ps && ps.length ? ps : []);
+      setSuppliers(ss && ss.length ? ss : []);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // load products
   useEffect(() => {
@@ -349,26 +417,138 @@ export default function CategoryPage() {
               </button>
             </div>
 
-            {/* publisher */}
+            {/* ── Nhà xuất bản ── */}
             <div className="border-t py-3">
-              <div className="mb-1.5 text-xs font-medium">Nhà xuất bản</div>
-              <input
-                value={publisher}
-                onChange={(e) => setParam("publisher", e.target.value || undefined)}
-                placeholder="VD: Kim Đồng"
-                className="h-9 w-full rounded-lg border px-2 text-sm"
-              />
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-xs font-medium">Nhà xuất bản</span>
+                {publisher && (
+                  <button
+                    onClick={() => setParam("publisher", undefined)}
+                    className="text-[11px] text-rose-600 hover:underline"
+                  >
+                    Xóa
+                  </button>
+                )}
+              </div>
+
+              {Array.isArray(publishers) && publishers.length > 0 ? (
+                <div className="h-44 overflow-auto rounded-lg border bg-white/50 p-2">
+                  <ul className="space-y-1">
+                    {publishers.map((p: IdName) => {
+                      const valueToSend = p.slug && p.slug.trim() !== "" ? p.slug : p.name;
+                      const checked = publisher === valueToSend;
+                      return (
+                        <li key={p.id}>
+                          <label
+                            className="group flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-indigo-50"
+                            title={p.name}
+                          >
+                            <input
+                              type="checkbox"
+                              className="mt-0.5 h-4 w-4 shrink-0 accent-rose-600"
+                              checked={checked}
+                              onChange={() =>
+                                setParam("publisher", checked ? undefined : valueToSend)
+                              }
+                            />
+                            <span
+                              className={
+                                "text-sm leading-tight " +
+                                (checked ? "font-medium text-gray-900" : "text-gray-700")
+                              }
+                              style={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {p.name}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : publishers === null ? (
+                <div className="text-xs text-gray-500">Đang tải...</div>
+              ) : (
+                <input
+                  value={publisher}
+                  onChange={(e) => setParam("publisher", e.target.value || undefined)}
+                  placeholder="VD: Kim Đồng"
+                  className="h-9 w-full rounded-lg border px-2 text-sm"
+                />
+              )}
             </div>
 
-            {/* supplier */}
+            {/* ── Nhà cung cấp ── */}
             <div className="border-t py-3">
-              <div className="mb-1.5 text-xs font-medium">Nhà cung cấp</div>
-              <input
-                value={supplier}
-                onChange={(e) => setParam("supplier", e.target.value || undefined)}
-                placeholder="VD: Fahasa"
-                className="h-9 w-full rounded-lg border px-2 text-sm"
-              />
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-xs font-medium">Nhà cung cấp</span>
+                {supplier && (
+                  <button
+                    onClick={() => setParam("supplier", undefined)}
+                    className="text-[11px] text-rose-600 hover:underline"
+                  >
+                    Xóa
+                  </button>
+                )}
+              </div>
+
+              {Array.isArray(suppliers) && suppliers.length > 0 ? (
+                <div className="h-44 overflow-auto rounded-lg border bg-white/50 p-2">
+                  <ul className="space-y-1">
+                    {suppliers.map((s: IdName) => {
+                      const valueToSend = s.slug && s.slug.trim() !== "" ? s.slug : s.name;
+                      const checked = supplier === valueToSend;
+                      return (
+                        <li key={s.id}>
+                          <label
+                            className="group flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-indigo-50"
+                            title={s.name}
+                          >
+                            <input
+                              type="checkbox"
+                              className="mt-0.5 h-4 w-4 shrink-0 accent-rose-600"
+                              checked={checked}
+                              onChange={() =>
+                                setParam("supplier", checked ? undefined : valueToSend)
+                              }
+                            />
+                            <span
+                              className={
+                                "text-sm leading-tight " +
+                                (checked ? "font-medium text-gray-900" : "text-gray-700")
+                              }
+                              style={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {s.name}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : suppliers === null ? (
+                <div className="text-xs text-gray-500">Đang tải...</div>
+              ) : (
+                <input
+                  value={supplier}
+                  onChange={(e) => setParam("supplier", e.target.value || undefined)}
+                  placeholder="VD: Fahasa"
+                  className="h-9 w-full rounded-lg border px-2 text-sm"
+                />
+              )}
             </div>
 
             {/* language */}

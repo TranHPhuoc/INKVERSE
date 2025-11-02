@@ -1,4 +1,3 @@
-// src/pages/admin/StocksPage.tsx
 import type { ReactElement } from "react";
 import { useEffect, useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
@@ -17,7 +16,7 @@ type SortStr = "stock,asc" | "stock,desc" | "sold,asc" | "sold,desc";
 const PAGE_SIZE = 20;
 
 export default function StocksPage(): ReactElement {
-  const [q] = useState<string>("");
+  const [q, setQ] = useState<string>("");              // <-- có setter
   const [page, setPage] = useState<number>(0);
   const [sort, setSort] = useState<SortStr>("stock,asc");
 
@@ -45,10 +44,7 @@ export default function StocksPage(): ReactElement {
 
   // helper scroll mượt lên đầu
   const scrollToTopSmooth = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -57,31 +53,27 @@ export default function StocksPage(): ReactElement {
         title="Warehouse / Stocks"
         right={
           <div className="text-sm text-muted-foreground">
-            {isFetching || isLoading
-              ? "Loading…"
-              : `${formatInt(totalElements)} items`}
+            {isFetching || isLoading ? "Loading…" : `${formatInt(totalElements)} items`}
           </div>
         }
       />
 
-      {/* Search + controls */}
-      <div className="relative z-50 overflow-visible isolate rounded-2xl border bg-white/70 p-4 shadow-sm backdrop-blur">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative z-50 w-full md:flex-1">
-            <StockSearchBox onPick={(row) => console.log("Picked", row)} />
+      {/* Search + controls (giống BooksPage) */}
+      <div className="rounded-2xl bg-white/80 p-4 shadow-[0_10px_30px_-12px_rgba(0,0,0,.2)] backdrop-blur">
+        <div className="flex items-end gap-3">
+          <div className="flex-1">
+            <StockSearchBox
+              value={q}
+              onChange={(v) => setQ(v)}
+              onSubmit={() => {
+                setPage(0);
+                refetch();
+              }}
+              loading={isFetching}
+              placeholder="Gõ tên sách hoặc SKU…"
+            />
           </div>
 
-          <Button
-            variant="outline"
-            onClick={() => {
-              const [field, dir] = sort.split(",");
-              const next = dir === "asc" ? "desc" : "asc";
-              setSort(`${field},${next}` as SortStr);
-              scrollToTopSmooth();
-            }}
-          >
-            Sort: {sort}
-          </Button>
 
           {/* Hiển thị số item/trang */}
           <div className="rounded-full border px-3 h-9 flex items-center text-sm text-slate-700 bg-white/60">
