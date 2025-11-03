@@ -229,53 +229,6 @@ function PriceSlider({
   );
 }
 
-/* ───────── Reusable CheckboxGroup (clamp 2 dòng, hàng đều) ───────── */
-const CheckboxGroup: React.FC<{
-  items: { id: number; name: string }[];
-  value: string; // tên đang chọn (đơn lựa chọn)
-  onPick: (name?: string) => void;
-}> = ({ items, value, onPick }) => {
-  if (!items?.length) return <div className="text-xs text-gray-500">Đang tải...</div>;
-  return (
-    <div className="h-44 overflow-auto rounded-lg border bg-white/50 p-2">
-      <ul className="space-y-1">
-        {items.map((it) => {
-          const checked = value === it.name;
-          return (
-            <li key={it.id}>
-              <label
-                className="group flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-indigo-50"
-                title={it.name}
-              >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-rose-600"
-                  checked={checked}
-                  onChange={() => onPick(checked ? undefined : it.name)}
-                />
-                <span
-                  className={
-                    "text-sm leading-tight " +
-                    (checked ? "font-medium text-gray-900" : "text-gray-700")
-                  }
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {it.name}
-                </span>
-              </label>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-};
 
 /* ───────── Page ───────── */
 export default function CategoryPage() {
@@ -447,9 +400,7 @@ export default function CategoryPage() {
                               type="checkbox"
                               className="mt-0.5 h-4 w-4 shrink-0 accent-rose-600"
                               checked={checked}
-                              onChange={() =>
-                                setParam("publisher", checked ? undefined : valueToSend)
-                              }
+                              onChange={() => setParam("publisher", checked ? undefined : valueToSend)}
                             />
                             <span
                               className={
@@ -464,8 +415,8 @@ export default function CategoryPage() {
                                 wordBreak: "break-word",
                               }}
                             >
-                              {p.name}
-                            </span>
+                  {p.name}
+                </span>
                           </label>
                         </li>
                       );
@@ -514,9 +465,7 @@ export default function CategoryPage() {
                               type="checkbox"
                               className="mt-0.5 h-4 w-4 shrink-0 accent-rose-600"
                               checked={checked}
-                              onChange={() =>
-                                setParam("supplier", checked ? undefined : valueToSend)
-                              }
+                              onChange={() => setParam("supplier", checked ? undefined : valueToSend)}
                             />
                             <span
                               className={
@@ -531,8 +480,8 @@ export default function CategoryPage() {
                                 wordBreak: "break-word",
                               }}
                             >
-                              {s.name}
-                            </span>
+                  {s.name}
+                </span>
                           </label>
                         </li>
                       );
@@ -550,6 +499,7 @@ export default function CategoryPage() {
                 />
               )}
             </div>
+
 
             {/* language */}
             <div className="border-t py-3">

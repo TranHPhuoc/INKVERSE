@@ -245,7 +245,7 @@ export default function BooksPage() {
             <div className={`${GRID_COLS} px-4 pb-2 pt-3 text-[11px] font-medium tracking-wide text-gray-500`}>
               <div className="tabular-nums pl-[2px]">ID</div>
 
-              {/* Sách: chèn spacer = thumbnail width để label nằm đúng trên tiêu đề */}
+              {/* Sách */}
               <div className="pl-2">
                 <div className="flex items-center gap-3">
                   <div style={{ width: THUMB_W }} className="shrink-0" />

@@ -120,7 +120,6 @@ const RTE_FORMATS = [
   "link",
 ] as const;
 
-// mô tả rỗng/ chỉ tag rỗng
 function isTrivialHtml(html: string): boolean {
   const s = html
     .replace(/<p><br><\/p>/g, "")
@@ -136,7 +135,7 @@ type FormState = {
   slug: string;
   sku: string;
   isbn13: string;
-  description: string; // HTML từ ReactQuill
+  description: string;
 
   publisherId: number | undefined;
   supplierId: number | undefined;
@@ -277,7 +276,7 @@ export default function AddBookModal({
     const raw = form.isbn13.trim();
     if (!raw) return "ISBN-13 là bắt buộc";
     if (!isDigits13(raw)) return "ISBN-13 phải gồm đúng 13 chữ số";
-    if (!isValidIsbn13(raw)) return "ISBN-13 không hợp lệ (sai checksum)";
+    if (!isValidIsbn13(raw)) return "ISBN-13 không hợp lệ";
     return null;
   }, [form.isbn13]);
 
@@ -387,7 +386,7 @@ export default function AddBookModal({
           className="grid max-h-[70vh] grid-cols-2 gap-4 overflow-y-auto pr-2"
         >
           {/* Left */}
-          <div className="col-span-2 space-y-3 md:col-span-1">
+          <div className="col-span-2 space-y-3 md:col-span-1 ml-1">
             <FieldGroup label="Tiêu đề">
               <input
                 value={form.title}
