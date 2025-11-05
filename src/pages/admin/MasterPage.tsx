@@ -1,7 +1,7 @@
 // src/pages/Admin/MastersPage.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  listAuthors,
+  listAuthors,               // lấy full authors (public)
   listPublishers,
   createPublisher,
   updatePublisher,
@@ -12,7 +12,7 @@ import {
   deleteSupplier,
   type SimpleMaster,
   type MasterCreate,
-  createAuthor,
+  createAuthor,              // vẫn dùng admin create/update/delete
   updateAuthor,
   deleteAuthor,
 } from "../../services/admin/master";
@@ -28,6 +28,17 @@ function slugify(input: string): string {
       .replace(/-{2,}/g, "-") || "n-a"
   );
 }
+const normalizeText = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+function useDebounce<T>(value: T, ms = 300) {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}
 
 type SectionHandlers = {
   onCreate: (name: string) => Promise<void>;
@@ -35,20 +46,27 @@ type SectionHandlers = {
   onDelete: (id: number) => Promise<void>;
 };
 
-/* -------- Row editable -------- */
+/* -------- Row editable (dùng chung) -------- */
 function EditableRow({
-  item,
-  onUpdate,
-  onDelete,
-}: {
+                       item,
+                       onUpdate,
+                       onDelete,
+                       previewSlugWhenEditing = false, // Authors sẽ bật để hiển thị preview slug
+                     }: {
   item: SimpleMaster;
   onUpdate: (id: number, name: string) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
+  previewSlugWhenEditing?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(item.name);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const slugPreview = useMemo(
+    () => (previewSlugWhenEditing ? slugify(name) : item.slug),
+    [previewSlugWhenEditing, name, item.slug]
+  );
 
   return (
     <li className="px-4 py-3 hover:bg-gray-50/70">
@@ -68,7 +86,7 @@ function EditableRow({
           )}
         </div>
 
-        <div className="truncate text-gray-600">{editing ? slugify(name) : item.slug}</div>
+        <div className="truncate text-gray-600">{editing ? slugPreview : item.slug}</div>
 
         <div className="flex justify-end gap-2">
           {editing ? (
@@ -132,13 +150,13 @@ function EditableRow({
   );
 }
 
-/* -------- Section dùng chung -------- */
+/* -------- Section dùng chung (cho Publishers/Suppliers) -------- */
 function Section({
-  title,
-  color,
-  items,
-  handlers,
-}: {
+                   title,
+                   color,
+                   items,
+                   handlers,
+                 }: {
   title: string;
   color: string;
   items: SimpleMaster[];
@@ -191,7 +209,6 @@ function Section({
 
       {error && <div className="mb-3 text-sm text-rose-600">{error}</div>}
 
-      {/* Carded list with fixed grid columns to avoid misalignment on long titles */}
       <div className="rounded-xl">
         <div className="grid grid-cols-[80px_minmax(0,1fr)_220px_200px] gap-3 px-4 pt-3 pb-2 text-xs text-gray-500 md:grid-cols-[80px_minmax(0,1fr)_260px_220px]">
           <div>ID</div>
@@ -201,18 +218,187 @@ function Section({
         </div>
         <ul className="divide-y divide-gray-100">
           {items.map((i) => (
-            <EditableRow
-              key={i.id}
-              item={i}
-              onUpdate={handlers.onUpdate}
-              onDelete={handlers.onDelete}
-            />
+            <EditableRow key={i.id} item={i} onUpdate={handlers.onUpdate} onDelete={handlers.onDelete} />
           ))}
         </ul>
       </div>
     </div>
   );
 }
+
+/* -------- Authors: client-side search + sort + paging (25/trang mặc định, auto hiển thị n authors) -------- */
+function AuthorsSectionClient({
+                                all,
+                                onCreate,
+                                onUpdate,
+                                onDelete,
+                              }: {
+  all: SimpleMaster[];
+  onCreate: (name: string) => Promise<void>;
+  onUpdate: (id: number, name: string) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+}) {
+  const [q, setQ] = useState("");
+  const dq = useDebounce(q, 300);
+  const [sort, setSort] = useState<"name.asc" | "name.desc" | "id.asc" | "id.desc">("name.asc");
+  const [page, setPage] = useState(0);
+  const size = 25; // luôn mặc định 25/trang
+
+  // filter + sort
+  const filtered = useMemo(() => {
+    const k = normalizeText(dq.trim());
+    let arr = !k
+      ? all
+      : all.filter(
+        (a) => normalizeText(a.name).includes(k) || normalizeText(a.slug).includes(k)
+      );
+    switch (sort) {
+      case "name.asc":
+        arr = [...arr].sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "name.desc":
+        arr = [...arr].sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      case "id.asc":
+        arr = [...arr].sort((a, b) => a.id - b.id);
+        break;
+      case "id.desc":
+        arr = [...arr].sort((a, b) => b.id - a.id);
+        break;
+    }
+    return arr;
+  }, [all, dq, sort]);
+
+  // paginate
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / size));
+  const safePage = Math.min(page, totalPages - 1);
+  const content = useMemo(() => {
+    const start = safePage * size;
+    return filtered.slice(start, start + size);
+  }, [filtered, safePage, size]);
+
+  useEffect(() => setPage(0), [dq, sort]);
+
+  return (
+    <div className="rounded-2xl bg-white p-4 shadow-[0_10px_30px_-12px_rgba(0,0,0,.2)]">
+      <h3 className="mb-3 flex items-center gap-2 font-semibold">
+        <span className="inline-block h-2 w-2 rounded-full bg-indigo-500" />
+        Authors
+      </h3>
+
+      {/* Create */}
+      <form
+        className="mb-3 flex flex-wrap items-end gap-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const input = e.currentTarget.elements.namedItem("newName") as HTMLInputElement;
+          const name = input.value.trim();
+          if (!name) return;
+          await onCreate(name);
+          input.value = "";
+        }}
+      >
+        <input
+          name="newName"
+          className="flex-1 rounded-xl px-3 py-2 shadow-inner"
+          placeholder="Name"
+        />
+        <button className="h-10 rounded-xl bg-indigo-600 px-4 text-white">Tạo</button>
+      </form>
+
+      {/* Search + Sort + Count */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="w-full max-w-[360px] rounded-xl px-3 py-2 shadow-inner"
+          placeholder="Tìm theo tên/slug…"
+        />
+        <select
+          value={sort}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+            const value = e.target.value as "name.asc" | "name.desc" | "id.asc" | "id.desc";
+            setSort(value);
+          }}
+          className="rounded-xl px-3 py-2 shadow-inner cursor-pointer"
+        >
+          <option value="name.asc">Tên ↑</option>
+          <option value="name.desc">Tên ↓</option>
+          <option value="id.asc">ID ↑</option>
+          <option value="id.desc">ID ↓</option>
+        </select>
+        <div className="text-sm text-gray-600">
+          <b>{content.length}</b>
+        </div>
+      </div>
+
+      {/* Header */}
+      <div className="grid grid-cols-[80px_minmax(0,1fr)_220px_200px] gap-3 px-4 pt-3 pb-2 text-xs text-gray-500 md:grid-cols-[80px_minmax(0,1fr)_260px_220px]">
+        <div>ID</div>
+        <div>Name</div>
+        <div>Slug</div>
+        <div className="text-right">Actions</div>
+      </div>
+
+      {/* List */}
+      <ul className="divide-y divide-gray-100">
+        {content.map((i) => (
+          <EditableRow
+            key={i.id}
+            item={i}
+            onUpdate={onUpdate}
+            onDelete={async (id) => {
+              await onDelete(id);
+              const after = total - 1;
+              const lastPageAfter = Math.max(0, Math.ceil(after / size) - 1);
+              if (safePage > lastPageAfter) setPage(lastPageAfter);
+            }}
+            previewSlugWhenEditing={true}
+          />
+        ))}
+      </ul>
+
+      {/* Pagination */}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm text-gray-600">
+          Trang {safePage + 1}/{totalPages}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            className="rounded-md px-3 py-1 ring-1 ring-gray-200 disabled:opacity-50 cursor-pointer"
+            onClick={() => setPage(0)}
+            disabled={safePage <= 0}
+          >
+            « Đầu
+          </button>
+          <button
+            className="rounded-md px-3 py-1 ring-1 ring-gray-200 disabled:opacity-50 cursor-pointer"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={safePage <= 0}
+          >
+            ‹ Trước
+          </button>
+          <button
+            className="rounded-md px-3 py-1 ring-1 ring-gray-200 disabled:opacity-50 cursor-pointer"
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={safePage >= totalPages - 1}
+          >
+            Sau ›
+          </button>
+          <button
+            className="rounded-md px-3 py-1 ring-1 ring-gray-200 disabled:opacity-50 cursor-pointer"
+            onClick={() => setPage(totalPages - 1)}
+            disabled={safePage >= totalPages - 1}
+          >
+            Cuối »
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 /* -------- Page -------- */
 export default function MastersPage() {
@@ -240,26 +426,24 @@ export default function MastersPage() {
     <div className="space-y-6">
       <h2 className="text-lg font-semibold">Authors / Publishers / Suppliers</h2>
 
-      <Section
-        title="Authors"
-        color="bg-indigo-500"
-        items={authors}
-        handlers={{
-          onCreate: async (name) => {
-            await createAuthor(buildPayload(name));
-            await fetchAll();
-          },
-          onUpdate: async (id, name) => {
-            await updateAuthor(id, buildPayload(name));
-            await fetchAll();
-          },
-          onDelete: async (id) => {
-            await deleteAuthor(id);
-            await fetchAll();
-          },
+      {/* Authors – client-side paging 25/trang + search + sort */}
+      <AuthorsSectionClient
+        all={authors}
+        onCreate={async (name) => {
+          await createAuthor(buildPayload(name));      // admin create (BE có thể bỏ qua slug)
+          await fetchAll();
+        }}
+        onUpdate={async (id, name) => {
+          await updateAuthor(id, buildPayload(name));  // admin update (chủ yếu dùng name)
+          await fetchAll();
+        }}
+        onDelete={async (id) => {
+          await deleteAuthor(id);
+          await fetchAll();
         }}
       />
 
+      {/* Publishers */}
       <Section
         title="Publishers"
         color="bg-teal-500"
@@ -280,6 +464,7 @@ export default function MastersPage() {
         }}
       />
 
+      {/* Suppliers */}
       <Section
         title="Suppliers"
         color="bg-pink-500"
