@@ -4,6 +4,7 @@ import api from "../../services/api";
 import { createBook, type BookCreate } from "../../services/admin/books-admin";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
+import AuthorSearch from "./AuthorSearch";
 
 /* ---------------- Types from API wrappers ---------------- */
 type RestResponse<T> = {
@@ -474,19 +475,14 @@ export default function AddBookModal({
             </div>
 
             <FieldGroup label="Tác giả">
-              <div className="max-h-32 overflow-auto rounded-lg border p-2">
-                {authors.map((a) => (
-                  <label key={a.id} className="flex items-center gap-2 py-1 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={form.authorIds.includes(a.id)}
-                      onChange={() => set("authorIds", toggleId(form.authorIds, a.id))}
-                    />
-                    <span>{a.name}</span>
-                  </label>
-                ))}
-              </div>
+              <AuthorSearch
+                all={authors}
+                value={form.authorIds}
+                onChange={(ids: number[]) => set("authorIds", ids)}
+                heightClass="max-h-60"
+              />
             </FieldGroup>
+
 
             <FieldGroup label="Danh mục">
               <div className="max-h-32 overflow-auto rounded-lg border p-2">

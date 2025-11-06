@@ -9,6 +9,7 @@ import {
 } from "../../services/admin/books-admin";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
+import AuthorSearch from "./AuthorSearch";
 
 /* ---------------- Types from API wrappers ---------------- */
 type RestResponse<T> = {
@@ -446,7 +447,7 @@ export default function EditBookModal({
           className="grid max-h-[70vh] grid-cols-2 gap-4 overflow-y-auto pr-2"
         >
           {/* Left */}
-          <div className="col-span-2 space-y-3 md:col-span-1">
+          <div className="col-span-2 space-y-3 md:col-span-1 ml-1">
             <FieldGroup label="Tiêu đề">
               <input
                 value={form.title}
@@ -534,26 +535,14 @@ export default function EditBookModal({
             </div>
 
             <FieldGroup label="Tác giả">
-              <div className="max-h-32 overflow-auto rounded-lg border p-2">
-                {authors.map((a) => (
-                  <label key={a.id} className="flex items-center gap-2 py-1 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={form.authorIds.includes(a.id)}
-                      onChange={() =>
-                        set(
-                          "authorIds",
-                          form.authorIds.includes(a.id)
-                            ? form.authorIds.filter((x) => x !== a.id)
-                            : [...form.authorIds, a.id],
-                        )
-                      }
-                    />
-                    <span>{a.name}</span>
-                  </label>
-                ))}
-              </div>
+              <AuthorSearch
+                all={authors}
+                value={form.authorIds}
+                onChange={(ids: number[]) => set("authorIds", ids)}
+                heightClass="max-h-60"
+              />
             </FieldGroup>
+
 
             <FieldGroup label="Danh mục">
               <div className="max-h-32 overflow-auto rounded-lg border p-2">

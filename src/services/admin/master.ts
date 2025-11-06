@@ -22,7 +22,7 @@ export type SimpleMaster = {
 
 export type MasterCreate = {
   name: string;
-  slug: string; // FE tự sinh
+  slug: string;
 };
 
 /* ========== AUTHORS ========== */

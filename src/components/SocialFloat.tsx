@@ -6,7 +6,7 @@ import messengerIcon from "../assets/iconsMessenger.svg";
 import shareWhite from "../assets/iconparentsocial.png";
 import aiAvatar from "../assets/aiagentchat.png";
 
-/* ===== Animations nhỏ gọn ===== */
+/* ===== Animations ===== */
 const listVariants: Variants = {
   hidden: { opacity: 0, y: 10, scale: 0.96 },
   visible: {
@@ -48,8 +48,8 @@ export default function SocialFloat({
                                       zaloLink = "https://zalo.me/0335863953",
                                       messengerLink = "https://m.me/phuoc.tranhuu.14418101",
                                       phoneNumber = "0335863953",
-                                      right = 18,            // thu hẹp mép cho mobile
-                                      bottom = 18,           // thu hẹp mép cho mobile
+                                      right = 18,
+                                      bottom = 18,
                                     }: Props) {
   const isMd = useIsMdUp();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -75,19 +75,17 @@ export default function SocialFloat({
 
   return (
     <>
-      {/* Dock phải – ẩn khi chat mở */}
       <div
         id="dock-wrapper"
         className={[
           "fixed z-40 flex items-end gap-2 md:gap-3",
-          // Ẩn toàn bộ dock khi panel chat mở
           '[html[data-chat-open=true]_&]:hidden',
         ].join(" ")}
         style={{ right, bottom }}
       >
         {/* Cột Share: mobile click, desktop hover */}
         <div
-          className="relative flex flex-col items-center"
+          className="relative flex flex-col items-center cursor-pointer"
           onMouseEnter={isMd ? openMenu : undefined}
           onMouseLeave={isMd ? closeMenuDelay : undefined}
         >
@@ -124,7 +122,7 @@ export default function SocialFloat({
             )}
           </AnimatePresence>
 
-          {/* Nút Share (cha) – nhỏ hơn ở mobile */}
+          {/* Nút Share mobile */}
           <button
             id="dock-share-btn"
             onClick={() => (isMd ? setMenuOpen(true) : setMenuOpen((v) => !v))}
@@ -141,7 +139,7 @@ export default function SocialFloat({
           </button>
         </div>
 
-        {/* Sophia – nhỏ hơn ở mobile, auto ẩn khi chat mở nhờ wrapper */}
+        {/* Sophia mobile */}
         <button
           id="dock-chat-btn"
           onClick={() => window.dispatchEvent(new CustomEvent("chat:open"))}

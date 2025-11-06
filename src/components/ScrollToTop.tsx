@@ -53,7 +53,7 @@ export default function ScrollToTop() {
               "h-8 w-8 md:h-10 md:w-10",
               "rounded-full bg-white/90 text-neutral-700 shadow-lg ring-1 ring-black/5",
               "backdrop-blur hover:bg-white transition",
-              "[html[data-chat-open=true]_&]:hidden"
+              "[html[data-chat-open=true]_&]:hidden cursor-pointer"
             ].join(" ")}
           >
             <ChevronUp className="h-4 w-4 md:h-5 md:w-5" />

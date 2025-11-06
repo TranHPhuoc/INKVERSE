@@ -42,6 +42,7 @@ import VNPayReturnPage from "./pages/VNPayReturnPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
 import AuthorDetailPage from "./pages/AuthorDetailPage";
 import TopSellingAllPage from "./pages/TopSellingAllPage";
+import ContactUs from "@/pages/ContactUs.tsx";
 
 
 // Pages – User
@@ -230,7 +231,14 @@ export default function App() {
                   </PageTransition>
                 }
               />
-
+              <Route
+                path="/lien-he"
+                element={
+                  <PageTransition>
+                    <ContactUs />
+                  </PageTransition>
+                }
+              />
 
               {/* Products */}
               <Route
