@@ -50,7 +50,6 @@ export default function SaleTopbar() {
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center border-b bg-white/70 backdrop-blur">
       <div className="flex-1 px-4">
-        {/* breadcrumb đơn giản /Sale/... */}
         <nav className="text-sm text-gray-500">
           <Link to="/sale" className="hover:underline">
             sale

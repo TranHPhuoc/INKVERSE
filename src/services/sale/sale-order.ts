@@ -66,7 +66,7 @@ client.interceptors.request.use((config) => {
 export async function saleSearchOrders(params: SearchParams): Promise<Page<ResOrderAdmin>> {
   const query: SaleQuery = {
     page: params.page ?? 0,
-    size: params.size ?? 10,
+    size: params.size ?? 15,
     sort: params.sort ?? "createdAt,desc",
   };
   if (params.q) query.q = params.q;

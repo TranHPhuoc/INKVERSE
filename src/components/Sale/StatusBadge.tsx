@@ -1,51 +1,85 @@
+import { motion } from "framer-motion";
 import type { OrderStatus, PaymentStatus } from "../../types/sale-order";
-import { viStatusLabel, viPaymentLabel } from "../../types/labels";
+import { ORDER_COLOR, PAYMENT_COLOR, TAB_DEF, type TabId } from "./Status";
 
-/* ===== Order badge ===== */
-const ORDER_COLOR: Record<OrderStatus, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800",
-  CONFIRMED: "bg-blue-100 text-blue-800",
-  PROCESSING: "bg-violet-100 text-violet-800",
-  SHIPPED: "bg-sky-100 text-sky-800",
-  DELIVERED: "bg-green-100 text-green-800",
-  COMPLETED: "bg-emerald-100 text-emerald-800",
-  CANCELED: "bg-rose-100 text-rose-800",
-  CANCEL_REQUESTED: "bg-orange-100 text-orange-800",
-};
-
+/* ===== Badges ===== */
 export function OrderStatusBadge({ value }: { value: OrderStatus }) {
-  const cls = ORDER_COLOR[value] ?? "bg-gray-100 text-gray-800";
-  const label = viStatusLabel[value] ?? value;
+  const label =
+    value === "PENDING"
+      ? "Chờ xử lý"
+      : value === "CONFIRMED"
+        ? "Đã xác nhận"
+        : value === "PROCESSING"
+          ? "Đang xử lý"
+          : value === "SHIPPED"
+            ? "Đang giao"
+            : value === "DELIVERED"
+              ? "Đã giao"
+              : value === "COMPLETED"
+                ? "Hoàn tất"
+                : value === "CANCELED"
+                  ? "Đã huỷ"
+                  : value === "CANCEL_REQUESTED"
+                    ? "Yêu cầu huỷ"
+                    : value;
+
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-black/5 ${cls}`}
-      title={value}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ORDER_COLOR[value]}`}
     >
       {label}
     </span>
   );
 }
 
-/* ===== Payment badge (đủ 7 trạng thái) ===== */
-const PAYMENT_COLOR: Record<PaymentStatus, string> = {
-  PENDING: "bg-amber-100 text-amber-700",
-  UNPAID: "bg-gray-100 text-gray-800",
-  PAID: "bg-emerald-100 text-emerald-800",
-  FAILED: "bg-rose-100 text-rose-700",
-  CANCELED: "bg-rose-100 text-rose-700",
-  REFUND_PENDING: "bg-orange-100 text-orange-800",
-  REFUNDED: "bg-lime-100 text-lime-800",
-};
-
 export function PaymentStatusBadge({ value }: { value: PaymentStatus }) {
-  const cls = PAYMENT_COLOR[value] ?? "bg-gray-100 text-gray-800";
-  const label = viPaymentLabel[value] ?? value;
+  const text =
+    value === "PAID"
+      ? "Đã thanh toán"
+      : value === "UNPAID" || value === "PENDING"
+        ? "Chưa thanh toán"
+        : value === "REFUNDED"
+          ? "Đã hoàn tiền"
+          : "Lỗi / Huỷ";
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-black/5 ${cls}`}
-      title={value}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${PAYMENT_COLOR[value]}`}
     >
-      {label}
+      {text}
     </span>
+  );
+}
+
+/* ===== Tabs ===== */
+export function SaleStatusTabs({
+  activeId,
+  onSwitch,
+}: {
+  activeId: TabId;
+  onSwitch: (id: TabId) => void;
+}) {
+  return (
+    <div className="rounded-2xl bg-white/70 p-2 shadow-sm backdrop-blur">
+      <div className="flex flex-wrap gap-2">
+        {TAB_DEF.map((t) => {
+          const active = t.id === activeId;
+          return (
+            <motion.button
+              key={t.id}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onSwitch(t.id)}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 transition ${
+                active
+                  ? `${t.color} font-semibold ring-2 ring-black/5`
+                  : "bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {t.icon}
+              <span>{t.label}</span>
+            </motion.button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

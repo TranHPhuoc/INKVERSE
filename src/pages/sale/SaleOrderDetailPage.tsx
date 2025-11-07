@@ -356,9 +356,6 @@ export default function SaleOrderDetailPage() {
                 Giao
               </Btn>
             </form>
-            <div className="mt-2 text-sm text-gray-600">
-              Hiện tại: {o.assigneeName ?? (o.assigneeId ? `#${o.assigneeId}` : "Chưa có")}
-            </div>
           </Card>
 
           {/* Ghi chú */}
