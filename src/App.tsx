@@ -60,6 +60,7 @@ import MasterPage from "./pages/admin/MasterPage";
 import StocksPage from "./pages/admin/StocksPage.tsx";
 import NewBatchPage from "./pages/admin/NewBatchPage";
 import BatchHistoryPage from "./pages/admin/BatchHistoryPage.tsx";
+import SalesPage from "@/pages/admin/SalesPage.tsx";
 
 // Pages – Sale
 import SaleOrdersPage from "./pages/sale/SaleOrderPage";
@@ -432,6 +433,14 @@ export default function App() {
                 element={
                   <PageTransition>
                     <UserPage />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="sales"
+                element={
+                  <PageTransition>
+                    <SalesPage />
                   </PageTransition>
                 }
               />

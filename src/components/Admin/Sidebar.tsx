@@ -11,7 +11,8 @@ import {
   Boxes,
   Package,        // stocks
   PackagePlus,    // new batch
-  History,        // batch history
+  History, // batch history
+  UserCog,
 } from "lucide-react";
 
 type Item = {
@@ -25,6 +26,7 @@ const items: Item[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { to: "/admin/books", label: "Books", icon: BookOpen },
   { to: "/admin/users", label: "Users", icon: Users },
+  { to: "/admin/sales", label: "Sales", icon: UserCog },
   { to: "/admin/categories", label: "Categories", icon: Tags },
   { to: "/admin/masters", label: "Master Data", icon: SquarePlus },
   {
