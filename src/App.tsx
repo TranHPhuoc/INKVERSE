@@ -43,6 +43,12 @@ import OrderSuccessPage from "./pages/OrderSuccessPage";
 import AuthorDetailPage from "./pages/AuthorDetailPage";
 import TopSellingAllPage from "./pages/TopSellingAllPage";
 import ContactUs from "@/pages/ContactUs.tsx";
+import TermsPage from "./pages/policies/TermsPage";
+import PrivacyPage from "./pages/policies/PrivacyPage";
+import PaymentSecurityPage from "./pages/policies/PaymentSecurityPage.tsx";
+import ReturnsPolicyPage from "./pages/policies/ReturnsPolicyPage.tsx";
+import WarrantyPolicyPage from "./pages/policies/WarrantyPolicyPage.tsx";
+import ShippingPolicyPage from "./pages/policies/ShippingPolicyPage.tsx";
 
 
 // Pages – User
@@ -240,6 +246,13 @@ export default function App() {
                   </PageTransition>
                 }
               />
+              <Route path="/dieu-khoan" element={<PageTransition><TermsPage/></PageTransition>} />
+              <Route path="/bao-mat" element={<PageTransition><PrivacyPage/></PageTransition>} />
+              <Route path="/thanh-toan" element={<PageTransition><PaymentSecurityPage/></PageTransition>} />
+              <Route path="/doi-tra" element={<PageTransition><ReturnsPolicyPage/></PageTransition>} />
+              <Route path="/bao-hanh" element={<PageTransition><WarrantyPolicyPage/></PageTransition>} />
+              <Route path="/van-chuyen" element={<PageTransition><ShippingPolicyPage/></PageTransition>} />
+
 
               {/* Products */}
               <Route

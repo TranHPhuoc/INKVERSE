@@ -10,7 +10,6 @@ import { vnd } from "../utils/currency";
 /* ---------- helpers ---------- */
 type OrderStatus = "COMPLETED" | "CANCELED" | "CANCEL_REQUESTED";
 
-/** Một số BE có trả về các mốc thời gian dưới đây */
 type OrderMetaDates = {
   completedAt?: string | null;
   canceledAt?: string | null;
