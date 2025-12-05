@@ -454,7 +454,6 @@ export default function ChatBoxWidget({
   const { user } = useAuth();
   const { pathname } = useLocation();
 
-  // Ẩn FAB ở các trang auth
   const HIDE_ON = useMemo(
     () => ["/dang-nhap", "/dang-ky", "/quen-mat-khau", "/verify-email", "/dat-lai-mat-khau"],
     [],
@@ -674,7 +673,6 @@ export default function ChatBoxWidget({
 
 
 
-  // Ẩn FAB ở các trang auth + khi panel đang mở + nếu đã có launcher ngoài
   const hideFabByRoute = HIDE_ON.some((p) => pathname.startsWith(p));
   const shouldShowFab = !hideFabByRoute && !visible && !hasExternalLauncher;
 

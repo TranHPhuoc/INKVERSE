@@ -5,4 +5,4 @@ export type ApiEnvelope<T> = {
     data: T;
 };
 
-export type ApiErrorBody = { message?: string };
+export type ApiErrorBody = { message?: string; error?: string; };

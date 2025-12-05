@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 import type { ApiErrorBody } from "../types/http";
-import { addAndSelectOne } from "../services/cart"; // ✅ để restore pendingBuyNow
+import { addAndSelectOne } from "../services/cart";
+import { mapAuthError } from "../utils/ErrorMessage";
 import bgPoster from "../assets/backgroundbooks.png";
 import { useAuth } from "../context/useAuth";
 import { FcGoogle } from "react-icons/fc";
@@ -84,7 +85,6 @@ export default function LoginPage() {
     try {
       await login({ username, password });
 
-      // ✅ Restore pendingBuyNow nếu có
       const pendingRaw = localStorage.getItem("pendingBuyNow");
       if (pendingRaw) {
         try {
@@ -109,7 +109,11 @@ export default function LoginPage() {
       navigate(target, { replace: true });
     } catch (e: unknown) {
       const axiosErr = e as AxiosError<ApiErrorBody>;
-      setErr(axiosErr.response?.data?.message ?? "Đăng nhập thất bại.");
+      const rawMsg =
+        axiosErr.response?.data?.message ||
+        axiosErr.response?.data?.error ||
+        axiosErr.message;
+      setErr(mapAuthError(rawMsg));
       setLoading(false);
     }
   };

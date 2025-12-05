@@ -6,6 +6,8 @@ import { FcGoogle } from "react-icons/fc";
 import type { ApiErrorBody } from "../types/http";
 import { isAxiosError } from "axios";
 import { Eye, EyeOff } from "lucide-react";
+import { mapAuthError } from "../utils/ErrorMessage";
+
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -43,13 +45,14 @@ export default function RegisterPage() {
     } catch (error: unknown) {
       setLoading(false);
       if (isAxiosError<ApiErrorBody>(error)) {
-        const status = error.response?.status;
-        const msg = error.response?.data?.message;
-        if (status === 409 || status === 400) {
-          setErr(msg ?? "Email hoặc username đã tồn tại.");
-        } else {
-          setErr(msg ?? "Đăng ký thất bại. Vui lòng thử lại.");
-        }
+        const rawMsg =
+          error.response?.data?.message ||
+          error.response?.data?.error ||
+          error.message;
+
+        const friendly = mapAuthError(rawMsg);
+
+        setErr(friendly);
       } else {
         setErr("Đăng ký thất bại. Vui lòng thử lại.");
       }
