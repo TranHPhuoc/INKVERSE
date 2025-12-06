@@ -40,7 +40,11 @@ export default function useCheckoutGuard(returnTo: string = "/checkout") {
 
   const modal = useMemo(
     () => (
-      <AddressPromptModal open={open} onClose={() => setOpen(false)} onProceed={proceedToAddress} />
+      <AddressPromptModal
+        open={open}
+        onClose={() => setOpen(false)}
+        onProceed={proceedToAddress}
+      />
     ),
     [open, proceedToAddress],
   );

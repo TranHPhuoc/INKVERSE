@@ -152,7 +152,7 @@ export default function AccountProfilePage() {
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500"
-            placeholder="Ví dụ: Trần"
+            placeholder="Ví dụ: Nguyễn"
             required
           />
         </div>
@@ -166,7 +166,7 @@ export default function AccountProfilePage() {
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500"
-            placeholder="Ví dụ: Hữu Phước"
+            placeholder="Ví dụ: Văn A"
             required
           />
         </div>

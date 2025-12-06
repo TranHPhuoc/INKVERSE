@@ -53,13 +53,11 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
 
-  /** giữ thứ tự hiển thị ổn định */
   const [itemOrder, setItemOrder] = useState<number[]>([]);
 
   const navigate = useNavigate();
-  const guard = useCheckoutGuard("/checkout");
+  const guard = useCheckoutGuard("/gio-hang");
 
-  /** Map sang kiểu view (chỉ là annotation type, không phải any) */
   const items: CartItemView[] = useMemo(() => {
     if (!data) return [];
     const ordered = sortByStableOrder<CartItemView>(data.items as CartItemView[], itemOrder);
@@ -327,7 +325,7 @@ export default function CartPage() {
       </div>
 
       {/* Summary  */}
-      <div className="mt-8 w-[400px] h-[220px] border p-5 bg-white shadow-sm">
+      <div className="mt-8 h-[220px] w-[400px] border bg-white p-5 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">Tóm tắt</h2>
         <div className="space-y-2 text-sm">
           <div className="my-2 border-t" />

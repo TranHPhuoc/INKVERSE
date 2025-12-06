@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-type Props = {
+type CartToastProps = {
   open: boolean;
   text?: string;
   onClose?: () => void;
@@ -14,7 +14,7 @@ export default function CartToast({
   text = "Đã thêm vào giỏ hàng!",
   onClose,
   duration = 1400,
-}: Props) {
+}: CartToastProps) {
   useEffect(() => {
     if (!open) return;
     const t = setTimeout(() => onClose?.(), duration);
@@ -25,13 +25,13 @@ export default function CartToast({
     <AnimatePresence>
       {open && (
         <div className="pointer-events-none fixed inset-0 z-[1000] grid place-items-center">
-          {/* backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="absolute inset-0 bg-black/10"
           />
+
           {/* card */}
           <motion.div
             initial={{ y: 10, opacity: 0, scale: 0.98 }}

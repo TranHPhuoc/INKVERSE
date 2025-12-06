@@ -130,7 +130,6 @@ function IntroGate({ children }: { children: ReactNode }) {
     }
   }, [shouldSkip]);
 
-  // 🚀 Nếu đã đăng nhập thì bỏ qua Intro
   if (isAuthenticated) return <>{children}</>;
 
   const showIntro = isHome && !skipped;
@@ -400,9 +399,7 @@ export default function App() {
                 <Route
                   path="dia-chi"
                   element={
-                    <PageTransition>
                       <AccountAddressPage />
-                    </PageTransition>
                   }
                 />
                 <Route
