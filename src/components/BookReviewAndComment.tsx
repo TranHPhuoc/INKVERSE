@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import RatingSummaryPanel from "./RatingSummaryPanel";
 import ReviewList from "./ReviewList";
-import CommentThread from "./CommentThread";
+import CommentThread from "./comments/CommentThread.tsx";
 import ErrorBoundary from "./ErrorBoundary";
 import { PenLine } from "lucide-react";
 
